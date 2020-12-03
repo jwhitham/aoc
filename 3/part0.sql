@@ -1,16 +1,9 @@
 
-CREATE TABLE input (y INTEGER NOT NULL, row TEXT, PRIMARY KEY (y));
-INSERT INTO input (row) VALUES ("..##.......");
-INSERT INTO input (row) VALUES ("#...#...#..");
-INSERT INTO input (row) VALUES (".#....#..#.");
-INSERT INTO input (row) VALUES ("..#.#...#.#");
-INSERT INTO input (row) VALUES (".#...##..#.");
-INSERT INTO input (row) VALUES ("..#.##.....");
-INSERT INTO input (row) VALUES (".#.#.#....#");
-INSERT INTO input (row) VALUES (".#........#");
-INSERT INTO input (row) VALUES ("#.##...#...");
-INSERT INTO input (row) VALUES ("#...##....#");
-INSERT INTO input (row) VALUES (".#..#...#.#");
+CREATE TABLE raw_input (row TEXT);
+.import sample_input raw_input
+
+CREATE TABLE input (y INTEGER NOT NULL, row TEXT, PRIMARY KEY(y));
+INSERT INTO input (row) SELECT row FROM raw_input;
 
 CREATE TABLE path1 (x INTEGER, y INTEGER);
 INSERT INTO path1 (x, y)
