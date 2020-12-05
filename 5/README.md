@@ -10,11 +10,11 @@ language features working in an intuitive way.
 
 The main difficulty was finding useful documentation amongst a spam
 of "tutorials" with higher search engine ranks. The
-[https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about](Powershell reference)
+[Powershell reference](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about)
 was useful when I found it. 
 
-I was afraid the second part would involve a new plane in which
-the "binary space partitioning" actually mattered, which would force
+I was afraid the second part would involve a move to a new plane in which
+the "binary space partitioning" actually mattered, as this would force
 a full rewrite, but luckily not.
 
 
