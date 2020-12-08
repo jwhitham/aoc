@@ -9,4 +9,5 @@ convert_i2p()
 }
 
 convert_i2p example_input
+convert_i2p input
 
