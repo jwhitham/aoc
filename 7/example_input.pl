@@ -1,0 +1,9 @@
+data(light_red_bag, [bright_white_bag,muted_yellow_bag]).
+data(dark_orange_bag, [bright_white_bag,muted_yellow_bag]).
+data(bright_white_bag, [shiny_gold_bag]).
+data(muted_yellow_bag, [shiny_gold_bag,faded_blue_bag]).
+data(shiny_gold_bag, [dark_olive_bag,vibrant_plum_bag]).
+data(dark_olive_bag, [faded_blue_bag,dotted_black_bag]).
+data(vibrant_plum_bag, [faded_blue_bag,dotted_black_bag]).
+data(faded_blue_bag, [no_other_bag]).
+data(dotted_black_bag, [no_other_bag]).
