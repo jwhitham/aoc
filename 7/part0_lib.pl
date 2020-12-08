@@ -1,6 +1,6 @@
 
 % memberof(X, L): true if X is a member of list L.
-memberof(X, [X|_]).
+memberof(X, [record(_, X)|_]).
 memberof(X, [_|L]) :- memberof(X, L).
 memberof(_, []) :- fail.
 
