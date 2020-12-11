@@ -24,21 +24,22 @@
      WIDTH     DCW  012
      HEIGHT    DCW  012
      SIZE      DCW  144
-     SIZE1     DCW  132
+     SIZE1     DCW  120
      ZERO      DCW  000
      ONE       DCW  001
+     UNSTAB    DCW  0    
      FIELD0    DCW  0
      FIELD     DCW  @............@
-               DCW  @.#.##.##.##.@
-               DCW  @.#######.##.@
-               DCW  @.#.#.#..#...@
-               DCW  @.####.##.##.@
-               DCW  @.#.##.##.##.@
-               DCW  @.#.#####.##.@
-               DCW  @...#.#......@
-               DCW  @.##########.@
-               DCW  @.#.######.#.@
-               DCW  @.#.#####.##.@
+               DCW  @.L.LL.LL.LL.@
+               DCW  @.LLLLLLL.LL.@
+               DCW  @.L.L.L..L...@
+               DCW  @.LLLL.LL.LL.@
+               DCW  @.L.LL.LL.LL.@
+               DCW  @.L.LLLLL.LL.@
+               DCW  @...L.L......@
+               DCW  @.LLLLLLLLLL.@
+               DCW  @.L.LLLLLL.L.@
+               DCW  @.L.LLLLL.LL.@
                DCW  @............@     
                DC   @  VARIABLES:@
      CUR       DCW  @X@
@@ -57,7 +58,7 @@
      
      START     CS   PRINTE
                CS
-               SW   PRINTS
+     REPEAT    SW   PRINTS
 
      * Print out the current state of the field
                MCW  ZERO,X1
@@ -70,6 +71,9 @@
      * Print a blank line
                CS   PRINTM
                W
+
+     * Are we stable yet? Assume yes
+               MN   UNSTAB,ZERO
      
      * Go to the next state
                MCW  ZERO,X1
@@ -145,6 +149,7 @@
                BE   NSEAT
                MN   @O@,0&X2
                MZ   @O@,0&X2
+               MN   @1@,UNSTAB
                B    NSEAT
      
      * 4..8 adjacent seats are occupied
@@ -156,12 +161,39 @@
                B    NSEAT
      VAC       MN   @F@,0&X2
                MZ   @F@,0&X2
+               MN   @1@,UNSTAB
 
      * Go to the next seat (or space on the floor)                             
-     NSEAT     A    ONE,X1
+     NSEAT     A    @1@,X1
                C    SIZE1,X1
                BU   ITER   
      
+     * Turn all temporary values into their permanent form
+     *  F  -> L
+     *  O  -> #
+     *  #  -> #
+     *  L  -> L
+               MCW  ZERO,X1
+     PERM      SBR  X2,FIELD&X1
+               MN   0&X2,CUR
+               MZ   0&X2,CUR
+               BCE  MAKEF,CUR,F
+               BCE  MAKEO,CUR,O
+               B    NPERM
+     MAKEF     MN   @L@,0&X2
+               MZ   @L@,0&X2
+               B    NPERM
+     MAKEO     MN   @#@,0&X2
+               MZ   @#@,0&X2
+     NPERM     A    @1@,X1
+               C    SIZE,X1
+               BU   PERM
+     
+     * Are we stable yet?
+               C    @0@,UNSTAB
+               BU   REPEAT
+           
+     * We're stable!
                H    START
                B    START
                END  START
