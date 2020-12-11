@@ -5,31 +5,54 @@
      *78901234567890123456789012345678901234567890123456789012345678901234567890
      * label   | op | OPERATION                                         |xxxxxxx
 
+     * Advent of Code 2020 day 11 - example input
+     * 
                ORG  87
      X1        DSA  0                  index register 1
                ORG  92
      X2        DSA  0                  index register 2
                ORG  97
      X3        DSA  0                  index register 3
-               ORG  100     * START ABOVE INDEX "REGISTERS" 
+               ORG  100 
+
+     * Entry point
      INIT      B    START
+
+     * Constants
+     WIDTH     DCW  012
+     HEIGHT    DCW  012
+     SIZE      DCW  144     * WIDTH * HEIGHT
+     SIZE1     DCW  120     * WIDTH * (HEIGHT - 2)
+     ZERO      DCW  000
+     ONE       DCW  001
+
+     * Variables
+     UNSTAB    DCW  0    
+     CUR       DCW  @X@
+     CUR2      DCW  @X@
+     NBR       DCW  @A@
+               DCW  @B@
+               DCW  @C@
+               DCW  @D@
+               DCW  @E@
+               DCW  @F@
+               DCW  @G@
+               DCW  @H@
+     LAST      DCW  @X@     * Must be 'X' (sentinel value)
+     SCNT      DCW  0
+     RESULT    DCW  000
+
+     * Print area: data written here may be printed
                ORG  200
      PRINTS    DCW  @ @
                ORG  220
      PRINTM    DC   @ @
                ORG  332
      PRINTE    DC   @ @
-               DC   @CONSTANTS:@
 
-     WIDTH     DCW  012
-     HEIGHT    DCW  012
-     SIZE      DCW  144
-     SIZE1     DCW  120
-     ZERO      DCW  000
-     ONE       DCW  001
-     UNSTAB    DCW  0    
+     * Data area (represents the seating area)
      FIELD0    DCW  0
-     FIELD     DCW  @............@
+     FIELD1    DCW  @............@
                DCW  @.L.LL.LL.LL.@
                DCW  @.LLLLLLL.LL.@
                DCW  @.L.L.L..L...@
@@ -42,43 +65,34 @@
                DCW  @.L.LLLLL.LL.@
                DCW  @............@     
                DC   @  VARIABLES:@
-     CUR       DCW  @X@
-     CUR2      DCW  @X@
-     NBR       DCW  @A@
-               DCW  @B@
-               DCW  @C@
-               DCW  @D@
-               DCW  @E@
-               DCW  @F@
-               DCW  @G@
-               DCW  @H@
-     LAST      DCW  @X@
-     SCNT      DCW  0
                DC   @  CODE:@     
-     
+    
+     * Reset printable area
      START     CS   PRINTE
                CS
+
+     * Reset the puzzle
+               MCW  ZERO,X1
+     RPUZ      SBR  X2,FIELD0&X1
+               MN   0&X2,CUR
+               MZ   0&X2,CUR
+               BCE  DOT,CUR,.
+               MN   @L@,0&X2
+               MZ   @L@,0&X2
+     DOT       A    ONE,X1
+               C    SIZE,X1
+               BU   RPUZ
+
+     * Ready: Start iterating
      REPEAT    SW   PRINTS
 
-     * Print out the current state of the field
-               MCW  ZERO,X1
-     OUTLP     SBR  X2,FIELD&X1
-               MCW  0&X2,PRINTM              
-               W
-               A    WIDTH,X1
-               C    SIZE,X1
-               BU   OUTLP
-     * Print a blank line
-               CS   PRINTM
-               W
-
      * Are we stable yet? Assume yes
-               MN   UNSTAB,ZERO
+               MN   @0@,UNSTAB
      
      * Go to the next state
                MCW  ZERO,X1
-     ITER      SBR  X2,FIELD&X1
-               A    @1@,X2
+     ITER      SBR  X2,FIELD1&X1
+               A    ONE,X2
      * Current cell is at X2 - does it represent floor space?
                MN   0&X2,CUR
                MZ   0&X2,CUR
@@ -164,7 +178,7 @@
                MN   @1@,UNSTAB
 
      * Go to the next seat (or space on the floor)                             
-     NSEAT     A    @1@,X1
+     NSEAT     A    ONE,X1
                C    SIZE1,X1
                BU   ITER   
      
@@ -174,7 +188,7 @@
      *  #  -> #
      *  L  -> L
                MCW  ZERO,X1
-     PERM      SBR  X2,FIELD&X1
+     PERM      SBR  X2,FIELD0&X1
                MN   0&X2,CUR
                MZ   0&X2,CUR
                BCE  MAKEF,CUR,F
@@ -185,15 +199,43 @@
                B    NPERM
      MAKEO     MN   @#@,0&X2
                MZ   @#@,0&X2
-     NPERM     A    @1@,X1
+     NPERM     A    ONE,X1
                C    SIZE,X1
                BU   PERM
      
+     * Print out the current state of the field
+               MCW  ZERO,X1
+     OUTLP     SBR  X2,FIELD1&X1
+               MCW  0&X2,PRINTM              
+               W
+               A    WIDTH,X1
+               C    SIZE,X1
+               BU   OUTLP
+     * Print a blank line
+               CS   PRINTM
+               W
+
      * Are we stable yet?
                C    @0@,UNSTAB
                BU   REPEAT
            
-     * We're stable!
+     * We're stable! How many occupied seats?
+               MCW  ZERO,X1
+               MCW  ZERO,RESULT
+     CALC      SBR  X2,FIELD0&X1
+               MN   0&X2,CUR
+               MZ   0&X2,CUR
+               BCE  UNEMPT,CUR,#
+               B    NCALC
+     UNEMPT    A    ONE,RESULT
+     NCALC     A    ONE,X1
+               C    SIZE,X1
+               BU   CALC
+     
+               CS   PRINTM
+               MCW  RESULT,PRINTM
+               W
+     
                H    START
                B    START
                END  START
