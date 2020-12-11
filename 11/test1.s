@@ -27,6 +27,7 @@
      SIZE1     DCW  132
      ZERO      DCW  000
      ONE       DCW  001
+     FIELD0    DCW  0
      FIELD     DCW  @............@
                DCW  @.#.##.##.##.@
                DCW  @.#######.##.@
@@ -73,6 +74,7 @@
      * Go to the next state
                MCW  ZERO,X1
      ITER      SBR  X2,FIELD&X1
+               A    @1@,X2
      * Current cell is at X2 - does it represent floor space?
                MN   0&X2,CUR
                MZ   0&X2,CUR
@@ -81,35 +83,33 @@
      
      * It represents a seat - so we need to decide what happens next
      * Collect occupied seats into a linear array
-               MCW  X2,X3
-     * Go west
-               S    @1@,X3
-               MN   0&X3,NBR&1
-               MZ   0&X3,NBR&1
-     * Go east
-               MN   2&X3,NBR&2
-               MZ   2&X3,NBR&2
      * northwest
-               S    WIDTH,X3
-               MN   0&X3,NBR&3
-               MZ   0&X3,NBR&3
+               SBR  X3,FIELD0&X1
+               MN   0&X3,NBR&1
+               MZ   0&X3,NBR&1             
      * north
-               MN   1&X3,NBR&4
-               MZ   1&X3,NBR&4
+               MN   1&X3,NBR&2
+               MZ   1&X3,NBR&2
      * northeast
+               MN   2&X3,NBR&3
+               MZ   2&X3,NBR&3
+     * west
+               A    WIDTH,X3
+               MN   0&X3,NBR&4
+               MZ   0&X3,NBR&4
+     * east
                MN   2&X3,NBR&5
                MZ   2&X3,NBR&5
      * southwest
                A    WIDTH,X3
-               A    WIDTH,X3
                MN   0&X3,NBR&6
                MZ   0&X3,NBR&6
      * south
-               MN   0&X3,NBR&7
-               MZ   0&X3,NBR&7
+               MN   1&X3,NBR&7
+               MZ   1&X3,NBR&7
      * southeast
-               MN   0&X3,NBR&0
-               MZ   0&X3,NBR&0
+               MN   2&X3,NBR&0
+               MZ   2&X3,NBR&0
 
      * Count the number of occupied seats
                MCW  ZERO,X3
@@ -120,10 +120,10 @@
      * X - end of NBR array
      CSEATS    MN   0&X3,CUR2
                MZ   0&X3,CUR2
+               A    ONE,X3
                BCE  OCC,CUR2,F
                BCE  OCC,CUR2,#
                BCE  CSEATD,CUR2,X
-               A    ONE,X3
                B    CSEATS
      OCC       A    @1@,SCNT
                B    CSEATS
@@ -154,8 +154,8 @@
      MANY      C    @#@,CUR
                BE   VAC
                B    NSEAT
-     VAC       MN   @L@,0&X2
-               MZ   @L@,0&X2
+     VAC       MN   @F@,0&X2
+               MZ   @F@,0&X2
 
      * Go to the next seat (or space on the floor)                             
      NSEAT     A    ONE,X1
