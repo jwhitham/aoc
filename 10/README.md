@@ -30,6 +30,15 @@ intermediate list of (number\_of\_ways, value) pairs, which was effective.
 
 I am also unhappy that my solution is not parameterised for the
 maximum value "3". My definition of ways\_to\_reach will only look ahead
-up to 3 list items. A better solution would allow this to be set.
+up to 3 list items.
+
+_Update_
+
+I returned to the problem later and wrote a new solution which
+allows the maximum difference to be changed. I also realise that there
+is no efficient way for Haskell to detect that the same list has been
+passed to multiple calls, because "same" only means "same contents", not
+"same memory address", and "same contents" can only be checked by evaluating
+the whole list.
 
 
