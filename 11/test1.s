@@ -6,11 +6,11 @@
      * label   | op | OPERATION                                         |xxxxxxx
 
                ORG  87
-     X0        DSA  0                  index register 1
+     X1        DSA  0                  index register 1
                ORG  92
-     X1        DSA  0                  index register 2
+     X2        DSA  0                  index register 2
                ORG  97
-     X2        DSA  0                  index register 3
+     X3        DSA  0                  index register 3
                ORG  100     * START ABOVE INDEX "REGISTERS" 
      INIT      B    START
                ORG  200
@@ -26,6 +26,7 @@
      SIZE      DCW  144
      SIZE1     DCW  132
      ZERO      DCW  000
+     ONE       DCW  001
      FIELD     DCW  @............@
                DCW  @.#.##.##.##.@
                DCW  @.#######.##.@
@@ -39,8 +40,17 @@
                DCW  @.#.#####.##.@
                DCW  @............@     
                DC   @  VARIABLES:@
-     CUR       DCW  @A@
-     NBR       DCW  @ABCDEFGHI@
+     CUR       DCW  @X@
+     CUR2      DCW  @X@
+     NBR       DCW  @A@
+               DCW  @B@
+               DCW  @C@
+               DCW  @D@
+               DCW  @E@
+               DCW  @F@
+               DCW  @G@
+               DCW  @H@
+     LAST      DCW  @X@
      SCNT      DCW  0
                DC   @  CODE:@     
      
@@ -71,49 +81,49 @@
      
      * It represents a seat - so we need to decide what happens next
      * Collect occupied seats into a linear array
-               MCW  X2,X0
+               MCW  X2,X3
      * Go west
-               S    @1@,X0
-               MN   0&X0,NBR&1
-               MZ   0&X0,NBR&1
+               S    @1@,X3
+               MN   0&X3,NBR&1
+               MZ   0&X3,NBR&1
      * Go east
-               MN   2&X0,NBR&2
-               MZ   2&X0,NBR&2
+               MN   2&X3,NBR&2
+               MZ   2&X3,NBR&2
      * northwest
-               S    WIDTH,X0
-               MN   0&X0,NBR&3
-               MZ   0&X0,NBR&3
+               S    WIDTH,X3
+               MN   0&X3,NBR&3
+               MZ   0&X3,NBR&3
      * north
-               MN   1&X0,NBR&4
-               MZ   1&X0,NBR&4
+               MN   1&X3,NBR&4
+               MZ   1&X3,NBR&4
      * northeast
-               MN   2&X0,NBR&5
-               MZ   2&X0,NBR&5
+               MN   2&X3,NBR&5
+               MZ   2&X3,NBR&5
      * southwest
-               A    WIDTH,X0
-               A    WIDTH,X0
-               MN   0&X0,NBR&6
-               MZ   0&X0,NBR&6
+               A    WIDTH,X3
+               A    WIDTH,X3
+               MN   0&X3,NBR&6
+               MZ   0&X3,NBR&6
      * south
-               MN   0&X0,NBR&7
-               MZ   0&X0,NBR&7
+               MN   0&X3,NBR&7
+               MZ   0&X3,NBR&7
      * southeast
-               MN   0&X0,NBR&8
-               MZ   0&X0,NBR&8
+               MN   0&X3,NBR&0
+               MZ   0&X3,NBR&0
 
      * Count the number of occupied seats
-               MCW  NBR,X0
+               MCW  ZERO,X3
+               SBR  X3,NBR&X3
                MCW  @0@,SCNT
      * F - occupied before, unoccupied now
      * # - occupied before and now
-     * A - end of NBR array (position 0)
-     CSEATS    C    0&X0,@F@
-               BE   OCC
-               C    0&X0,@#@
-               BE   OCC
-               C    0&X0,@A@
-               BE   CSEATD
-               S    @1@,X0
+     * X - end of NBR array
+     CSEATS    MN   0&X3,CUR2
+               MZ   0&X3,CUR2
+               BCE  OCC,CUR2,F
+               BCE  OCC,CUR2,#
+               BCE  CSEATD,CUR2,X
+               A    ONE,X3
                B    CSEATS
      OCC       A    @1@,SCNT
                B    CSEATS
@@ -131,7 +141,7 @@
      * Rules:
      *  #    -> # (still occupied)
      *  else -> O (became occupied)
-     NONE      C    @#@,0&X2
+     NONE      C    @#@,CUR
                BE   NSEAT
                MN   @O@,0&X2
                MZ   @O@,0&X2
@@ -141,14 +151,14 @@
      * Rules:
      *  #    -> F (became vacant)
      *  else -> L (still vacant)
-     MANY      C    @#@,0&X2
+     MANY      C    @#@,CUR
                BE   VAC
                B    NSEAT
      VAC       MN   @L@,0&X2
                MZ   @L@,0&X2
 
      * Go to the next seat (or space on the floor)                             
-     NSEAT     A    @1@,X1
+     NSEAT     A    ONE,X1
                C    SIZE1,X1
                BU   ITER   
      
