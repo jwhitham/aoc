@@ -1,6 +1,6 @@
 import struct
 
-problem = open("example_input", "rb")
+problem = open("input", "rb")
 out = open("test1.mt1", "wb")
 
 data = []
