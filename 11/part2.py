@@ -1,0 +1,73 @@
+
+import collections
+
+problem = open("input", "rt")
+
+data1 = []
+data2 = []
+for line in problem:
+    data1.append([])
+    data2.append([])
+    for col in line.strip():
+        data1[-1].append(col)
+        data2[-1].append(col)
+
+def trip(sy, sx, dy, dx):
+    y = sy
+    x = sx
+    y += dy
+    x += dx
+    dist = 1
+    while (0 <= y < len(data1)) and (0 <= x < len(data1[0])):
+        if data1[y][x] == "#":
+            return 1
+        elif data1[y][x] == "L":
+            return 0
+        else:
+            break
+            y += dy
+            x += dx
+            dist += 1
+
+    return 0
+
+change = True
+while change:
+    change = False
+    for y in range(len(data1)):
+        for x in range(len(data1[0])):
+            if data1[y][x] in "L#":
+                count = (trip(y, x, -1, -1) + 
+                         trip(y, x, -1, 0) + 
+                         trip(y, x, -1, 1) + 
+                         trip(y, x, 0, 1) + 
+                         trip(y, x, 0, -1) + 
+                         trip(y, x, 1, -1) + 
+                         trip(y, x, 1, 0) + 
+                         trip(y, x, 1, 1))
+                if data1[y][x] == "#":
+                    # occupied
+                    if count >= 4:
+                        # became unoccupied
+                        change = True
+                        data2[y][x] = "L"
+                    else:
+                        data2[y][x] = "#"
+                else:
+                    # unoccupied
+                    if count == 0:
+                        # became occupied
+                        change = True
+                        data2[y][x] = "#"
+                    else:
+                        data2[y][x] = "L"
+
+    (data1, data2) = (data2, data1)
+
+    occ = 0
+    for y in range(len(data1)):
+        print("".join(data1[y]))
+        for v in data1[y]:
+            if v == "#":
+                occ += 1
+    print(occ)
