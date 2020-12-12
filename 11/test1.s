@@ -63,13 +63,19 @@
                DCW  @.LLLLLLLLLL.@
                DCW  @.L.LLLLLL.L.@
                DCW  @.L.LLLLL.LL.@
-               DCW  @............@     
-               DC   @  VARIABLES:@
-               DC   @  CODE:@     
+               DCW  @............@
+     GROUP     DCW  @"@
+                    
+
     
      * Reset printable area
      START     CS   PRINTE
                CS
+               SW   PRINTS
+     
+     * GROUP mark written
+               MZ   @.@,GROUP
+               SW   GROUP
 
      * Reset the puzzle
                MCW  ZERO,X1
@@ -82,7 +88,12 @@
      DOT       A    ONE,X1
                C    SIZE,X1
                BU   RPUZ
-
+     
+     * Write the current state of the field to tape
+               MCW  ZERO,X1
+               SBR  X2,FIELD1&X1
+               WTW  1,0&X2
+     
      * Ready: Start iterating
      REPEAT    SW   PRINTS
 
