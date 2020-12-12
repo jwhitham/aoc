@@ -76,6 +76,7 @@
 
      * Assume stable:
      REPEAT    MN   @0@,UNSTAB
+               MCW  ZERO,RESULT
 
      * Read invariants from first tape
                RWD  1
@@ -122,7 +123,6 @@
                CW   0&X2
 
                MCW  ZERO,LINNUM
-               MCW  ZERO,RESULT
 
      * Enter iterative process for each line
      NEWLIN    MCW  ZERO,X1
@@ -211,6 +211,10 @@
      
      * 0 adjacent seats are occupied: becomes #
      NONE      SBR  X3,LINE4&X1
+               MN   1&X3,CUR
+               MZ   1&X3,CUR
+               C    @#@,CUR
+               BE   NXTCOL      * already #
                MN   @#@,1&X3
                MZ   @#@,1&X3
                MN   @1@,UNSTAB
@@ -218,6 +222,10 @@
      
      * 4..8 adjacent seats are occupied: becomes L
      MANY      SBR  X3,LINE4&X1
+               MN   1&X3,CUR
+               MZ   1&X3,CUR
+               C    @L@,CUR
+               BE   NXTCOL      * already L
                MN   @L@,1&X3
                MZ   @L@,1&X3
                MN   @1@,UNSTAB
@@ -288,8 +296,8 @@
      * Count occupied seats
                MCW  ZERO,X2
      CCOLS     SBR  X3,LINE4&X2
-               MN   0&X3,CUR
-               MZ   0&X3,CUR
+               MN   1&X3,CUR
+               MZ   1&X3,CUR
                C    @#@,CUR
                BU   NOTOCC
 
