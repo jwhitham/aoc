@@ -17,17 +17,14 @@ def trip(sy, sx, dy, dx):
     x = sx
     y += dy
     x += dx
-    dist = 1
     while (0 <= y < len(data1)) and (0 <= x < len(data1[0])):
         if data1[y][x] == "#":
             return 1
         elif data1[y][x] == "L":
             return 0
         else:
-            break
             y += dy
             x += dx
-            dist += 1
 
     return 0
 
@@ -47,7 +44,7 @@ while change:
                          trip(y, x, 1, 1))
                 if data1[y][x] == "#":
                     # occupied
-                    if count >= 4:
+                    if count >= 5:
                         # became unoccupied
                         change = True
                         data2[y][x] = "L"
