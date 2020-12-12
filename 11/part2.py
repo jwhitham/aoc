@@ -2,6 +2,7 @@
 import collections
 
 problem = open("input", "rt")
+out = open("reference", "wt")
 
 data1 = []
 data2 = []
@@ -28,6 +29,18 @@ def trip(sy, sx, dy, dx):
 
     return 0
 
+def display():
+    occ = 0
+    for y in range(len(data1)):
+        out.write("".join(data1[y]))
+        out.write("\n")
+        for v in data1[y]:
+            if v == "#":
+                occ += 1
+    out.write(str(occ))
+    out.write("\n")
+
+display()
 change = True
 while change:
     change = False
@@ -60,11 +73,4 @@ while change:
                         data2[y][x] = "L"
 
     (data1, data2) = (data2, data1)
-
-    occ = 0
-    for y in range(len(data1)):
-        print("".join(data1[y]))
-        for v in data1[y]:
-            if v == "#":
-                occ += 1
-    print(occ)
+    display()
