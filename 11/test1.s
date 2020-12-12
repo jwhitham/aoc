@@ -75,7 +75,7 @@
                SW   GROUP
 
      * Assume stable:
-               MN   @0@,UNSTAB
+     REPEAT    MN   @0@,UNSTAB
 
      * Read invariants from first tape
                RWD  1
@@ -245,7 +245,7 @@
                W
 
      * Final line? or finished?
-               A    @1@,LINNUM
+               A    ONE,LINNUM
                C    HEIGHT,LINNUM
                BU   NEWLIN
 
@@ -285,11 +285,39 @@
                SW   1&X3
                WTW  1,LINE4&1
 
+     * Count occupied seats
+               MCW  ZERO,X2
+     CCOLS     SBR  X3,LINE4&X2
+               MN   0&X3,CUR
+               MZ   0&X3,CUR
+               C    @#@,CUR
+               BU   NOTOCC
+
+               A    ONE,RESULT    * occupied
+
+     NOTOCC    A    @1@,X2
+               C    WIDTH,X2
+               BU   CCOLS
+
      * Final line? or finished?
                A    @1@,LINNUM
                C    HEIGPP,LINNUM
                BU   COPY
-     
+    
+     * Print count of occupied seats
+               CS   PRINTM
+               SW   PRINTS
+               MCW  RESULT,PRINTM
+               W
+               CS   PRINTM
+               SW   PRINTS
+
+     * Repeat if unstable
+               C    @0@,UNSTAB
+               BU   REPEAT
+
+     * Otherwise finished - halt
+
                H    START
                B    START
 
