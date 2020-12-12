@@ -1,4 +1,4 @@
-               JOB  TEST0.S 12/11/20 12:36:38                              -0198
+               JOB  TEST1.S 12/12/20 10:24:45                              -8685
      *
                CTL       6611  *6=16,000C;6=16,000T;1=OBJDECK;,1=MODADD
      *   1         2         3         4         5         6         7         8
@@ -18,11 +18,14 @@
      * Entry point
      INIT      B    START
 
-     * Constants
+     * Invariants
+     INVAR     DCW  @I@
+               DCW  @0123456789ABCDEF@
      WIDTH     DCW  012
      HEIGHT    DCW  012
      SIZE      DCW  144     * WIDTH * HEIGHT
      SIZE1     DCW  120     * WIDTH * (HEIGHT - 2)
+     GROUP     DCW  @"@                    
      ZERO      DCW  000
      ONE       DCW  001
 
@@ -64,8 +67,6 @@
                DCW  @.L.LLLLLL.L.@
                DCW  @.L.LLLLL.LL.@
                DCW  @............@
-     GROUP     DCW  @"@
-                    
 
     
      * Reset printable area
@@ -76,6 +77,24 @@
      * GROUP mark written
                MZ   @.@,GROUP
                SW   GROUP
+
+     * Output to tape
+               RWD  1
+               WTW  1,INVAR         * header
+               MCW  ZERO,X1
+     WTAPE     SBR  X2,FIELD0&X1
+               SBR  X3,FIELD0&X1
+               A    WIDTH,X2
+               MZ   GROUP,0&X2      * group mark at end of line
+               MN   GROUP,0&X2
+               SW   0&X2
+               WTW  1,2&X3          * write to tape
+               MZ   @.@,0&X2        * dot at end of line
+               MN   @.@,0&X2
+               CW   0&X2
+               A    WIDTH,X1
+               C    SIZE,X1
+               BU   WTAPE
 
      * Reset the puzzle
                MCW  ZERO,X1
@@ -88,11 +107,6 @@
      DOT       A    ONE,X1
                C    SIZE,X1
                BU   RPUZ
-     
-     * Write the current state of the field to tape
-               MCW  ZERO,X1
-               SBR  X2,FIELD1&X1
-               WTW  1,0&X2
      
      * Ready: Start iterating
      REPEAT    SW   PRINTS
