@@ -23,7 +23,15 @@ while True:
 
         b = b[1:] + x.read(1) 
         gap += 1
-    print (gap, repr(data))
+
+    if pos > 0:
+        data = data.replace(b"#", b"L")   # unoccupied (coincidence: 1401 is not ASCII)
+        data = data.replace(b";", b".")   # floor
+        data = data.replace(b"\x0b", b"#")# occupied
+        text = data.decode("ascii", errors="ignore")
+    else:
+        text = repr(data)
+    print (gap, text)
     
 
 
