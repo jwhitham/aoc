@@ -1,0 +1,10 @@
+old/**
+*.brk
+*.cd
+*.lst
+*.mt1
+*.mt2
+*.mt3
+*.out
+test1.s
+*.tobj

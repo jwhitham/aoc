@@ -61,6 +61,8 @@
                ORG  450
      LINE3     DC   @.@
                ORG  500
+     LINE4     DC   @.@
+               ORG  550
 
      * Start of code
      * Reset printable area
@@ -72,7 +74,7 @@
                MZ   @.@,GROUP
                SW   GROUP
 
-     * Read invariants from tape
+     * Read invariants from first tape
                RWD  1
                RTW  1,INVAR
 
@@ -82,6 +84,10 @@
                CS   PRINTM
                SW   PRINTS
 
+     * Write invariants to second tape
+               RWD  2
+               WTW  2,INVAR
+
      * Load initial lines
                RTW  1,LINE2&1
                RTW  1,LINE3&1
@@ -89,33 +95,43 @@
                SW   LINE2
                SW   LINE3
 
-     * Add final dot, replacing group mark, then print
+     * First line: copy to tape, then replace group mark with final dot
                MCW  ZERO,X1
                A    WIDTH,X1
                A    @1@,X1
                SBR  X2,LINE2&X1
+
+               MN   GROUP,0&X2
+               MZ   GROUP,0&X2
+               SW   0&X2
+               WTW  2,LINE2&1
+
                MN   @.@,0&X2
                MZ   @.@,0&X2
                CW   0&X2
                MCW  0&X2,PRINTM
                W
 
+     * Second line: remove group mark, add final dot
                SBR  X2,LINE3&X1
                MN   @.@,0&X2
                MZ   @.@,0&X2
                CW   0&X2
-               MCW  0&X2,PRINTM
-               W
 
                MCW  ZERO,LINNUM
 
      * Enter iterative process for each line
-     NEWLIN    MCW  LINE2,LINE1
-               MCW  LINE3,LINE2
+     NEWLIN    MCW  ZERO,X1
+               A    WIDTH,X1
+               SBR  X2,LINE1&X1
+               SBR  X3,LINE2&X1
+               MCW  1&X3,1&X2
+               SBR  X2,LINE2&X1
+               SBR  X3,LINE3&X1
+               MCW  1&X3,1&X2
 
+     * Load line: add final dot
                RTW  1,LINE3&1
-
-     * Do final dot and group mark and print
                MCW  ZERO,X1
                A    WIDTH,X1
                A    @1@,X1
@@ -123,14 +139,15 @@
                MN   @.@,0&X2
                MZ   @.@,0&X2
                CW   0&X2
-               MCW  0&X2,PRINTM
-               W
 
                MCW  ZERO,X1
      * Enter iterative process for each column
      NEWCOL    SBR  X2,LINE2&X1
+               SBR  X3,LINE4&X1
                MN   1&X2,CUR
                MZ   1&X2,CUR
+               MN   CUR,1&X3
+               MZ   CUR,1&X3
                C    CUR,@.@
                BE   NXTCOL
 
@@ -139,7 +156,25 @@
                C    WIDTH,X1
                BU   NEWCOL
 
-     NXTLIN    A    @1@,LINNUM
+     * End of line: write the new line to tape
+     NXTLIN    MCW  ZERO,X1
+               A    WIDTH,X1
+               A    @1@,X1
+               SBR  X3,LINE4&X1
+               MN   GROUP,0&X3
+               MZ   GROUP,0&X3
+               SW   0&X3
+               WTW  2,LINE4&1
+
+     * Then print the new line
+               MN   @.@,0&X3
+               MZ   @.@,0&X3
+               CW   0&X3
+               MCW  0&X3,PRINTM
+               W
+
+     * Final line? or finished?
+               A    @1@,LINNUM
                C    HEIGHT,LINNUM
                BU   NEWLIN
 
