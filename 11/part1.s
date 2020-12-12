@@ -49,7 +49,7 @@
      * Print area: data written here may be printed
                ORG  200
      PRINTS    DCW  @ @
-               ORG  220
+               ORG  299
      PRINTM    DC   @ @
                ORG  332
      PRINTE    DC   @ @
