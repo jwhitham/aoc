@@ -1,7 +1,7 @@
 
-import struct
+import struct, sys
 
-x = open("test1.mt1", "rb")
+x = open(sys.argv[1], "rb")
 while True:
     pos = x.tell()
     b = x.read(4)
@@ -25,4 +25,5 @@ while True:
         gap += 1
     print (gap, repr(data))
     
+
 
