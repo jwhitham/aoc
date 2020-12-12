@@ -42,7 +42,7 @@
                DCW  @H@
      LAST      DCW  @X@     * Must be 'X' (sentinel value)
      SCNT      DCW  0
-     RESULT    DCW  000
+     RESULT    DCW  00000
      HEIGPP    DCW  000
      LINNUM    DCW  000
 
@@ -53,16 +53,17 @@
      PRINTM    DC   @ @
                ORG  332
      PRINTE    DC   @ @
-
                ORG  350
      LINE1     DC   @.@
-               ORG  400
-     LINE2     DC   @.@
-               ORG  450
-     LINE3     DC   @.@
                ORG  500
+     LINE2     DC   @.@
+               ORG  650
+     LINE3     DC   @.@
+               ORG  800
      LINE4     DC   @.@
-               ORG  550
+               ORG  950
+
+
 
      * Start of code
      * Reset printable area
@@ -76,7 +77,7 @@
 
      * Assume stable:
      REPEAT    MN   @0@,UNSTAB
-               MCW  ZERO,RESULT
+               MCW  @00000@,RESULT
 
      * Read invariants from first tape
                RWD  1
@@ -301,7 +302,7 @@
                C    @#@,CUR
                BU   NOTOCC
 
-               A    ONE,RESULT    * occupied
+               A    @00001@,RESULT    * occupied
 
      NOTOCC    A    @1@,X2
                C    WIDTH,X2
