@@ -1,11 +1,12 @@
 import struct
+import shutil
 
-problem = open("input", "rb")
+problem = open("input", "rt")
 out = open("part1.mt1", "wb")
 
 data = []
 for line in problem:
-    data.append(line.strip().replace(b".", b";"))
+    data.append(line.strip().replace(".", ";").replace("L", "#"))
 
 def encode_digit(value):
     value %= 10
@@ -42,7 +43,10 @@ line = b";" * width
 out.write(encode_block(line, 0))
 
 for line in data:
-    out.write(encode_block(line, 0))
+    out.write(encode_block(line.encode("ascii"), 0))
 
 line = b";" * width
 out.write(encode_block(line, 0))
+out.close()
+shutil.copy("part1.mt1", "part2.mt1")
+
