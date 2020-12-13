@@ -1,11 +1,13 @@
-               JOB  TEST1.S 12/12/20 10:24:45                              -8685
+               JOB  PART1.S 12/12/20 10:24:45                              -8685
      *
                CTL       6611  *6=16,000C;6=16,000T;1=OBJDECK;,1=MODADD
      *   1         2         3         4         5         6         7         8
      *78901234567890123456789012345678901234567890123456789012345678901234567890
      * label   | op | OPERATION                                         |xxxxxxx
 
-     * Advent of Code 2020 day 11 - example input
+     * Advent of Code 2020 day 11 part 1
+     * Jack Whitham
+     * https://github.com/jwhitham/aoc2020
      * 
                ORG  87
      X1        DSA  0                  index register 1
@@ -75,13 +77,55 @@
                MZ   @.@,GROUP
                SW   GROUP
 
+     * all tapes to the beginning
+               RWD  1
+               RWD  2
+               RWD  3
+
+     * Read invariants from input tape
+               RTW  1,INVAR
+               C    HEADMS,@0123456789ABCDEF@
+               BU   TAPERR
+
+     * Print message
+               MCW  @AOC 2020 PUZZLE 11 PART 1@,PRINTM
+               W
+               CS   PRINTE
+               CS
+               SW   PRINTS
+
+     * Copy input tape 1 -> work tape 3
+               WTW  3,INVAR
+
+               MCW  ZERO,LINNUM
+               MCW  HEIGHT,HEIGPP
+               A    ONE,HEIGPP
+               A    ONE,HEIGPP
+               MCW  ZERO,X1
+               A    WIDTH,X1
+
+     COPTAP    RTW  1,LINE4&1
+               SBR  X3,LINE4&X1
+               MN   GROUP,1&X3
+               MZ   GROUP,1&X3
+               SW   1&X3
+               WTW  3,LINE4&1
+
+               A    ONE,LINNUM
+               C    HEIGPP,LINNUM
+               BU   COPTAP
+
+     * Now we are done with tape 1
+               RWD  1
+
+
      * Assume stable:
      REPEAT    MN   @0@,UNSTAB
                MCW  @00000@,RESULT
 
-     * Read invariants from first tape
-               RWD  1
-               RTW  1,INVAR
+     * Read invariants from tape 3
+               RWD  3
+               RTW  3,INVAR
 
      * Print message in header
                MCW  HEADMS,PRINTM
@@ -94,8 +138,8 @@
                WTW  2,INVAR
 
      * Load initial lines
-               RTW  1,LINE2&1
-               RTW  1,LINE3&1
+               RTW  3,LINE2&1
+               RTW  3,LINE3&1
                SW   LINE1
                SW   LINE2
                SW   LINE3
@@ -136,7 +180,7 @@
                MCW  1&X3,1&X2
 
      * Load line: add final dot
-               RTW  1,LINE3&1
+               RTW  3,LINE3&1
                MCW  ZERO,X1
                A    WIDTH,X1
                A    @1@,X1
@@ -275,24 +319,21 @@
                MCW  0&X3,PRINTM
                W
 
-     * Rewind the tapes and copy tape 2 -> tape 1
-               RWD  1
+     * Rewind the tapes and copy tape 2 -> tape 3
+               RWD  3
                RWD  2
                RTW  2,INVAR
-               WTW  1,INVAR
-
-               MCW  HEIGHT,HEIGPP
-               A    @2@,HEIGPP
+               WTW  3,INVAR
 
                MCW  ZERO,LINNUM
                MCW  ZERO,X1
                A    WIDTH,X1
-     COPY      RTW  2,LINE4&1
+     COPTA2    RTW  2,LINE4&1
                SBR  X3,LINE4&X1
                MN   GROUP,1&X3
                MZ   GROUP,1&X3
                SW   1&X3
-               WTW  1,LINE4&1
+               WTW  3,LINE4&1
 
      * Count occupied seats
                MCW  ZERO,X2
@@ -309,9 +350,9 @@
                BU   CCOLS
 
      * Final line? or finished?
-               A    @1@,LINNUM
+               A    ONE,LINNUM
                C    HEIGPP,LINNUM
-               BU   COPY
+               BU   COPTA2
     
      * Print count of occupied seats
                CS   PRINTM
@@ -327,7 +368,7 @@
 
      * Otherwise finished - halt
 
-               H    START
+     TAPERR    H    START
                B    START
 
                END  START
