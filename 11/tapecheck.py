@@ -1,39 +1,64 @@
 
 import struct, sys
 
-from_tape_2 = open("part2.mt2", "rb")
-expected = open("x2", "rt")
-expected.readline()
+from_tape_3 = open("part2.mt3", "rb")
+tapecheck_data = open("tapecheck.data", "rt")
+height = 0
+problem = open("input", "rt")
+for line in problem:
+    height += 1
+
+count = 0
+error = 0
 
 while True:
-    pos = from_tape_2.tell()
-    b = from_tape_2.read(4)
+    pos = from_tape_3.tell()
+    b = from_tape_3.read(4)
     if len(b) == 0:
         break
   
     (size, ) = struct.unpack("<I", b)
-    print("{:08x} {:08x} ".format(pos, size))
-    data = from_tape_2.read(size)
+    data = from_tape_3.read(size)
+
+    y = count % height
+    if ((count // height) % 2) == 0:
+        print("NTS pass {} line {}".format((count // height) // 2, y))
+    else:
+        y = height - 1 - y
+        print("STN pass {} line {}".format((count // height) // 2, y))
+    count += 1
 
     assert len(data) == size, (len(data), size)
-    b = from_tape_2.read(4)
+    b = from_tape_3.read(4)
     (check, ) = struct.unpack("<I", b)
     assert check == size
 
-    line = expected.readline().strip()
+    line = tapecheck_data.readline().strip()
   
+    bad = False
     assert len(line) == size
-    for i in range(size):
-        v = data[i]
-        if v < 10:
+    for x in range(size):
+        got = data[x]
+        expected = line[x]
+        if 0 < got < 10:
             # numerical
-            assert int(line[i]) == v
-        elif v == 59:
-            # "."
-            assert line[i] == "."
+            if expected != str(got):
+                bad = True
+        elif got == 10:
+            if expected != "0":
+                bad = True
+        elif got == 59:
+            if expected != ".":
+                bad = True
+        elif got == 21:
+            if expected != "V":
+                bad = True
         else:
-            assert False
-            print(line[i])
-            print(v)
+            bad = True
+
+        if bad:
+            print("location y = {} x = {} expected = {} got = {}".format(y, x, expected, got))
+            error += 1
+            assert error < 10
 
 

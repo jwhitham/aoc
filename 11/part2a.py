@@ -3,7 +3,7 @@ import collections
 
 problem = open("input", "rt")
 out = open("x", "wt")
-aux = open("x2", "wt")
+aux = open("tapecheck.data", "wt")
 
 data1 = []
 data2 = []
@@ -32,17 +32,6 @@ def trip(sy, sx, dy, dx):
             x += dx
 
     return 0
-
-def displayaux(heading):
-    aux.write(heading)
-    aux.write("\n")
-    for y in range(len(data1)):
-        for v in data2[y]:
-            if v < 10:
-                aux.write(str(v))
-            else:
-                aux.write(chr(v))
-        aux.write("\n")
 
 def display():
     occ = 0
@@ -130,7 +119,12 @@ while change:
             else:
                 northwest_flag[x] = northwest_flag[x - 1]
 
-    displayaux("end of north-south pass")
+        for v in data2[y]:
+            if v < 10:
+                aux.write(str(v))
+            else:
+                aux.write(chr(v))
+        aux.write("\n")
 
     # Pass from the southeast
     for y in reversed(range(height)):
@@ -193,5 +187,12 @@ while change:
             else:
                 southeast_flag[x] = southeast_flag[x + 1]
 
-    displayaux("end of south-north pass")
+        for v in data2[y]:
+            if v < 10:
+                aux.write(str(v))
+            else:
+                aux.write(chr(v))
+
+        aux.write("\n")
+
     display()

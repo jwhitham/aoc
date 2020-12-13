@@ -44,9 +44,13 @@
      *                          *  7   unoccupied with 2 people " " " " "
      *                          *  8   unoccupied with 3 people " " " " "
      *                          *  9   unoccupied with 4 people " " " " "
+     *                          *  O   occupied (at end of south-north pass)
+     *                          *  V   vacant (at end of south-north pass)
      CURCEL    DCW  @X@         * Current tape 1 cell value: . or # or L
+     CURCPY    DCW  0           * copy of tape 2 value (before modification in south-north pass)
      TMP       DCW  0
      WEST      DCW  0
+     EAST      DCW  0
      RESULT    DCW  00000
      LINNUM    DCW  000
 
@@ -61,10 +65,13 @@
      DATOUT    DC   @.@
                ORG  540
      NTHWST    DC   @.@
+     STHWST    DC   @.@
                ORG  660
      NTH       DC   @.@
+     STH       DC   @.@
                ORG  880
      NTHEST    DC   @.@
+     STHEST    DC   @.@
                ORG  999
 
 
@@ -77,11 +84,14 @@
                MZ   @.@,GROUP
                SW   GROUP
 
+     * log tape rewound
+               RWD  3
+
      * Assume stable:
      REPEAT    MN   @0@,UNSTAB
                MCW  @00000@,RESULT
 
-     * Both tapes to the beginning
+     * work tapes to the beginning
                RWD  1
                RWD  2
 
@@ -235,12 +245,217 @@
                MZ   GROUP,0&X2
                SW   0&X2
                WTW  2,DATOUT
+               WTW  3,DATOUT  * And log to tape 3
 
      * Repeat until north to south pass is complete
                A    ONE,LINNUM
                C    HEIGHT,LINNUM
                BU   NTSPAS
 
+     * Between passes: rewind tape 1 and go to the beginning of the data area
+               RWD  1
+               RTW  1,INVAR
+               RTW  1,DATIN&0
+
+     * BEGIN SOUTH TO NORTH PASS
+     * Here is the setup for the pass
+               MCW  ZERO,LINNUM
+
+     * Clear out previous line flags: STHWST, STH, STHEAST
+     * Clear the characters at -1 and +1 for each array too
+     * so that later passes can rely on these being 0.
+               MCW  ZERO,X1
+     STNCLR    SBR  X2,STHWST-1&X1
+               MN   @0@,0&X2
+               MZ   @0@,0&X2
+               CW   0&X2
+               SBR  X2,STH-1&X1
+               MN   @0@,0&X2
+               MZ   @0@,0&X2
+               CW   0&X2
+               SBR  X2,STHEST-1&X1
+               MN   @0@,0&X2
+               MZ   @0@,0&X2
+               CW   0&X2
+               A    ONE,X1
+               C    WIDTH2,X1
+               BU   STNCLR
+
+     * The south to north pass begins
+     * Load line from tape 2
+     STNPAS    BSP  2
+               RTW  2,DATIN&0
+               BSP  2
+               MCW  @0@,EAST
+
+     * BEGIN EAST TO WEST SUBPASS
+               MCW  WIDTH,X1
+     ETWPA2    S    ONE,X1
+               MZ   ZERO,X1-2
+               MZ   ZERO,X1-1
+               MZ   ZERO,X1
+               SBR  X2,DATIN&X1
+               MN   0&X2,CURCNT
+               MZ   0&X2,CURCNT
+               MCW  CURCNT,CURCPY
+               C    @.@,CURCNT          * detect tape 2 code '.' -> floor
+               BU   ETWSE2
+
+     * This cell is floor space
+               SBR  X2,DATOUT&X1
+               MN   @.@,0&X2
+               MZ   @.@,0&X2
+
+     * Propagate southwest flag
+               SBR  X2,STHWST&X1
+               MN   1&X2,0&X2
+               MZ   1&X2,0&X2
+               B    ETWNX2
+               
+     * This cell is not floor space
+     * How many people are visible?
+     ETWSE2    C    @5@,CURCNT
+               BL   NOSUB
+               S    @5@,CURCNT          * subtract 5 to get number of people
+               MZ   @0@,CURCNT
+
+     NOSUB     A    EAST,CURCNT         * add east
+               SBR  X2,STHWST&X1        * add southwest
+               MN   0&X2,TMP
+               MZ   0&X2,TMP
+               A    TMP,CURCNT
+               SBR  X2,STH&X1           * add south
+               MN   0&X2,TMP
+               MZ   0&X2,TMP
+               A    TMP,CURCNT
+               SBR  X2,STHEST&X1        * add southeast
+               MN   0&X2,TMP
+               MZ   0&X2,TMP
+               A    TMP,CURCNT
+
+               C    @4@,CURCPY          * detect tape 2 code 5..9 -> unoccupied
+               BH   ETWVA2
+
+     * Cell is occupied (currently)
+               MCW  @1@,EAST            * east flag set if occupied
+               SBR  X2,DATIN&X1
+               MN   @O@,0&X2            * tape 2 code becomes 'O' if occupied
+               MZ   @O@,0&X2
+
+               C    @5@,CURCNT          * detect less than 5 visible
+               BL   KEEP1
+
+     * Cell is occupied currently and 5 or more people are visible -> become unoccupied
+               SBR  X2,DATOUT&X1
+               MN   @L@,0&X2
+               MZ   @L@,0&X2
+               MN   @1@,UNSTAB
+               B    ETWNX2
+    
+     * Cell is occupied currently and 4 or fewer people are visible -> stay occupied
+     KEEP1     SBR  X2,DATOUT&X1
+               MN   @#@,0&X2
+               MZ   @#@,0&X2
+               A    @00001@,RESULT
+               B    ETWNX2
+
+     * Cell is unoccupied (currently)
+     ETWVA2    MCW  @0@,EAST            * east flag cleared if not occupied
+               SBR  X2,DATIN&X1
+               MN   @V@,0&X2            * tape 2 code becomes 'V'
+               MZ   @V@,0&X2
+
+               C    @0@,CURCNT          * detect 0 people visible
+               BU   KEEP2
+
+     * Cell is unoccupied currently and 0 people are visible -> become occupied
+               SBR  X2,DATOUT&X1
+               MN   @#@,0&X2
+               MZ   @#@,0&X2
+               MN   @1@,UNSTAB
+               A    @00001@,RESULT
+               B    ETWNX2
+
+     * Cell is unoccupied currently and 1 or more people are visible -> stay unoccupied
+     KEEP2     SBR  X2,DATOUT&X1
+               MN   @L@,0&X2
+               MZ   @L@,0&X2
+
+     * Next iteration of east to west subpass?
+     ETWNX2    SBR  X2,STH&X1           * copy east flag to south flag
+               MN   EAST,0&X2
+               MZ   EAST,0&X2
+               SBR  X2,STHWST&X1        * copy east flag to southwest flag
+               MN   EAST,1&X2
+               MZ   EAST,1&X2
+
+               C    ZERO,X1
+               BU   ETWPA2
+
+     * BEGIN WEST TO EAST SUBPASS
+               MCW  ZERO,X1
+     WTEPA2    SBR  X2,DATIN&X1
+               MN   0&X2,CURCEL
+               MZ   0&X2,CURCEL
+               C    @O@,CURCEL
+               BE   WTEOC2          * occupied
+               C    @V@,CURCEL
+               BE   WTEVA2          * vacant
+
+     * The cell is empty: propagate southeast flag
+               SBR  X2,STHEST&X1
+               MN   1&X2,0&X2
+               MZ   1&X2,0&X2
+               B    WTENX2
+     
+     * The cell is occupied - set southeast flag
+     WTEOC2    SBR  X2,STHEST&X1
+               MN   @1@,0&X2
+               MZ   @1@,0&X2
+               B    WTENX2
+
+     * The cell is vacant - clear southeast flag
+     WTEVA2    SBR  X2,STHEST&X1
+               MN   @0@,0&X2
+               MZ   @0@,0&X2
+
+     * Next west-to-east iteration
+     WTENX2    A    ONE,X1
+               C    WIDTH,X1
+               BU   WTEPA2
+
+     * Completed ETW and WTE subpasses - write to tape 1
+               MCW  WIDTH,X1
+               SBR  X2,DATOUT&X1
+               MN   GROUP,0&X2
+               MZ   GROUP,0&X2
+               SW   0&X2
+               WTW  1,DATOUT
+
+     * Also log to tape 3
+               MCW  WIDTH,X1
+               SBR  X2,DATIN&X1
+               MN   GROUP,0&X2
+               MZ   GROUP,0&X2
+               SW   0&X2
+               WTW  3,DATIN  * And log to tape 3
+
+     * Repeat until south to north pass is complete
+               A    ONE,LINNUM
+               C    HEIGHT,LINNUM
+               BU   STNPAS
+
+     * Print count of occupied seats
+               CS   PRINTM
+               SW   PRINTS
+               MCW  RESULT,PRINTM
+               W
+               CS   PRINTM
+               SW   PRINTS
+
+     * Repeat if unstable
+               C    @0@,UNSTAB
+               BU   REPEAT
 
                H    START
                B    START
