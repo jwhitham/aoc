@@ -24,10 +24,10 @@ while True:
 
     y = count % height
     if ((count // height) % 2) == 0:
-        print("NTS pass {} line {}".format((count // height) // 2, y))
+        print("tapecheck line {}: NTS pass {} line {}".format(count + 1, (count // height) // 2, y))
     else:
         y = height - 1 - y
-        print("STN pass {} line {}".format((count // height) // 2, y))
+        print("tapecheck line {}: STN pass {} line {}".format(count + 1, (count // height) // 2, y))
     count += 1
 
     assert len(data) == size, (len(data), size)

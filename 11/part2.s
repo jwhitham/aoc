@@ -332,8 +332,8 @@
 
      * Propagate southwest flag
                SBR  X2,STHWST&X1
-               MN   1&X2,0&X2
-               MZ   1&X2,0&X2
+               MN   0&X2,1&X2
+               MZ   0&X2,1&X2
                B    ETWNX2
                
      * This cell is not floor space
@@ -375,14 +375,14 @@
                MN   @V@,0&X2            * DATOUT: temporarily V (became vacant)
                MZ   @V@,0&X2
                MN   @1@,UNSTAB
-               B    ETWNX2
+               B    ETWFL2
     
      * Cell is occupied currently and 4 or fewer people are visible -> stay occupied
      KEEP1     SBR  X2,DATOUT&X1
                MN   @#@,0&X2            * DATOUT: still # (occupied)
                MZ   @#@,0&X2
                A    @00001@,RESULT
-               B    ETWNX2
+               B    ETWFL2
 
      * Cell is unoccupied (currently)
      ETWVA2    MCW  @0@,EAST            * east flag cleared if not occupied
@@ -396,22 +396,23 @@
                MZ   @O@,0&X2
                MN   @1@,UNSTAB
                A    @00001@,RESULT
-               B    ETWNX2
+               B    ETWFL2
 
      * Cell is unoccupied currently and 1 or more people are visible -> stay unoccupied
      KEEP2     SBR  X2,DATOUT&X1
                MN   @L@,0&X2            * DATOUT: still L (unoccupied)
                MZ   @L@,0&X2
 
-     * Next iteration of east to west subpass?
-     ETWNX2    SBR  X2,STH&X1           * copy east flag to south flag
+     * Propagate flags
+     ETWFL2    SBR  X2,STH&X1           * copy east flag to south flag
                MN   EAST,0&X2
                MZ   EAST,0&X2
                SBR  X2,STHWST&X1        * copy east flag to southwest flag
                MN   EAST,1&X2
                MZ   EAST,1&X2
 
-               C    ZERO,X1
+     * Next iteration of east to west subpass?
+     ETWNX2    C    ZERO,X1
                BU   ETWPA2
 
      * BEGIN WEST TO EAST SUBPASS
@@ -429,13 +430,13 @@
                BE   WTESV2          * still vacant
 
      * The cell is empty: propagate southeast flag
-               SBR  X2,STHEST&X1
+               SBR  X2,STHEST-1&X1
                MN   1&X2,0&X2
                MZ   1&X2,0&X2
                B    WTENX2
     
      * The cell was occupied and became vacant
-     WTEBV2    SBR  X2,STHEST&X1
+     WTEBV2    SBR  X2,STHEST-1&X1
                MN   @1@,0&X2
                MZ   @1@,0&X2
                SBR  X2,DATOUT&X1
@@ -444,13 +445,13 @@
                B    WTENX2
 
      * The cell was occupied and still is
-     WTESO2    SBR  X2,STHEST&X1
+     WTESO2    SBR  X2,STHEST-1&X1
                MN   @1@,0&X2
                MZ   @1@,0&X2
                B    WTENX2
 
      * The cell was vacant and became occupied
-     WTEBO2    SBR  X2,STHEST&X1
+     WTEBO2    SBR  X2,STHEST-1&X1
                MN   @0@,0&X2
                MZ   @0@,0&X2
                SBR  X2,DATOUT&X1
@@ -459,7 +460,7 @@
                B    WTENX2
 
      * The cell was vacant and still is
-     WTESV2    SBR  X2,STHEST&X1
+     WTESV2    SBR  X2,STHEST-1&X1
                MN   @0@,0&X2
                MZ   @0@,0&X2
 
