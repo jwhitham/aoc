@@ -1,7 +1,9 @@
+# This program checks the log tape which is tape 4 (part2.mt4)
+# against the data produced by part2a.py
 
 import struct, sys
 
-from_tape_3 = open("part2.mt3", "rb")
+from_tape_4 = open("part2.mt4", "rb")
 tapecheck_data = open("tapecheck.data", "rt")
 height = 0
 problem = open("input", "rt")
@@ -12,13 +14,13 @@ count = 0
 error = 0
 
 while True:
-    pos = from_tape_3.tell()
-    b = from_tape_3.read(4)
+    pos = from_tape_4.tell()
+    b = from_tape_4.read(4)
     if len(b) == 0:
         break
   
     (size, ) = struct.unpack("<I", b)
-    data = from_tape_3.read(size)
+    data = from_tape_4.read(size)
 
     y = count % height
     if ((count // height) % 2) == 0:
@@ -29,7 +31,7 @@ while True:
     count += 1
 
     assert len(data) == size, (len(data), size)
-    b = from_tape_3.read(4)
+    b = from_tape_4.read(4)
     (check, ) = struct.unpack("<I", b)
     assert check == size
 

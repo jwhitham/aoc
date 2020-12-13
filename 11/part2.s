@@ -189,8 +189,8 @@
 
      * Propagate northeast flag
                SBR  X2,NTHEST-1&X1
-               MN   0&X2,1&X2
-               MZ   0&X2,1&X2
+               MN   1&X2,0&X2
+               MZ   1&X2,0&X2
                B    WTENXT
                
      * This cell is not floor space
@@ -248,21 +248,21 @@
                BE   ETWVAC          * vacant
 
      * The cell is empty: propagate northwest flag
-               SBR  X2,NTHWST-1&X1
+               SBR  X2,NTHWST&X1
                MN   0&X2,1&X2
                MZ   0&X2,1&X2
                B    ETWNXT
      
      * The cell is occupied - set northwest flag
      ETWOCC    SBR  X2,NTHWST&X1
-               MN   @1@,0&X2
-               MZ   @1@,0&X2
+               MN   @1@,1&X2
+               MZ   @1@,1&X2
                B    ETWNXT
 
      * The cell is vacant - clear northwest flag
      ETWVAC    SBR  X2,NTHWST&X1
-               MN   @0@,0&X2
-               MZ   @0@,0&X2
+               MN   @0@,1&X2
+               MZ   @0@,1&X2
 
      ETWNXT    C    ZERO,X1
                BU   ETWPAS
