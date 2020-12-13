@@ -252,11 +252,6 @@
                C    HEIGHT,LINNUM
                BU   NTSPAS
 
-     * Between passes: rewind tape 1 and go to the beginning of the data area
-               RWD  1
-               RTW  1,INVAR
-               RTW  1,DATIN&0
-
      * BEGIN SOUTH TO NORTH PASS
      * Here is the setup for the pass
                MCW  ZERO,LINNUM
@@ -430,7 +425,9 @@
                MN   GROUP,0&X2
                MZ   GROUP,0&X2
                SW   0&X2
+               BSP  1
                WTW  1,DATOUT
+               BSP  1
 
      * Also log to tape 3
                MCW  WIDTH,X1
@@ -438,7 +435,7 @@
                MN   GROUP,0&X2
                MZ   GROUP,0&X2
                SW   0&X2
-               WTW  3,DATIN  * And log to tape 3
+               WTW  3,DATIN
 
      * Repeat until south to north pass is complete
                A    ONE,LINNUM

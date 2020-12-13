@@ -35,9 +35,9 @@ while True:
 
     line = tapecheck_data.readline().strip()
   
-    bad = False
     assert len(line) == size
     for x in range(size):
+        bad = False
         got = data[x]
         expected = line[x]
         if 0 < got < 10:
