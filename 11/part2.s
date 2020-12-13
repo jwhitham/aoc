@@ -32,7 +32,7 @@
      * Variables
      UNSTAB    DCW  0           * Nonzero if there was a change
      WIDTH2    DCW  000         * Width + 2
-     CURCNT    DCW  0           * Current tape 2 value for the cell: . or 0..9 (see table)
+     CURCNT    DCW  0           * Current tape 2 value for the cell (valid between NTS pass and STN pass)
      *                          *  .   floor space
      *                          *  0   occupied with 0 people visible from west, northwest, north or northeast
      *                          *  1   occupied with 1 person " " " " "
@@ -44,9 +44,12 @@
      *                          *  7   unoccupied with 2 people " " " " "
      *                          *  8   unoccupied with 3 people " " " " "
      *                          *  9   unoccupied with 4 people " " " " "
-     *                          *  O   occupied (at end of south-north pass)
-     *                          *  V   vacant (at end of south-north pass)
-     CURCEL    DCW  @X@         * Current tape 1 cell value: . or # or L
+     CURCEL    DCW  @X@         * Current tape 1 cell value
+     *                          *  .   floor space
+     *                          *  O   became occupied (during STN pass only)
+     *                          *  #   occupied
+     *                          *  V   became unoccupied (during STN pass only)
+     *                          *  L   unoccupied
      CURCPY    DCW  0           * copy of tape 2 value (before modification in south-north pass)
      TMP       DCW  0
      WEST      DCW  0
@@ -328,52 +331,50 @@
                MZ   0&X2,TMP
                A    TMP,CURCNT
 
+               SBR  X2,DATIN&X1         * write total number of people to DATIN
+               MN   CURCNT,0&X2
+               MZ   CURCNT,0&X2
+
                C    @4@,CURCPY          * detect tape 2 code 5..9 -> unoccupied
                BH   ETWVA2
 
      * Cell is occupied (currently)
                MCW  @1@,EAST            * east flag set if occupied
-               SBR  X2,DATIN&X1
-               MN   @O@,0&X2            * tape 2 code becomes 'O' if occupied
-               MZ   @O@,0&X2
 
                C    @5@,CURCNT          * detect less than 5 visible
                BL   KEEP1
 
      * Cell is occupied currently and 5 or more people are visible -> become unoccupied
                SBR  X2,DATOUT&X1
-               MN   @L@,0&X2
-               MZ   @L@,0&X2
+               MN   @V@,0&X2            * DATOUT: temporarily V (became vacant)
+               MZ   @V@,0&X2
                MN   @1@,UNSTAB
                B    ETWNX2
     
      * Cell is occupied currently and 4 or fewer people are visible -> stay occupied
      KEEP1     SBR  X2,DATOUT&X1
-               MN   @#@,0&X2
+               MN   @#@,0&X2            * DATOUT: still # (occupied)
                MZ   @#@,0&X2
                A    @00001@,RESULT
                B    ETWNX2
 
      * Cell is unoccupied (currently)
      ETWVA2    MCW  @0@,EAST            * east flag cleared if not occupied
-               SBR  X2,DATIN&X1
-               MN   @V@,0&X2            * tape 2 code becomes 'V'
-               MZ   @V@,0&X2
 
                C    @0@,CURCNT          * detect 0 people visible
                BU   KEEP2
 
      * Cell is unoccupied currently and 0 people are visible -> become occupied
                SBR  X2,DATOUT&X1
-               MN   @#@,0&X2
-               MZ   @#@,0&X2
+               MN   @O@,0&X2            * DATOUT: temporarily O (became occupied)
+               MZ   @O@,0&X2
                MN   @1@,UNSTAB
                A    @00001@,RESULT
                B    ETWNX2
 
      * Cell is unoccupied currently and 1 or more people are visible -> stay unoccupied
      KEEP2     SBR  X2,DATOUT&X1
-               MN   @L@,0&X2
+               MN   @L@,0&X2            * DATOUT: still L (unoccupied)
                MZ   @L@,0&X2
 
      * Next iteration of east to west subpass?
@@ -389,28 +390,50 @@
 
      * BEGIN WEST TO EAST SUBPASS
                MCW  ZERO,X1
-     WTEPA2    SBR  X2,DATIN&X1
+     WTEPA2    SBR  X2,DATOUT&X1
                MN   0&X2,CURCEL
                MZ   0&X2,CURCEL
                C    @O@,CURCEL
-               BE   WTEOC2          * occupied
+               BE   WTEBO2          * became occupied
+               C    @#@,CURCEL
+               BE   WTESO2          * still occupied
                C    @V@,CURCEL
-               BE   WTEVA2          * vacant
+               BE   WTEBV2          * became vacant
+               C    @L@,CURCEL
+               BE   WTESV2          * still vacant
 
      * The cell is empty: propagate southeast flag
                SBR  X2,STHEST&X1
                MN   1&X2,0&X2
                MZ   1&X2,0&X2
                B    WTENX2
-     
-     * The cell is occupied - set southeast flag
-     WTEOC2    SBR  X2,STHEST&X1
+    
+     * The cell was occupied and became vacant
+     WTEBV2    SBR  X2,STHEST&X1
+               MN   @1@,0&X2
+               MZ   @1@,0&X2
+               SBR  X2,DATOUT&X1
+               MN   @L@,0&X2
+               MZ   @L@,0&X2
+               B    WTENX2
+
+     * The cell was occupied and still is
+     WTESO2    SBR  X2,STHEST&X1
                MN   @1@,0&X2
                MZ   @1@,0&X2
                B    WTENX2
 
-     * The cell is vacant - clear southeast flag
-     WTEVA2    SBR  X2,STHEST&X1
+     * The cell was vacant and became occupied
+     WTEBO2    SBR  X2,STHEST&X1
+               MN   @0@,0&X2
+               MZ   @0@,0&X2
+               SBR  X2,DATOUT&X1
+               MN   @#@,0&X2
+               MZ   @#@,0&X2
+               B    WTENX2
+
+     * The cell was vacant and still is
+     WTESV2    SBR  X2,STHEST&X1
                MN   @0@,0&X2
                MZ   @0@,0&X2
 
