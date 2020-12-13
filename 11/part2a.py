@@ -16,9 +16,6 @@ for line in problem:
 
 height = len(data1)
 width = len(data1[0])
-VACANT = 0x10
-OCCUPIED = 0x20
-COUNTER = 0xf
 
 def trip(sy, sx, dy, dx):
     y = sy
@@ -36,23 +33,43 @@ def trip(sy, sx, dy, dx):
 
     return 0
 
+def displayaux(heading):
+    aux.write(heading)
+    aux.write("\n")
+    for y in range(len(data1)):
+        for v in data2[y]:
+            if v < 10:
+                aux.write(str(v))
+            else:
+                aux.write(chr(v))
+        aux.write("\n")
+
 def display():
     occ = 0
     for y in range(len(data1)):
         out.write("".join(data1[y]))
         out.write("\n")
-        for v in data2[y]:
-            aux.write(str(v & COUNTER))
-        aux.write("\n")
         for v in data1[y]:
             if v == "#":
                 occ += 1
     out.write(str(occ))
     out.write("\n")
-    aux.write(str(occ))
-    aux.write("\n")
 
 display()
+# Data 2
+#  *  .   floor space
+#  *  0   occupied with 0 people visible from west, northwest, north or northeast
+#  *  1   occupied with 1 person " " " " "
+#  *  2   occupied with 2 people " " " " "
+#  *  3   occupied with 3 people " " " " "
+#  *  4   occupied with 4 people " " " " "
+#  *  5   unoccupied with 0 people " " " " "
+#  *  6   unoccupied with 1 person " " " " "
+#  *  7   unoccupied with 2 people " " " " "
+#  *  8   unoccupied with 3 people " " " " "
+#  *  9   unoccupied with 4 people " " " " "
+#  *  O   occupied (at end of south-north pass)
+#  *  V   vacant (at end of south-north pass)
 
 change = True
 while change:
@@ -78,14 +95,14 @@ while change:
         west_flag = 0
         for x in range(width):
             if data1[y][x] == ".":
-                data2[y][x] = 0
+                data2[y][x] = ord(".")
                 if x > 0:
                     northeast_flag[x - 1] = northeast_flag[x]
             else:
                 if data1[y][x] == "L":
-                    data2[y][x] = VACANT
+                    data2[y][x] = 5
                 else:
-                    data2[y][x] = OCCUPIED
+                    data2[y][x] = 0
                     
                 data2[y][x] += (west_flag + north_flag[x] +
                                 northeast_flag[x] + northwest_flag[x])
@@ -106,32 +123,41 @@ while change:
         # northwest flag requires reverse iteration
         northwest_flag[0] = 0
         for x in reversed(range(1, width)):
-            if data2[y][x - 1] & OCCUPIED:
+            if data1[y][x - 1] == "#":
                 northwest_flag[x] = 1
-            elif data2[y][x - 1] & VACANT:
+            elif data1[y][x - 1] == "L":
                 northwest_flag[x] = 0
             else:
                 northwest_flag[x] = northwest_flag[x - 1]
+
+    displayaux("end of north-south pass")
 
     # Pass from the southeast
     for y in reversed(range(height)):
         east_flag = 0
         for x in reversed(range(width)):
-            if data2[y][x] == 0:
+            if data2[y][x] == ord("."):
                 data1[y][x] = "."
                 if x < (width - 1):
                     southwest_flag[x + 1] = southwest_flag[x]
             else:
-                data2[y][x] += (east_flag + south_flag[x] +
+                count = data2[y][x]
+                vacant = False
+                if count >= 5:
+                    vacant = True
+                    count -= 5
+
+                count += (east_flag + south_flag[x] +
                                 southeast_flag[x] + southwest_flag[x])
 
-                if data2[y][x] & VACANT:
+                if vacant:
                     east_flag = 0       # unoccupied
+                    data2[y][x] = ord("V")
                 else:
                     east_flag = 1       # occupied
+                    data2[y][x] = ord("O")
            
-                count = data2[y][x] & COUNTER
-                if not (data2[y][x] & VACANT):
+                if not vacant:
                     # occupied
                     if count >= 5:
                         # became unoccupied
@@ -160,11 +186,12 @@ while change:
         southwest_flag[0] = 0
         southeast_flag[width - 1] = 0
         for x in (range(width - 1)):
-            if data2[y][x + 1] & OCCUPIED:
+            if data2[y][x + 1] == ord("O"):
                 southeast_flag[x] = 1
-            elif data2[y][x + 1] & VACANT:
+            elif data2[y][x + 1] == ord("V"):
                 southeast_flag[x] = 0
             else:
                 southeast_flag[x] = southeast_flag[x + 1]
 
+    displayaux("end of south-north pass")
     display()

@@ -104,6 +104,7 @@
 
 
      * BEGIN NORTH TO SOUTH PASS
+     * Here is the setup for the pass
                MCW  ZERO,LINNUM
 
      * Clear out previous line flags: NTHWST, NTH, NTHEAST
@@ -126,8 +127,9 @@
                C    WIDTH2,X1
                BU   NTSCLR
 
+     * The north to south pass begins
      * Load line from tape 1
-               RTW  1,DATIN&0
+     NTSPAS    RTW  1,DATIN&0
                MCW  @0@,WEST
 
      * BEGIN WEST TO EAST SUBPASS
@@ -227,7 +229,17 @@
                BU   ETWPAS
 
      * Completed WTE and ETW subpasses - write to tape 2
+               MCW  WIDTH,X1
+               SBR  X2,DATOUT&X1
+               MN   GROUP,0&X2
+               MZ   GROUP,0&X2
+               SW   0&X2
+               WTW  2,DATOUT
 
+     * Repeat until north to south pass is complete
+               A    ONE,LINNUM
+               C    HEIGHT,LINNUM
+               BU   NTSPAS
 
 
                H    START
