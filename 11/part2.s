@@ -1,12 +1,14 @@
-               JOB  TEST1.S 12/12/20 10:24:45                              -8685
+               JOB  PART2.S 12/12/20 10:24:45                              -8685
      *
                CTL       6611  *6=16,000C;6=16,000T;1=OBJDECK;,1=MODADD
      *   1         2         3         4         5         6         7         8
      *78901234567890123456789012345678901234567890123456789012345678901234567890
      * label   | op | OPERATION                                         |xxxxxxx
 
-     * Advent of Code 2020 day 11 - example input
-     * 
+     * Advent of Code 2020 day 11 part 2
+     * Jack Whitham
+     * https://github.com/jwhitham/aoc2020
+
                ORG  87
      X1        DSA  0                  index register 1
                ORG  92
@@ -68,7 +70,11 @@
                ORG  240
      PRINTM    DC   @ @
                ORG  300
+
+     * Working data storage for one line
      DATIN     DC   @.@
+               ORG  332
+     PRINTE    DC   @ @
                ORG  420
      DATOUT    DC   @.@
                ORG  540
@@ -84,12 +90,8 @@
 
 
      * Start of code
-     * Reset printable area
-     START     CS   PRINTM
-               SW   PRINTS
-     
      * template GROUP mark written
-               MZ   @.@,GROUP
+     START     MZ   @.@,GROUP
                SW   GROUP
 
      * all tapes to the beginning
@@ -100,11 +102,14 @@
 
      * Read invariants from input tape
                RTW  1,INVAR
+               C    HEADMS,@0123456789ABCDEF@
+               BU   TAPERR
 
      * Print message in header
-               MCW  HEADMS,PRINTM
+               MCW  @AOC 2020 PUZZLE 11 PART 2@,PRINTM
                W
-               CS   PRINTM
+               CS   PRINTE
+               CS
                SW   PRINTS
 
      * Ignore first line in input tape (don't change the format!)
@@ -493,7 +498,8 @@
                BU   STNPAS
 
      * Print count of occupied seats
-               CS   PRINTM
+               CS   PRINTE
+               CS
                SW   PRINTS
                MCW  RESULT,PRINTM
                W
@@ -504,7 +510,7 @@
                C    @0@,UNSTAB
                BU   REPEAT
 
-               H    START
+     TAPERR    H    START
                B    START
 
                END  START
