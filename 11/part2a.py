@@ -79,31 +79,31 @@ while change:
         for x in range(width):
             if data1[y][x] == ".":
                 data2[y][x] = 0
+                if x > 0:
+                    northeast_flag[x - 1] = northeast_flag[x]
             else:
                 if data1[y][x] == "L":
                     data2[y][x] = VACANT
                 else:
                     data2[y][x] = OCCUPIED
                     
-                if y == 1 and x == (width - 1):
-                    print(data2[y][x], data2[y][x] & COUNTER, west_flag, north_flag[x],
-                                northeast_flag[x], northwest_flag[x])
-
                 data2[y][x] += (west_flag + north_flag[x] +
                                 northeast_flag[x] + northwest_flag[x])
 
                 if data1[y][x] == "L":
                     west_flag = 0       # unoccupied
+                    north_flag[x] = 0
+                    if x > 0:
+                        northeast_flag[x - 1] = 0
                 else:
                     west_flag = 1       # occupied
+                    north_flag[x] = 1
+                    if x > 0:
+                        northeast_flag[x - 1] = 1
 
-        # propagate northern flags
-        for x in range(width):
-            if data2[y][x] & OCCUPIED:
-                north_flag[x] = 1
-            elif data2[y][x] & VACANT:
-                north_flag[x] = 0
+        northeast_flag[width - 1] = 0
 
+        # northwest flag requires reverse iteration
         northwest_flag[0] = 0
         for x in reversed(range(1, width)):
             if data2[y][x - 1] & OCCUPIED:
@@ -113,15 +113,6 @@ while change:
             else:
                 northwest_flag[x] = northwest_flag[x - 1]
 
-        northeast_flag[width - 1] = 0
-        for x in (range(width - 1)):
-            if data2[y][x + 1] & OCCUPIED:
-                northeast_flag[x] = 1
-            elif data2[y][x + 1] & VACANT:
-                northeast_flag[x] = 0
-            else:
-                northeast_flag[x] = northeast_flag[x + 1]
-
     # Pass from the southeast
     for y in reversed(range(height)):
         east_flag = 0
@@ -129,10 +120,6 @@ while change:
             if data2[y][x] == 0:
                 data1[y][x] = "."
             else:
-                if y == 1 and x == (width - 1):
-                    print(data2[y][x], data2[y][x] & COUNTER, east_flag, south_flag[x],
-                                southeast_flag[x], southwest_flag[x])
-
                 data2[y][x] += (east_flag + south_flag[x] +
                                 southeast_flag[x] + southwest_flag[x])
 
@@ -142,8 +129,6 @@ while change:
                     east_flag = 1       # occupied
            
                 count = data2[y][x] & COUNTER
-                if y == 1 and x == (width - 1):
-                    print(data2[y][x], data2[y][x] & COUNTER)
                 if not (data2[y][x] & VACANT):
                     # occupied
                     if count >= 5:
@@ -152,6 +137,7 @@ while change:
                         data1[y][x] = "L"
                     else:
                         data1[y][x] = "#"
+                    south_flag[x] = 1
                 else:
                     # unoccupied
                     if count == 0:
@@ -160,14 +146,9 @@ while change:
                         data1[y][x] = "#"
                     else:
                         data1[y][x] = "L"
+                    south_flag[x] = 0
 
         # propagate southern flags
-        for x in range(width):
-            if data2[y][x] & OCCUPIED:
-                south_flag[x] = 1
-            elif data2[y][x] & VACANT:
-                south_flag[x] = 0
-
         southwest_flag[0] = 0
         for x in reversed(range(1, width)):
             if data2[y][x - 1] & OCCUPIED:

@@ -1,7 +1,7 @@
 import struct
 
 problem = open("input", "rb")
-out = open("test1.mt1", "wb")
+out = open("part1.mt1", "wb")
 
 data = []
 for line in problem:
