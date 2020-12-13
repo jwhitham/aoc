@@ -105,7 +105,10 @@
                C    HEADMS,@0123456789ABCDEF@
                BU   TAPERR
 
-     * Print message in header
+     * Print message
+               CS   PRINTE
+               CS
+               SW   PRINTS
                MCW  @AOC 2020 PUZZLE 11 PART 2@,PRINTM
                W
                CS   PRINTE
