@@ -143,20 +143,19 @@ while change:
 
                 count += (east_flag + south_flag[x] +
                                 southeast_flag[x] + southwest_flag[x])
+                data2[y][x] = count
 
                 if vacant:
                     east_flag = 0       # unoccupied
-                    data2[y][x] = ord("V")
                 else:
                     east_flag = 1       # occupied
-                    data2[y][x] = ord("O")
            
                 if not vacant:
                     # occupied
                     if count >= 5:
                         # became unoccupied
                         change = True
-                        data1[y][x] = "L"
+                        data1[y][x] = "V"
                     else:
                         data1[y][x] = "#"
 
@@ -168,7 +167,7 @@ while change:
                     if count == 0:
                         # became occupied
                         change = True
-                        data1[y][x] = "#"
+                        data1[y][x] = "O"
                     else:
                         data1[y][x] = "L"
 
@@ -180,12 +179,23 @@ while change:
         southwest_flag[0] = 0
         southeast_flag[width - 1] = 0
         for x in (range(width - 1)):
-            if data2[y][x + 1] == ord("O"):
+            if data1[y][x + 1] == ("V"):    # was occupied, became vacant
                 southeast_flag[x] = 1
-            elif data2[y][x + 1] == ord("V"):
+                data1[y][x + 1] = "L"
+            elif data1[y][x + 1] == ("#"):  # was occupied, still is
+                southeast_flag[x] = 1
+            elif data1[y][x + 1] == ("O"):  # was vacant, became occupied
+                southeast_flag[x] = 0
+                data1[y][x + 1] = "#"
+            elif data1[y][x + 1] == ("L"):  # was vacant, still is
                 southeast_flag[x] = 0
             else:
                 southeast_flag[x] = southeast_flag[x + 1]
+
+        if data1[y][0] == ("O"):
+            data1[y][0] = "#"
+        elif data1[y][0] == ("V"):
+            data1[y][0] = "L"
 
         for v in data2[y]:
             if v < 10:
