@@ -2,7 +2,7 @@ old/**
 *.brk
 *.cd
 *.lst
-*.mt1
+*.mt4
 *.mt2
 *.mt3
 *.out

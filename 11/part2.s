@@ -18,6 +18,11 @@
      * Entry point
      INIT      B    START
 
+     * Tape 1: input tape (read only)
+     * Tape 2: work tape (write during north-south pass, read during south-north pass)
+     * Tape 3: work tape (write during south-north pass and setup, read during north-south pass)
+     * Tape 4: log tape for debugging (write only)
+
      * Invariants
      INVAR     DCW  @I@
      HEADMS    DCW  @0000000000000000@
@@ -32,7 +37,7 @@
      * Variables
      UNSTAB    DCW  0           * Nonzero if there was a change
      WIDTH2    DCW  000         * Width + 2
-     CURCNT    DCW  0           * Current tape 2 value for the cell (valid between NTS pass and STN pass)
+     CURCNT    DCW  0           * Current tape 2 value for the cell (valid between north-south pass and south-north pass)
      *                          *  .   floor space
      *                          *  0   occupied with 0 people visible from west, northwest, north or northeast
      *                          *  1   occupied with 1 person " " " " "
@@ -44,11 +49,11 @@
      *                          *  7   unoccupied with 2 people " " " " "
      *                          *  8   unoccupied with 3 people " " " " "
      *                          *  9   unoccupied with 4 people " " " " "
-     CURCEL    DCW  @X@         * Current tape 1 cell value
+     CURCEL    DCW  @X@         * Current tape 3 cell value
      *                          *  .   floor space
-     *                          *  O   became occupied (during STN pass only)
+     *                          *  O   became occupied (during south-north pass only)
      *                          *  #   occupied
-     *                          *  V   became unoccupied (during STN pass only)
+     *                          *  V   became unoccupied (during south-north pass only)
      *                          *  L   unoccupied
      CURCPY    DCW  0           * copy of tape 2 value (before modification in south-north pass)
      TMP       DCW  0
@@ -87,18 +92,13 @@
                MZ   @.@,GROUP
                SW   GROUP
 
-     * log tape rewound
-               RWD  3
-
-     * Assume stable:
-     REPEAT    MN   @0@,UNSTAB
-               MCW  @00000@,RESULT
-
-     * work tapes to the beginning
+     * all tapes to the beginning
                RWD  1
                RWD  2
+               RWD  3
+               RWD  4
 
-     * Read invariants from first tape
+     * Read invariants from input tape
                RTW  1,INVAR
 
      * Print message in header
@@ -107,13 +107,39 @@
                CS   PRINTM
                SW   PRINTS
 
+     * Ignore first line in input tape (don't change the format!)
+               RTW  1,DATIN&0
+
+     * Copy input tape 1 -> work tape 3
+               MCW  ZERO,LINNUM
+     COPY      RTW  1,DATIN&0
+               MCW  WIDTH,X1
+               SBR  X2,DATIN&X1
+               MN   GROUP,0&X2
+               MZ   GROUP,0&X2
+               SW   0&X2
+               WTW  3,DATIN
+
+               A    ONE,LINNUM
+               C    HEIGHT,LINNUM
+               BU   COPY
+
+     * Now we are done with tape 1
+               RWD  1
+
+     * Assume stable:
+     REPEAT    MN   @0@,UNSTAB
+               MCW  @00000@,RESULT
+
+     * work tapes to the beginning
+               RWD  2
+               RWD  3
+
      * Compute WIDTH + 2
                MCW  WIDTH,WIDTH2
                A    ONE,WIDTH2
                A    ONE,WIDTH2
 
-     * Ignore first line
-               RTW  1,DATIN&0
 
 
      * BEGIN NORTH TO SOUTH PASS
@@ -141,8 +167,8 @@
                BU   NTSCLR
 
      * The north to south pass begins
-     * Load line from tape 1
-     NTSPAS    RTW  1,DATIN&0
+     * Load line from tape 3
+     NTSPAS    RTW  3,DATIN&0
                MCW  @0@,WEST
 
      * BEGIN WEST TO EAST SUBPASS
@@ -248,7 +274,7 @@
                MZ   GROUP,0&X2
                SW   0&X2
                WTW  2,DATOUT
-               WTW  3,DATOUT  * And log to tape 3
+               WTW  4,DATOUT  * And log to tape 4
 
      * Repeat until north to south pass is complete
                A    ONE,LINNUM
@@ -442,23 +468,23 @@
                C    WIDTH,X1
                BU   WTEPA2
 
-     * Completed ETW and WTE subpasses - write to tape 1
+     * Completed ETW and WTE subpasses - write to tape 3
                MCW  WIDTH,X1
                SBR  X2,DATOUT&X1
                MN   GROUP,0&X2
                MZ   GROUP,0&X2
                SW   0&X2
-               BSP  1
-               WTW  1,DATOUT
-               BSP  1
+               BSP  3
+               WTW  3,DATOUT
+               BSP  3
 
-     * Also log to tape 3
+     * Also log to tape 4
                MCW  WIDTH,X1
                SBR  X2,DATIN&X1
                MN   GROUP,0&X2
                MZ   GROUP,0&X2
                SW   0&X2
-               WTW  3,DATIN
+               WTW  4,DATIN
 
      * Repeat until south to north pass is complete
                A    ONE,LINNUM
