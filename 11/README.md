@@ -11,8 +11,8 @@ card machines. The CPU uses decimal numbers for everything, even
 addressing. Programs are usually stored on punched cards, though
 they may also be stored on tape: the vacuum-column 729 tape drives are
 the ones that appear as "the computer" in old films.
-[1401s can be seen in various museums](http://ibm-1401.info/WorldInventoryIBM1401.html),
-[https://www.youtube.com/watch?v=uFQ3sajIdaM](some restored and working).
+[1401s can be seen in various museums](http://ibm-1401.info/WorldInventoryIBM1401.html), some restored and working, e.g.
+https://www.youtube.com/watch?v=uFQ3sajIdaM .
 
 I
 [read that it is hard to write programs for the IBM 1401](https://www.curiousmarc.com/computing/ibm-1401-mainframe/ibm-1401-programming)
