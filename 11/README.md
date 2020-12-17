@@ -17,7 +17,8 @@ https://www.youtube.com/watch?v=uFQ3sajIdaM .
 I
 [read that it is hard to write programs for the IBM 1401](https://www.curiousmarc.com/computing/ibm-1401-mainframe/ibm-1401-programming)
 and so I had to find out for myself. I used 
-[the ROPE environment](https://github.com/jpf/ROPE/commit/5a6aa381c19bf49cf61d44d93862db593e994a07)
+[the ROPE environment](https://github.com/lucaseverini/ROPE),
+version 2.0.178 beta,
 which includes Van Snyder's Autocoder (assembler) and a 1401 simulator.
 
 Memory was a big limitation. The problem requires 95x98 characters
@@ -55,8 +56,12 @@ debugging tape to data from the model helped me to find bugs
 The final program uses four tapes which have to be assigned to disk
 files using settings in ROPE (e.g. part2.mt1 is tape 2 for the part 1
 program). The 1401's tape control is actually simple. It is hard
-to imagine a modern computer where "print a line", "rewind the tape"
-and "read a block from tape" are all single machine instructions!
+to imagine a modern computer where "print a line"
+and "read an input block" are single machine instructions!
+
+The simulator estimates that
+running each program requires about 1 hour and 20 minutes on a 1401.
+In simulation, this is about two seconds.
 
 I think it is possible to solve the
 problem using a single tape - indeed, in principle, it can be solved in RAM -
@@ -67,9 +72,20 @@ running.
 
 [This book](http://bitsavers.org/pdf/ibm/1401/Programming_the_1401_1962.pdf)
 was the most detailed reference I found, but 
-[this book](http://bitsavers.trailing-edge.com/pdf/ibm/1401/A_Guide_to_1401_Programming_1961.pdf) may be a better introduction,
-though it does not mention index registers. I didn't find
-anything like a 1401 architecture reference manual,
-with detailed information on each instruction's encoding and behaviour,
-but the relevant information can be found by searching these books.
+[this book](http://bitsavers.trailing-edge.com/pdf/ibm/1401/A_Guide_to_1401_Programming_1961.pdf)
+may be a better introduction. The second book does not mention index registers.
+but it does have a summary of each instruction, which is the closest thing
+to an architecture reference manual that I was able to find.
+
+The Autocoder is a PC program written in FORTRAN. It replicates
+the behaviour of a contemporary 1401 program described 
+[here](http://www.bitsavers.org/pdf/ibm/1401/J24-1434-2_IBM_1401_Autocoder_Specifications_1961.pdf).
+Despite this, it does have many of the features
+you'd find in a present-day assembler: for instance, you can use
+labels for both data and code, and you can specify offsets and index
+registers. Apparently there is even macro support,
+though I did not attempt to use this. The main limitation is that labels
+are restricted to 6 characters, which is awkward. There is a fixed
+line format, corresponding to columns on punched cards.
+
 
