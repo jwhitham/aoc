@@ -4,22 +4,24 @@ CONST
     TileSize = 10;
     GridSize = 12;
     Edges = 8;
+    MaxEdgeValue = 1023;  (* (2 ** TileSize) - 1 *)
 TYPE
-    Number = [1 .. 9999];
-    Index = [0 .. GridSize * GridSize];
+    TileNumber = [1 .. 9999];
+    TileIndex = [0 .. GridSize * GridSize];
     Coord = [1 .. TileSize];
-    EdgeValue = CARDINAL;
+    EdgeValue = [0 .. MaxEdgeValue];
+    EdgeIndex = [1 .. Edges];
     Tile = 
         RECORD
-            cell    : ARRAY [1 .. TileSize] OF
-                        ARRAY [1 .. TileSize] OF BOOLEAN;
-            number  : Number;
-            edge    : ARRAY [1 .. Edges] OF EdgeValue;
+            cell    : ARRAY Coord OF
+                        ARRAY Coord OF BOOLEAN;
+            number  : TileNumber;
+            edge    : ARRAY EdgeIndex OF EdgeValue;
         END;
     TileSet =
         RECORD
-            tile        : ARRAY [1 .. GridSize * GridSize] OF Tile;
-            max_index   : Index;
+            tile        : ARRAY TileIndex OF Tile;
+            max_index   : TileIndex;
         END;
 
 PROCEDURE ReadTileSet(filename      : ARRAY OF CHAR;

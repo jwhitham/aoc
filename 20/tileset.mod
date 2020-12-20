@@ -14,7 +14,7 @@ PROCEDURE ReadTileSet(filename      : ARRAY OF CHAR;
     VAR open_result : SeqFile.OpenResults;
     VAR row         : ARRAY [1 .. TileSize] OF CHAR;
     VAR tile_string : ARRAY [1 .. 5] OF CHAR;
-    VAR i           : Index;
+    VAR i           : TileIndex;
     VAR x, y        : Coord;
     VAR number      : CARDINAL;
     VAR j           : CARDINAL;
@@ -109,7 +109,7 @@ BEGIN
 END Flip;
 
 PROCEDURE ComputeEdges(VAR tile_set : TileSet);
-    VAR i           : Index;
+    VAR i           : TileIndex;
     VAR j           : CARDINAL;
     VAR x           : Coord;
     VAR copy        : Tile;

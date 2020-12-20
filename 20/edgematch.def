@@ -1,0 +1,22 @@
+DEFINITION MODULE EdgeMatch;
+
+IMPORT TileSet;
+
+TYPE
+    MatchListPtr = POINTER TO MatchListItem;
+    MatchListItem =
+        RECORD
+            tile    : TileSet.TileIndex;
+            edge    : TileSet.EdgeIndex;
+            next    : MatchListPtr;
+        END;
+
+    EdgeTable =
+        RECORD
+            match   : ARRAY TileSet.EdgeValue OF MatchListPtr;
+        END;
+
+PROCEDURE ComputeEdgeTable(VAR tile_set   : TileSet.TileSet;
+                           VAR edge_table : EdgeTable);
+
+END EdgeMatch.
