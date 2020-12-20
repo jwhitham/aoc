@@ -3,15 +3,18 @@ DEFINITION MODULE TileSet;
 CONST
     TileSize = 10;
     GridSize = 12;
+    Edges = 8;
 TYPE
     Number = [1 .. 9999];
     Index = [0 .. GridSize * GridSize];
     Coord = [1 .. TileSize];
+    EdgeValue = CARDINAL;
     Tile = 
         RECORD
             cell    : ARRAY [1 .. TileSize] OF
                         ARRAY [1 .. TileSize] OF BOOLEAN;
             number  : Number;
+            edge    : ARRAY [1 .. Edges] OF EdgeValue;
         END;
     TileSet =
         RECORD
@@ -22,5 +25,9 @@ TYPE
 PROCEDURE ReadTileSet(filename      : ARRAY OF CHAR;
                       VAR tile_set  : TileSet;
                       VAR error     : BOOLEAN);
+PROCEDURE Rotate(input : Tile): Tile;
+PROCEDURE Flip(input : Tile): Tile;
+PROCEDURE ComputeEdges(VAR tile_set : TileSet);
+PROCEDURE PrintTile(tile : Tile);
 
 END TileSet.
