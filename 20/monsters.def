@@ -7,7 +7,7 @@ CONST
     ImageSize = (TileSet.TileSize - 2) * TileSet.GridSize;
 TYPE
     Sea = (Monster, Wave, Calm);
-    ImageCoord = [1 .. ImageSize];
+    ImageCoord = [0 .. ImageSize];
     Image = ARRAY ImageCoord OF ARRAY ImageCoord OF Sea;
 
 PROCEDURE CreateImage(VAR tile_set  : TileSet.TileSet;
@@ -15,6 +15,8 @@ PROCEDURE CreateImage(VAR tile_set  : TileSet.TileSet;
                       VAR image     : Image);
 PROCEDURE Rotate(VAR input : Image);
 PROCEDURE Flip(VAR input : Image);
+PROCEDURE FindMonsters(VAR input : Image): CARDINAL;
+PROCEDURE CountWaves(VAR input : Image): CARDINAL;
 PROCEDURE PrintImage(VAR input : Image);
 
 END Monsters.
