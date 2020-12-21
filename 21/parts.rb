@@ -16,21 +16,6 @@ class ParsedLine
   end
 end
 
-class AllergenMapping
-  def initialize(allergen, foods)
-    @allergen = name
-    @foods = foods
-  end
-
-  def allergen()
-    return @allergen
-  end
-
-  def foods()
-    return @foods
-  end
-end
-
 def get_parsed_lines(filename)
   parsed_lines = []
   File.open(filename, "r") do |input|
@@ -62,14 +47,15 @@ def get_all_foods(parsed_lines)
   return all_foods
 end
 
-def part1(filename)
+def solver(filename)
   # Collect all input
   parsed_lines = get_parsed_lines(filename)
   all_allergens = get_all_allergens(parsed_lines)
   all_foods = get_all_foods(parsed_lines)
 
   # Pick an allergen and try to figure out which food it is
-  mapping = Hash.new()
+  food_to_allergen = Hash.new()
+  dangerous = []
 
   # Each allergen maps to exactly 1 food
   # Each food may contain 0 or 1 allergen
@@ -99,7 +85,8 @@ def part1(filename)
           p.foods.delete(food)
         end
         all_allergens.delete(allergen)
-        mapping[food] = allergen
+        food_to_allergen[food] = allergen
+        dangerous.push([allergen, food])
         puts(allergen + " is " + food)
         progress = true
       else
@@ -113,20 +100,43 @@ def part1(filename)
   end
 
   # Count ingredients in original list that don't map to allergens
-  result = 0
+  part1_result = 0
   parsed_lines.each() do |p|
     p.foods.each() do |food|
-      if not mapping.has_key?(food) then
-        result += 1
+      if not food_to_allergen.has_key?(food) then
+        part1_result += 1
       end
     end
   end
-  return result
+
+  # make canonical dangerous ingredient list
+  part2_result = []
+  dangerous.sort().each() do |allergen, food|
+    part2_result.push(food)
+  end
+
+  return [part1_result, part2_result.join(",")]
 end
 
-if part1("example_input") != 5 then
-  raise NameError, "part 1 example input test failed"
+def main()
+  puts("TESTING")
+  results = solver("example_input")
+  part1_result = results[0]
+  part2_result = results[1]
+  if part1_result != 5 then
+    raise NameError, "part 1 example input test failed"
+  end
+  if part2_result != "mxmxvkd,sqjhc,fvjkl" then
+    raise NameError, "part 2 example input test failed"
+  end
+  puts("")
+  puts("SOLVING")
+  results = solver("input")
+  part1_result = results[0]
+  part2_result = results[1]
+  puts("part 1 result = " + part1_result.to_s())
+  puts("part 2 result = " + part2_result)
 end
-result = part1("input")
-puts("part 1 result = " + result.to_s())
+
+main()
 
