@@ -13,9 +13,6 @@ TYPE
             cell    : ARRAY CellCoord OF
                         ARRAY CellCoord OF BOOLEAN;
             number  : TileNumber;
-            x       : GridCoord;
-            y       : GridCoord;
-            placed  : BOOLEAN;
         END;
     TileSet =
         RECORD

@@ -42,10 +42,6 @@ BEGIN
         TextIO.SkipLine(f);
         tile_set.tile[i].number := number;
 
-        tile_set.tile[i].x := 0;
-        tile_set.tile[i].y := 0;
-        tile_set.tile[i].placed := FALSE;
-
         FOR y := 1 TO TileSize DO
             TextIO.ReadString(f, row);
             TextIO.SkipLine(f);

@@ -22,9 +22,9 @@ TYPE
 
     EdgeTable =
         RECORD
-            match   : ARRAY EdgeValue OF MatchListPtr;
-            grid    : ARRAY TileSet.GridCoord OF
-                        ARRAY TileSet.GridCoord OF TileSet.TileIndex;
+            match    : ARRAY EdgeValue OF MatchListPtr;
+            grid     : Grid;
+            tile_set : TileSet.TileSet;
         END;
 
 PROCEDURE Push(VAR match : MatchListPtr;
@@ -100,31 +100,25 @@ BEGIN
 END ComputeEdges;
 
 PROCEDURE RemoveTileFromTable(VAR edge_table : EdgeTable;
-                              VAR tile_set   : TileSet.TileSet;
                               tile           : TileSet.TileIndex);
     VAR edge_value  : EdgeValueList;
     VAR j           : EdgeIndex;
 BEGIN
-    edge_value := ComputeEdges(tile_set.tile[tile]);
+    edge_value := ComputeEdges(edge_table.tile_set.tile[tile]);
     FOR j := 1 TO Edges DO
         RemoveEdge(edge_table.match[edge_value[j]], tile);
     END;
 END RemoveTileFromTable;
 
 PROCEDURE PlaceTile(VAR edge_table : EdgeTable;
-                    VAR tile_set   : TileSet.TileSet;
                     x, y           : TileSet.GridCoord;
                     tile           : TileSet.TileIndex);
 BEGIN
-    tile_set.tile[tile].x := x;
-    tile_set.tile[tile].y := y;
-    tile_set.tile[tile].placed := TRUE;
     edge_table.grid[y][x] := tile;
-    RemoveTileFromTable(edge_table, tile_set, tile);
+    RemoveTileFromTable(edge_table, tile);
 END PlaceTile;
 
 PROCEDURE CheckAllEdges(VAR edge_table : EdgeTable;
-                        VAR tile_set   : TileSet.TileSet;
                         x, y           : TileSet.GridCoord): BOOLEAN;
     VAR i               : TileSet.CellCoord;
     VAR north, west     : TileSet.TileIndex;
@@ -142,26 +136,26 @@ BEGIN
 
     FOR i := 1 TO TileSet.TileSize DO
         IF north <> 0 THEN
-            IF tile_set.tile[north].cell[TileSet.TileSize][i] <>
-                    tile_set.tile[centre].cell[1][i] THEN
+            IF edge_table.tile_set.tile[north].cell[TileSet.TileSize][i] <>
+                    edge_table.tile_set.tile[centre].cell[1][i] THEN
                 RETURN FALSE;
             END;
         END;
         IF west <> 0 THEN
-            IF tile_set.tile[west].cell[i][TileSet.TileSize] <>
-                    tile_set.tile[centre].cell[i][1] THEN
+            IF edge_table.tile_set.tile[west].cell[i][TileSet.TileSize] <>
+                    edge_table.tile_set.tile[centre].cell[i][1] THEN
                 RETURN FALSE;
             END;
         END;
         IF south <> 0 THEN
-            IF tile_set.tile[south].cell[1][i] <>
-                    tile_set.tile[centre].cell[TileSet.TileSize][i] THEN
+            IF edge_table.tile_set.tile[south].cell[1][i] <>
+                    edge_table.tile_set.tile[centre].cell[TileSet.TileSize][i] THEN
                 RETURN FALSE;
             END;
         END;
         IF east <> 0 THEN
-            IF tile_set.tile[east].cell[i][1] <>
-                    tile_set.tile[centre].cell[i][TileSet.TileSize] THEN
+            IF edge_table.tile_set.tile[east].cell[i][1] <>
+                    edge_table.tile_set.tile[centre].cell[i][TileSet.TileSize] THEN
                 RETURN FALSE;
             END;
         END;
@@ -170,7 +164,6 @@ BEGIN
 END CheckAllEdges;
 
 PROCEDURE FindNextMatch(VAR edge_table : EdgeTable;
-                        VAR tile_set   : TileSet.TileSet;
                         x1, y1         : TileSet.GridCoord);
     VAR item1, item2    : TileSet.TileIndex;
     VAR edge_value1     : EdgeValueList;
@@ -199,7 +192,7 @@ PROCEDURE FindNextMatch(VAR edge_table : EdgeTable;
 
 BEGIN
     item1 := edge_table.grid[y1][x1];
-    edge_value1 := ComputeEdges(tile_set.tile[item1]);
+    edge_value1 := ComputeEdges(edge_table.tile_set.tile[item1]);
     FOR j := 1 TO 4 DO
         IF Length(edge_table.match[edge_value1[j]]) = 1 THEN
             (* exactly one tile can fit here *)
@@ -207,46 +200,44 @@ BEGIN
             y2 := EdgeDY(j) + y1;
             IF edge_table.grid[y2][x2] = 0 THEN
                 item2 := Pop(edge_table.match[edge_value1[j]]);
-                PlaceTile(edge_table, tile_set, x2, y2, item2);
+                PlaceTile(edge_table, x2, y2, item2);
 
                 (* Rotate so edges match *)
                 FOR k := 1 TO Edges DO
-                    IF NOT CheckAllEdges(edge_table, tile_set, x2, y2) THEN
-                        TileSet.Rotate(tile_set.tile[item2]);
+                    IF NOT CheckAllEdges(edge_table, x2, y2) THEN
+                        TileSet.Rotate(edge_table.tile_set.tile[item2]);
                         IF k = 4 THEN
-                            TileSet.Flip(tile_set.tile[item2]);
+                            TileSet.Flip(edge_table.tile_set.tile[item2]);
                         END;
                     END;
                 END;
-                FindNextMatch(edge_table, tile_set, x2, y2);
+                FindNextMatch(edge_table, x2, y2);
             END;
         END; 
     END;
 END FindNextMatch;
 
-PROCEDURE FindFirstMatch(VAR edge_table : EdgeTable;
-                         VAR tile_set   : TileSet.TileSet);
+PROCEDURE FindFirstMatch(VAR edge_table : EdgeTable);
     VAR k           : EdgeValue;
 BEGIN
     FOR k := 0 TO MaxEdgeValue DO
         IF Length(edge_table.match[k]) = 2 THEN
             (* two tiles match - place the first one *)
-            PlaceTile(edge_table, tile_set, 0, 0, edge_table.match[k]^.tile);
-            FindNextMatch(edge_table, tile_set, 0, 0);
+            PlaceTile(edge_table, 0, 0, edge_table.match[k]^.tile);
+            FindNextMatch(edge_table, 0, 0);
             RETURN;
         END;
     END;
 END FindFirstMatch;
 
-PROCEDURE CheckGrid(VAR edge_table : EdgeTable;
-                    VAR tile_set   : TileSet.TileSet);
+PROCEDURE CheckGrid(VAR edge_table : EdgeTable): BOOLEAN;
     VAR x, y            : TileSet.GridCoord;
     VAR error           : BOOLEAN;
 BEGIN
     error := FALSE;
     FOR y := MIN(TileSet.GridCoord) + 1 TO MAX(TileSet.GridCoord) DO
         FOR x := MIN(TileSet.GridCoord) + 1 TO MAX(TileSet.GridCoord) DO
-            IF (NOT error) AND (NOT CheckAllEdges(edge_table, tile_set, x, y)) THEN
+            IF (NOT error) AND (NOT CheckAllEdges(edge_table, x, y)) THEN
                 STextIO.WriteString('Edge error on edge of ');
                 SWholeIO.WriteInt(x, 1);
                 STextIO.WriteString(',');
@@ -259,9 +250,10 @@ BEGIN
     IF error THEN
         STextIO.WriteString('Edges do not line up!');
     END;
+    RETURN NOT error;
 END CheckGrid;
 
-PROCEDURE GetGridBounds(VAR edge_table : EdgeTable;
+PROCEDURE GetGridBounds(VAR grid       : Grid;
                         VAR x1, y1     : TileSet.GridCoord;
                         VAR x2, y2     : TileSet.GridCoord);
     VAR x, y        : TileSet.GridCoord;
@@ -272,7 +264,7 @@ BEGIN
     y2 := MIN(TileSet.GridCoord);
     FOR y := MIN(TileSet.GridCoord) TO MAX(TileSet.GridCoord) DO
         FOR x := MIN(TileSet.GridCoord) TO MAX(TileSet.GridCoord) DO
-            IF edge_table.grid[y][x] <> 0 THEN
+            IF grid[y][x] <> 0 THEN
                 IF x < x1 THEN
                     x1 := x;
                 END;
@@ -290,32 +282,33 @@ BEGIN
     END;
 END GetGridBounds;
 
-PROCEDURE PrintGrid(VAR edge_table : EdgeTable;
-                    VAR tile_set   : TileSet.TileSet);
+PROCEDURE PrintGrid(VAR tile_set : TileSet.TileSet;
+                    VAR grid     : Grid);
     VAR x, y        : TileSet.GridCoord;
     VAR x1, y1      : TileSet.GridCoord;
     VAR x2, y2      : TileSet.GridCoord;
 BEGIN
-    GetGridBounds(edge_table, x1, y1, x2, y2);
-    STextIO.WriteString('<html><body><table>');
+    STextIO.WriteString('<table>');
+    GetGridBounds(grid, x1, y1, x2, y2);
     FOR y := y1 TO y2 DO
         STextIO.WriteString('<tr>');
         FOR x := x1 TO x2 DO
             STextIO.WriteString('<td><pre>');
-            IF edge_table.grid[y][x] <> 0 THEN
-                TileSet.PrintTile(tile_set.tile[edge_table.grid[y][x]]);
+            IF grid[y][x] <> 0 THEN
+                TileSet.PrintTile(tile_set.tile[grid[y][x]]);
             END;
             STextIO.WriteString('</pre></td>');
         END;
         STextIO.WriteString('</tr>');
     END;
     STextIO.WriteString('</table>');
-    CheckGrid(edge_table, tile_set);
-    STextIO.WriteString('</body></html>');
+    STextIO.WriteLn;
 END PrintGrid;
 
 
-PROCEDURE EdgeMatch(VAR tile_set : TileSet.TileSet);
+PROCEDURE EdgeMatch(VAR tile_set : TileSet.TileSet;
+                    VAR grid     : Grid;
+                    VAR error    : BOOLEAN);
     VAR edge_table  : EdgeTable;
     VAR edge_value  : EdgeValueList;
     VAR x, y        : TileSet.GridCoord;
@@ -323,6 +316,8 @@ PROCEDURE EdgeMatch(VAR tile_set : TileSet.TileSet);
     VAR j           : EdgeIndex;
     VAR k           : EdgeValue;
 BEGIN
+    error := FALSE;
+    edge_table.tile_set := tile_set;
     FOR y := MIN(TileSet.GridCoord) TO MAX(TileSet.GridCoord) DO
         FOR x := MIN(TileSet.GridCoord) TO MAX(TileSet.GridCoord) DO
             edge_table.grid[y][x] := 0;
@@ -331,14 +326,19 @@ BEGIN
     FOR k := 0 TO MaxEdgeValue DO
         edge_table.match[k] := NIL;
     END;
-    FOR i := 1 TO tile_set.max_index DO
-        edge_value := ComputeEdges(tile_set.tile[i]);
+    FOR i := 1 TO edge_table.tile_set.max_index DO
+        edge_value := ComputeEdges(edge_table.tile_set.tile[i]);
         FOR j := 1 TO Edges DO
             Push(edge_table.match[edge_value[j]], i);
         END;
     END;
-    FindFirstMatch(edge_table, tile_set);
-    PrintGrid(edge_table, tile_set);
+    FindFirstMatch(edge_table);
+    IF CheckGrid(edge_table) THEN
+        tile_set := edge_table.tile_set;
+        grid := edge_table.grid;
+    ELSE
+        error := TRUE;
+    END;
 END EdgeMatch;
 
 END EdgeMatch.
