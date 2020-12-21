@@ -3,20 +3,19 @@ DEFINITION MODULE TileSet;
 CONST
     TileSize = 10;
     GridSize = 12;
-    Edges = 8;
-    MaxEdgeValue = 1023;  (* (2 ** TileSize) - 1 *)
 TYPE
     TileNumber = [1 .. 9999];
     TileIndex = [0 .. GridSize * GridSize];
-    Coord = [1 .. TileSize];
-    EdgeValue = [0 .. MaxEdgeValue];
-    EdgeIndex = [1 .. Edges];
+    CellCoord = [1 .. TileSize];
+    GridCoord = [-GridSize .. GridSize];
     Tile = 
         RECORD
-            cell    : ARRAY Coord OF
-                        ARRAY Coord OF BOOLEAN;
+            cell    : ARRAY CellCoord OF
+                        ARRAY CellCoord OF BOOLEAN;
             number  : TileNumber;
-            edge    : ARRAY EdgeIndex OF EdgeValue;
+            x       : GridCoord;
+            y       : GridCoord;
+            placed  : BOOLEAN;
         END;
     TileSet =
         RECORD
@@ -27,9 +26,8 @@ TYPE
 PROCEDURE ReadTileSet(filename      : ARRAY OF CHAR;
                       VAR tile_set  : TileSet;
                       VAR error     : BOOLEAN);
-PROCEDURE Rotate(input : Tile): Tile;
-PROCEDURE Flip(input : Tile): Tile;
-PROCEDURE ComputeEdges(VAR tile_set : TileSet);
+PROCEDURE Rotate(VAR input : Tile);
+PROCEDURE Flip(VAR input : Tile);
 PROCEDURE PrintTile(tile : Tile);
 
 END TileSet.

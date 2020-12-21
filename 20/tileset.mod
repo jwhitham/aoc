@@ -15,9 +15,8 @@ PROCEDURE ReadTileSet(filename      : ARRAY OF CHAR;
     VAR row         : ARRAY [1 .. TileSize] OF CHAR;
     VAR tile_string : ARRAY [1 .. 5] OF CHAR;
     VAR i           : TileIndex;
-    VAR x, y        : Coord;
+    VAR x, y        : CellCoord;
     VAR number      : CARDINAL;
-    VAR j           : CARDINAL;
 BEGIN
     error := FALSE;
     tile_set.max_index := 0;
@@ -40,8 +39,13 @@ BEGIN
             RETURN;
         END;
         WholeIO.ReadCard(f, number);
-        tile_set.tile[i].number := number;
         TextIO.SkipLine(f);
+        tile_set.tile[i].number := number;
+
+        tile_set.tile[i].x := 0;
+        tile_set.tile[i].y := 0;
+        tile_set.tile[i].placed := FALSE;
+
         FOR y := 1 TO TileSize DO
             TextIO.ReadString(f, row);
             TextIO.SkipLine(f);
@@ -68,19 +72,16 @@ BEGIN
             RETURN;
         END;
         TextIO.SkipLine(f);
-        FOR j := 1 TO Edges DO
-            tile_set.tile[i].edge[j] := 0;
-        END;
         tile_set.max_index := i;
     END;
     SeqFile.Close(f);
 
 END ReadTileSet;
 
-PROCEDURE Rotate(input : Tile): Tile;
+PROCEDURE Rotate(VAR input : Tile);
     VAR rotated     : Tile;
-    VAR x1, y1      : Coord;
-    VAR x2, y2      : Coord;
+    VAR x1, y1      : CellCoord;
+    VAR x2, y2      : CellCoord;
 BEGIN
     rotated := input;
     FOR y1 := 1 TO TileSize DO
@@ -90,13 +91,13 @@ BEGIN
             rotated.cell[y2][x2] := input.cell[y1][x1];
         END;
     END;
-    RETURN rotated;
+    input := rotated;
 END Rotate;
 
-PROCEDURE Flip(input : Tile): Tile;
+PROCEDURE Flip(VAR input : Tile);
     VAR flipped     : Tile;
-    VAR x1, y1      : Coord;
-    VAR x2          : Coord;
+    VAR x1, y1      : CellCoord;
+    VAR x2          : CellCoord;
 BEGIN
     flipped := input;
     FOR y1 := 1 TO TileSize DO
@@ -105,40 +106,11 @@ BEGIN
             flipped.cell[y1][x2] := input.cell[y1][x1];
         END;
     END;
-    RETURN flipped;
+    input := flipped;
 END Flip;
 
-PROCEDURE ComputeEdges(VAR tile_set : TileSet);
-    VAR i           : TileIndex;
-    VAR j           : CARDINAL;
-    VAR x           : Coord;
-    VAR copy        : Tile;
-    VAR bit         : CARDINAL;
-    VAR edge_value  : CARDINAL;
-BEGIN
-    FOR i := 1 TO tile_set.max_index DO
-        copy := tile_set.tile[i];
-        FOR j := 1 TO Edges DO
-            bit := 1;
-            edge_value := 0;
-            FOR x := 1 TO TileSize DO
-                IF copy.cell[1][x] THEN
-                    edge_value := edge_value + bit;
-                END;
-                bit := bit * 2;
-            END;
-            tile_set.tile[i].edge[j] := edge_value;
-            copy := Rotate(copy);
-            IF j = 4 THEN
-                copy := Flip(copy);
-            END;
-        END;
-    END;
-END ComputeEdges;
-
 PROCEDURE PrintTile(tile : Tile);
-    VAR x, y        : Coord;
-    VAR i           : CARDINAL;
+    VAR x, y        : CellCoord;
 BEGIN
     STextIO.WriteString('Tile ');
     SWholeIO.WriteCard(tile.number, 1);
@@ -153,12 +125,6 @@ BEGIN
         END;
         STextIO.WriteLn;
     END;
-    STextIO.WriteString('Edges');
-    FOR i := 1 TO Edges DO
-        STextIO.WriteString(' ');
-        SWholeIO.WriteCard(tile.edge[i], 1);
-    END;
-    STextIO.WriteLn;
 END PrintTile;
 
 END TileSet.
