@@ -79,7 +79,6 @@ PROCEDURE Rotate(VAR input : Tile);
     VAR x1, y1      : CellCoord;
     VAR x2, y2      : CellCoord;
 BEGIN
-    rotated := input;
     FOR y1 := 1 TO TileSize DO
         x2 := y1;
         FOR x1 := 1 TO TileSize DO
@@ -87,22 +86,22 @@ BEGIN
             rotated.cell[y2][x2] := input.cell[y1][x1];
         END;
     END;
-    input := rotated;
+    input.cell := rotated.cell;
 END Rotate;
 
 PROCEDURE Flip(VAR input : Tile);
-    VAR flipped     : Tile;
     VAR x1, y1      : CellCoord;
     VAR x2          : CellCoord;
+    VAR tmp         : BOOLEAN;
 BEGIN
-    flipped := input;
     FOR y1 := 1 TO TileSize DO
-        FOR x1 := 1 TO TileSize DO
+        FOR x1 := 1 TO TileSize DIV 2 DO
             x2 := TileSize + 1 - x1;
-            flipped.cell[y1][x2] := input.cell[y1][x1];
+            tmp := input.cell[y1][x2];
+            input.cell[y1][x2] := input.cell[y1][x1];
+            input.cell[y1][x1] := tmp;
         END;
     END;
-    input := flipped;
 END Flip;
 
 PROCEDURE PrintTile(tile : Tile);
