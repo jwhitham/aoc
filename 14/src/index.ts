@@ -1,5 +1,6 @@
 import {Command, flags} from '@oclif/command'
 import * as fs from 'fs';
+import {Puzzle} from './part2a';
 
 const NUM_BITS: number = 36;
 
@@ -12,9 +13,9 @@ abstract class PartN {
     protected memory = new Map();
 
 
-    public processInput(data: Buffer) {
+    public processInput(data: string): bigint {
 
-        for (let line of data.toString().split("\n")) {
+        for (let line of data.split("\n")) {
             let fields = line.split("=");
 
             if (fields.length != 2) {
@@ -32,12 +33,6 @@ abstract class PartN {
                     throw new FormatError("Mask size invalid: '" + line + "'");
                 }
                 this.mask = rhs;
-                let x = 0;
-                for (let i = 0; i < NUM_BITS; i++) {
-                    if (rhs.substr(i, 1) === "X") {
-                        x++;
-                    }
-                }
             } else if (lhs.startsWith("mem[") && lhs.endsWith("]")) {
                 let addr = lhs.substr(4, lhs.length - 5);
                 let loc: bigint = 0n;
@@ -61,11 +56,17 @@ abstract class PartN {
             }
 
         }
+        let t = this.total();
+        console.log("total is " + t);
+        return t;
+    }
+
+    public total(): bigint {
         let total: bigint = 0n;
         for (let value of this.memory.values()) {
             total += value;
         }
-        console.log("total is " + total);
+        return total;
     }
 
     protected abstract process(loc: bigint, value: bigint): void;
@@ -132,6 +133,37 @@ class Part2 extends PartN {
     }
 }
 
+class Part2A extends PartN {
+
+    private puzzle = new Puzzle(NUM_BITS);
+
+    protected process(loc: bigint, value: bigint): void {
+        let bits = ""
+        let bit: bigint = 1n << BigInt(NUM_BITS);
+        for (let i = 0; i < NUM_BITS; i++) {
+            bit = bit >> 1n;
+            if (this.mask.substr(i, 1) === "0") {
+                if (bit & loc) {
+                    bits = bits + "1";
+                } else {
+                    bits = bits + "0";
+                }
+            } else if (this.mask.substr(i, 1) === "1") {
+                bits = bits + "1";
+            } else {
+                bits = bits + "X";
+            }
+        }
+
+        this.puzzle.amend(bits, value);
+    }
+
+    public total(): bigint {
+        return this.puzzle.total();
+    }
+
+}
+
 class PartCommand extends Command {
     static description = 'AOC 2020 day 14 part 1'
 
@@ -151,12 +183,37 @@ class PartCommand extends Command {
         if (!args.part) {
             args.part = "1";
         }
+        let data = fs.readFileSync(args.file, "utf8");
         switch (args.part) {
             case "1":
-                fs.readFile(args.file, (err, data) => { new Part1().processInput(data); } );
+                new Part1().processInput(data);
                 break;
             case "2":
-                fs.readFile(args.file, (err, data) => { new Part2().processInput(data); } );
+                new Part2().processInput(data);
+                break;
+            case "2A":
+                new Part2A().processInput(data);
+                break;
+            case "test":
+                let ok = false;
+                if ((new Part1().processInput(data) == 11501064782628n)
+                && (new Part2().processInput(data) == 5142195937660n)
+                && (new Part2A().processInput(data) == 5142195937660n)) {
+                    let data1 = fs.readFileSync("example_input", "utf8");
+                    if ((new Part1().processInput(data1) == 165n)
+                    && (new Part2A().processInput(data1) == 1735166787584n)) {
+                        let data2 = fs.readFileSync("example_input_2", "utf8");
+                        if ((new Part2().processInput(data2) == 208n)
+                        && (new Part2A().processInput(data2) == 208n)) {
+                            ok = true;
+                        }
+                    }
+                }
+                if (ok) {
+                    console.log("tests ok!");
+                } else {
+                    console.log("tests failed!!!");
+                }
                 break;
             default:
                 throw new FormatError("Unknown part: " + args.part);
