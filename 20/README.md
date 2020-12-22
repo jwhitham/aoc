@@ -46,6 +46,8 @@ This feature might be in some Modula-2 extensions, but it's not
 in the subset of the language that I know. This is probably
 the main Ada feature that I would miss, if writing more Modula-2,
 though I might also miss the ability to exit early from a FOR loop.
+Ah, and keyword parameters too... still a sadly rare feature in
+compiled languages.
 
 I worked on an Ada code coverage tool for years and years, and every
 new Ada standard added more special cases that were somewhat convenient
