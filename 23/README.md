@@ -5,11 +5,11 @@
 
 In C#, I was glad to be able to use an array of records - this
 is an efficient way to represent the problem. Some managed
-languages would force me to use an array of references to records,
+languages would force an array of references to records,
 because arrays can only contain primitive types. The extra
 level of indirection would waste time and memory.
 
-I went down a rabbit hole with part 2 and wasted a lot of time
+However, I went down a rabbit hole with part 2 and wasted a lot of time
 trying to implement a list-like data structure which would allow
 fast insertion/removal of an element at any index. This is possible.
 Binary trees are normally used as ordered maps, relating a key to
@@ -18,24 +18,42 @@ you can also use them to represent indexed data, with the nice property
 that adding/removing elements can implicitly update the indexes of
 later elements.
 
+## Digression
+
 I mistakenly believed that knowing the
 index of each element would be necessary to solve the problem and
 proceeded to try to implement a balanced binary tree with the
 required properties. This proved challenging in various ways.
 Textbook and online descriptions of red/black or AVL tree operations
-tend to be incomplete and/or confusing. For instance, they may be
-incomplete because they describe only insertion and then regard deletion
-as a mostly trivial variation (Knuth does this; trivial for Knuth is
-not trivial for me.). They can be confusing because
-of the difficulty of describing nodes during a "rotation" in which
-parents swap with children. Sample code can be even more confusing,
-with little explanation of what's happening. Unfortunately it's
-necessary to understand exactly what's happening in order to adapt
-the usual key-value purpose of the data structure to be indexed
-instead. Despite some hours of work I was unable to
-write a delete operation that didn't also unbalance the tree.
+tend to be incomplete and/or confusing.
 
-Then, during time away from the problem, I realised that it was
+For instance, they may be incomplete because they describe only
+insertion and then regard deletion as a mostly trivial variation
+requiring minimal extra description. However, it is not so simple,
+there are many subtle details. I missed a small but important
+detail in Knuth's textbook and ended up writing a broken delete
+operation which would unbalance the tree. It took a while to debug this.
+
+Descriptions may also be confusing because of the difficulty of describing
+nodes during a "rotation" in which parents swap with children. You cannot
+use terms like "parent" or "right child" because these relationships shift
+around. But other names, e.g. "node p", "node q", are opaque. For this
+reason, sample code is also confusing.
+
+Sample code is also very diverse, even for the same data structure.
+You can use numbered children or call them left/right (numbers are
+better because the rotation operations can be genericised easily).
+You can have a "parent" link at each node, or use a temporary stack
+(the stack is more efficient but the code may be more complex). It is
+surprisingly hard to find a comprehensible working implementation.
+
+I dug through this confusion by drawing parts of the trees on paper, using 
+Graphviz to plot trees, and adding test procedures which checked the
+properties of the tree after each operation. 
+
+## Back on topic
+
+During time away from the problem, I realised that it was
 quite unnecessary to know the index at all, and that a doubly
 linked list would be much better, with O(1) insert/delete operations
 rather than O(log N). An array is used for finding a value in

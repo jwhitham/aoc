@@ -135,6 +135,8 @@ namespace aoc
             string test_input = "389125467";
             string my_input = "158937462";
 
+            TestAVL.Test();
+
             CrabGame cg = new CrabGame(test_input, 9);
             cg.Play(10);
             if (cg.Part1Result() != "92658374")
