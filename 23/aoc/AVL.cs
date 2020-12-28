@@ -417,6 +417,10 @@ namespace aoc
 
         public bool isConsistent()
         {
+            if (this.head.child[1] == null)
+            {
+                return true;
+            }
             return this.isConsistentNode(this.head.child[1], this.head.child[1].visit + 1);
         }
 
@@ -512,7 +516,6 @@ namespace aoc
                         throw new Exception("should not remove");
                     }
                 }
-                t.output("test.dot");
                 if (!t.isConsistent())
                 {
                     throw new Exception("became imbalanced");
@@ -542,6 +545,28 @@ namespace aoc
                     throw new Exception("became imbalanced");
                 }
             }
+            for (int i = 0; i <= 110; i++)
+            {
+                if (s.Contains(i)) {
+                    s.Remove(i);
+                    if (t.pop(i) != true)
+                    {
+                        throw new Exception("should remove");
+                    }
+                }
+                else
+                {
+                    if (t.pop(i) != false)
+                    {
+                        throw new Exception("should not be present");
+                    }
+                }
+                if (!t.isConsistent())
+                {
+                    throw new Exception("became imbalanced");
+                }
+            }
+            t.output("test.dot");
         }
     }
 }
