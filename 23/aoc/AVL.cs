@@ -1,16 +1,36 @@
 ﻿using System;
 
+// This Adelson-Velsky and Landis (AVL) tree implementation comes from Knuth's TAOCP textbook, volume 3, "Sorting and Searching". I used the 1973 edition.
+// See https://en.wikipedia.org/wiki/AVL_tree for an introduction to AVL trees.
+// In this implementation:
+// * the AVL tree acts as an ordered set of integers, with O(log N) insertion and removal
+// * there is no "parent" reference at each node - instead a temporary stack is used
+// * children are numbered 0 and 1, so that rotation procedures can be generic
+// * Insert and Delete operations are not recursive
+// * a "head" node is always present so that the "empty" set is not a special case
+
 namespace aoc
 {
 
     public class AVLTree
     {
-        private class AVLNode
+        protected AVLNode head;
+
+        public AVLTree()
+        {
+            this.head = AVLNodeFactory();
+        }
+
+        protected virtual AVLNode AVLNodeFactory()
+        {
+            return new AVLNode();
+        }
+
+        protected class AVLNode
         {
             public AVLNode[] child = null;
             public int value = 0;
             public int balance = 0;
-            public int visit = 0;
 
             public AVLNode()
             {
@@ -18,27 +38,20 @@ namespace aoc
             }
         }
 
-        private AVLNode head;
-
-        public AVLTree()
-        {
-            this.head = new AVLNode();
-        }
-
-        public bool insert(int k)
+        // Insert returns true if already present, false if added
+        public bool Insert(int k)
         {
             // page 455, A1
             AVLNode p = head.child[1];  // the pointer variable p will move down the tree
             AVLNode s = head.child[1];  // s will point to the place where rebalancing may be necessary
             AVLNode t = head;           // t will always point to the parent of s
-            AVLNode q = null;
-            AVLNode r = null;
-            int direction = 0;
+            AVLNode q, r;
+            int direction;
 
             if (p == null)
             {
                 // empty tree special case
-                head.child[1] = new AVLNode();
+                head.child[1] = AVLNodeFactory();
                 head.child[1].value = k;
                 return false;
             }
@@ -76,7 +89,7 @@ namespace aoc
                 else
                 {
                     // New child
-                    q = new AVLNode();
+                    q = AVLNodeFactory();
                     p.child[direction] = q;
                     break;
                 }
@@ -89,7 +102,8 @@ namespace aoc
             if (k < s.value)
             {
                 r = p = s.child[0];
-            } else
+            }
+            else
             {
                 r = p = s.child[1];
             }
@@ -99,7 +113,8 @@ namespace aoc
                 {
                     p.balance = -1;
                     p = p.child[0];
-                } else
+                }
+                else
                 {
                     p.balance = 1;
                     p = p.child[1];
@@ -111,7 +126,8 @@ namespace aoc
             {
                 a = -1;
                 direction = 0;
-            } else
+            }
+            else
             {
                 a = 1;
                 direction = 1;
@@ -121,7 +137,8 @@ namespace aoc
                 // case i. The tree has grown higher
                 s.balance = a;
                 return false;
-            } else if (s.balance == -a)
+            }
+            else if (s.balance == -a)
             {
                 // case ii. The tree has gotten more balanced
                 s.balance = 0;
@@ -132,12 +149,14 @@ namespace aoc
             if (r.balance == a)
             {
                 // page 454 case 1
-                p = singleRotation(r, s, direction);
-            } else if (r.balance == -a)
+                p = SingleRotation(r, s, direction);
+            }
+            else if (r.balance == -a)
             {
                 // page 454 case 2
-                p = doubleRotation(r, s, direction);
-            } else
+                p = DoubleRotation(r, s, direction);
+            }
+            else
             {
                 throw new Exception("unbalanced in an unexpected way");
             }
@@ -145,14 +164,15 @@ namespace aoc
             if (s == t.child[1])
             {
                 t.child[1] = p;
-            } else
+            }
+            else
             {
                 t.child[0] = p;
             }
             return false;
         }
 
-        private AVLNode singleRotation(AVLNode r, AVLNode s, int direction)
+        private AVLNode SingleRotation(AVLNode r, AVLNode s, int direction)
         {
             // page 457 A8 single rotation
             // as applied to case 1 (top of page 454) in which s is A and r is B
@@ -167,7 +187,7 @@ namespace aoc
             return p;
         }
 
-        private AVLNode doubleRotation(AVLNode r, AVLNode s, int direction)
+        private AVLNode DoubleRotation(AVLNode r, AVLNode s, int direction)
         {
             // A9 double rotation
             // as applied to case 2 (top of page 454) in which s is A and r is B
@@ -201,11 +221,12 @@ namespace aoc
             return p;
         }
 
+        // The auxiliary stack is only used for deletion
         private class AuxStack
         {
             public AVLNode p = null;
-            public int direction = 0;
-            public int a = -1;
+            public int direction = 0;  // 0 = left, 1 = right
+            public int a = -1;         // -1 = left, 1 = right
 
             public AuxStack(AVLNode p, int a)
             {
@@ -215,7 +236,8 @@ namespace aoc
             }
         }
 
-        public bool pop(int k)
+        // Delete returns true if removed and false if not present
+        public bool Delete(int k)
         {
             System.Collections.Generic.Stack<AuxStack> stack = new System.Collections.Generic.Stack<AuxStack>();
             AVLNode p = head;
@@ -256,7 +278,7 @@ namespace aoc
 
                 // In this case we find another node with 0 or 1 child which can be
                 // deleted instead. We swap this node into the tree.
-                
+
                 // q - the node we would like to remove
                 AVLNode q = p;
                 AuxStack q_parent = parent;
@@ -300,7 +322,7 @@ namespace aoc
 
             // The process of deleting node p sets parent.p.child[parent.direction]
             // and so the balance factor at parent.p is adjusted
-            while(stack.Count > 1)
+            while (stack.Count > 1)
             {
                 AuxStack adjust = stack.Pop();
                 if (adjust.p.balance == adjust.a)
@@ -324,19 +346,19 @@ namespace aoc
                     if (r.balance == -adjust.a)
                     {
                         // page 454 case 1
-                        p = singleRotation(r, s, 1 - adjust.direction);
+                        p = SingleRotation(r, s, 1 - adjust.direction);
                         parent.p.child[parent.direction] = p;
                     }
                     else if (r.balance == adjust.a)
                     {
                         // page 454 case 2
-                        p = doubleRotation(r, s, 1 - adjust.direction);
+                        p = DoubleRotation(r, s, 1 - adjust.direction);
                         parent.p.child[parent.direction] = p;
                     }
                     else if (r.balance == 0)
                     {
                         // case 3: like case 1 except that beta has height h + 1 (same as gamma)
-                        p = singleRotation(r, s, 1 - adjust.direction);
+                        p = SingleRotation(r, s, 1 - adjust.direction);
                         parent.p.child[parent.direction] = p;
                         adjust.p.balance = -adjust.a;
                         p.balance = adjust.a;
@@ -351,18 +373,35 @@ namespace aoc
             }
             return true;
         }
+    }
 
-        private int getMaxDepth(AVLNode node)
+
+    // This test class is used to check that the AVL data structure is consistent
+    class TestAVL : AVLTree
+    {
+        private int visit = 0;
+
+        protected override AVLNode AVLNodeFactory()
+        {
+            return new TestAVLNode();
+        }
+
+        protected class TestAVLNode : AVLNode
+        {
+            public int visit = 0;
+        }
+
+        private int GetMaxDepth(AVLNode node)
         {
             int d1 = 0;
             int d2 = 0;
             if (node.child[0] != null)
             {
-                d1 = 1 + getMaxDepth(node.child[0]);
+                d1 = 1 + GetMaxDepth(node.child[0]);
             }
             if (node.child[1] != null)
             {
-                d2 = 1 + getMaxDepth(node.child[1]);
+                d2 = 1 + GetMaxDepth(node.child[1]);
             }
             if (d2 > d1)
             {
@@ -371,22 +410,22 @@ namespace aoc
             return d1;
         }
 
-        private int calcBalance(AVLNode node)
+        private int GetBalance(AVLNode node)
         {
             int d1 = 0;
             int d2 = 0;
             if (node.child[0] != null)
             {
-                d1 = 1 + getMaxDepth(node.child[0]);
+                d1 = 1 + GetMaxDepth(node.child[0]);
             }
             if (node.child[1] != null)
             {
-                d2 = 1 + getMaxDepth(node.child[1]);
+                d2 = 1 + GetMaxDepth(node.child[1]);
             }
             return d2 - d1;
         }
 
-        private bool isConsistentNode(AVLNode node, int visit)
+        private bool IsConsistentNode(TestAVLNode node, int visit)
         {
             if (node.visit == visit)
             {
@@ -397,13 +436,13 @@ namespace aoc
             {
                 if (node.child[i] != null)
                 {
-                    if (!isConsistentNode(node.child[i], visit))
+                    if (!IsConsistentNode((TestAVLNode) node.child[i], visit))
                     {
                         return false;
                     }
                 }
             }
-            int x = calcBalance(node);
+            int x = GetBalance(node);
             if (! ((-1 <= x) && (x <= 1)))
             {
                 return false;
@@ -415,18 +454,19 @@ namespace aoc
             return true;
         }
 
-        public bool isConsistent()
+        public bool IsConsistent()
         {
             if (this.head.child[1] == null)
             {
                 return true;
             }
-            return this.isConsistentNode(this.head.child[1], this.head.child[1].visit + 1);
+            visit++;
+            return this.IsConsistentNode((TestAVLNode) this.head.child[1], visit);
         }
 
         private int outcounter = 0;
 
-        private int outputNode(System.IO.StreamWriter sw, AVLNode node, int visit)
+        private int OutputNode(System.IO.StreamWriter sw, TestAVLNode node, int visit)
         {
             int src = this.outcounter;
             this.outcounter++;
@@ -440,37 +480,35 @@ namespace aoc
             {
                 if (node.child[i] != null)
                 {
-                    int dest = outputNode(sw, node.child[i], visit);
+                    int dest = OutputNode(sw, (TestAVLNode)node.child[i], visit);
                     sw.WriteLine("N" + src + " -> N" + dest + ";");
                 }
             }
             return src;
         }
 
-        public void output(String filename)
+        public void OutputTree(String filename)
         {
             using (System.IO.StreamWriter sw = System.IO.File.CreateText(filename))
             {
                 sw.WriteLine("digraph G {");
                 outcounter = 0;
-                outputNode(sw, head, head.visit - 1);
+                visit++;
+                OutputNode(sw, (TestAVLNode) head, visit);
                 sw.WriteLine("}");
             }
         }
-    }
 
-    class TestAVL
-    {
         public static void Test()
         {
-            AVLTree t = new AVLTree();
+            TestAVL t = new TestAVL();
             System.Collections.Generic.HashSet<int> s = new System.Collections.Generic.HashSet<int>();
 
             for (int i = 1; i <= 10; i++)
             {
-                t.insert(i);
+                t.Insert(i);
                 s.Add(i);
-                if (!t.isConsistent())
+                if (!t.IsConsistent())
                 {
                     throw new Exception("became imbalanced");
                 }
@@ -481,42 +519,42 @@ namespace aoc
                 int v = r.Next(110);
                 if (s.Contains(v))
                 {
-                    if (t.insert(v) != true)
+                    if (t.Insert(v) != true)
                     {
                         throw new Exception("should already contain");
                     }
                 } else
                 {
-                    if (t.insert(v) != false)
+                    if (t.Insert(v) != false)
                     {
                         throw new Exception("should not contain");
                     }
                 }
-                if (!t.isConsistent())
+                if (!t.IsConsistent())
                 {
                     throw new Exception("became imbalanced");
                 }
                 s.Add(v);
             }
-            t.output("test.dot");
+            t.OutputTree("test.dot");
             for (int i = 0; i < 1000; i++)
             {
                 int v = r.Next(100);
                 if (s.Contains(v))
                 {
                     s.Remove(v);
-                    if (t.pop(v) != true)
+                    if (t.Delete(v) != true)
                     {
                         throw new Exception("should remove");
                     }
                 } else
                 {
-                    if (t.pop(v) != false)
+                    if (t.Delete(v) != false)
                     {
                         throw new Exception("should not remove");
                     }
                 }
-                if (!t.isConsistent())
+                if (!t.IsConsistent())
                 {
                     throw new Exception("became imbalanced");
                 }
@@ -527,7 +565,7 @@ namespace aoc
                 if (s.Contains(v))
                 {
                     s.Remove(v);
-                    if (t.pop(v) != true)
+                    if (t.Delete(v) != true)
                     {
                         throw new Exception("should remove");
                     }
@@ -535,12 +573,12 @@ namespace aoc
                 else
                 {
                     s.Add(v);
-                    if (t.insert(v) != false)
+                    if (t.Insert(v) != false)
                     {
                         throw new Exception("should insert");
                     }
                 }
-                if (!t.isConsistent())
+                if (!t.IsConsistent())
                 {
                     throw new Exception("became imbalanced");
                 }
@@ -549,24 +587,24 @@ namespace aoc
             {
                 if (s.Contains(i)) {
                     s.Remove(i);
-                    if (t.pop(i) != true)
+                    if (t.Delete(i) != true)
                     {
                         throw new Exception("should remove");
                     }
                 }
                 else
                 {
-                    if (t.pop(i) != false)
+                    if (t.Delete(i) != false)
                     {
                         throw new Exception("should not be present");
                     }
                 }
-                if (!t.isConsistent())
+                if (!t.IsConsistent())
                 {
                     throw new Exception("became imbalanced");
                 }
             }
-            t.output("test.dot");
+            t.OutputTree("test.dot");
         }
     }
 }
