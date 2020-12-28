@@ -12,11 +12,11 @@
 namespace aoc
 {
 
-    public class AVLTree
+    public class AVLIntegerSet
     {
         protected AVLNode head;
 
-        public AVLTree()
+        public AVLIntegerSet()
         {
             this.head = AVLNodeFactory();
         }
@@ -377,7 +377,7 @@ namespace aoc
 
 
     // This test class is used to check that the AVL data structure is consistent
-    class TestAVL : AVLTree
+    class TestAVL : AVLIntegerSet
     {
         private int visit = 0;
 
