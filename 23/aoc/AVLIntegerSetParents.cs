@@ -356,6 +356,7 @@ namespace aoc
                 p.child[1] = q.child[1];
                 p.parent = q.parent;
                 p.balance = q.balance;
+                p.direction = q.direction;
                 q_item.p = p;
 
                 // fix up a connection to p's child (if p had a child)
@@ -364,11 +365,14 @@ namespace aoc
                 if (p_child_1 != null)
                 {
                     p_child_1.parent = parent.p;
+                    p_child_1.direction = parent.direction;
                 }
                 p.child[0].parent = p;
+                p.child[0].direction = 0;
                 if (p.child[1] != null)
                 {
                     p.child[1].parent = p;
+                    p.child[1].direction = 1;
                 }
             }
             else if (p.child[0] != null)
@@ -376,6 +380,7 @@ namespace aoc
                 // Node has one child - so it's easily removed:
                 parent.p.child[parent.direction] = p.child[0];
                 p.child[0].parent = parent.p;
+                p.child[0].direction = parent.direction;
             }
             else
             {
@@ -384,6 +389,7 @@ namespace aoc
                 if (p.child[1] != null)
                 {
                     p.child[1].parent = parent.p;
+                    p.child[1].direction = parent.direction;
                 }
             }
 
