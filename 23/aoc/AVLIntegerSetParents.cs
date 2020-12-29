@@ -32,11 +32,17 @@ namespace aoc
             public AVLNode[] child = null;
             public int value = 0;
             public int balance = 0;
+            public int direction = 0;
             public AVLNode parent = null;
 
             public AVLNode()
             {
                 this.child = new AVLNode[2];
+            }
+
+            public int a()
+            {
+                return (direction == 0) ? -1 : 1;
             }
 
             public void AssertChildIs(AVLNode c)
@@ -64,6 +70,7 @@ namespace aoc
                 head.child[1] = AVLNodeFactory();
                 head.child[1].value = k;
                 head.child[1].parent = head;
+                head.child[1].direction = 1;
                 return false;
             }
 
@@ -103,6 +110,7 @@ namespace aoc
                     q = AVLNodeFactory();
                     p.child[direction] = q;
                     q.parent = p;
+                    q.direction = direction;
                     p.AssertChildIs(q);
                     break;
                 }
@@ -178,12 +186,14 @@ namespace aoc
             {
                 t.child[1] = p;
                 p.parent = t;
+                p.direction = 1;
                 p.parent.AssertChildIs(p);
             }
             else
             {
                 t.child[0] = p;
                 p.parent = t;
+                p.direction = 0;
                 p.parent.AssertChildIs(p);
             }
             return false;
@@ -202,11 +212,14 @@ namespace aoc
             s.balance = 0;
             r.balance = 0;
             r.AssertChildIs(s);
-            r.parent = s.parent;
+            //r.parent = s.parent;
+            //r.direction = s.direction;
+            s.direction = 1 - direction;
             s.parent = r;
             if (s.child[direction] != null)
             {
                 s.child[direction].parent = s;
+                s.child[direction].direction = direction;
             }
             return p;
         }
@@ -244,14 +257,18 @@ namespace aoc
             p.balance = 0;
 
             s.parent = p;
+            s.direction = 1 - direction;
             if (s.child[direction] != null)
             {
                 s.child[direction].parent = s;
+                s.child[direction].direction = direction;
             }
             r.parent = p;
+            r.direction = direction;
             if (r.child[1 - direction] != null)
             {
                 r.child[1 - direction].parent = r;
+                r.child[1 - direction].direction = 1 - direction;
             }
             return p;
         }
@@ -399,6 +416,7 @@ namespace aoc
                         p = SingleRotation(r, s, 1 - adjust.direction);
                         parent.p.child[parent.direction] = p;                     
                         p.parent = parent.p;
+                        p.direction = parent.direction;
                     }
                     else if (r.balance == adjust.a)
                     {
@@ -406,6 +424,7 @@ namespace aoc
                         p = DoubleRotation(r, s, 1 - adjust.direction);
                         parent.p.child[parent.direction] = p;
                         p.parent = parent.p;
+                        p.direction = parent.direction;
                     }
                     else if (r.balance == 0)
                     {
@@ -415,6 +434,7 @@ namespace aoc
                         adjust.p.balance = -adjust.a;
                         p.balance = adjust.a;
                         p.parent = parent.p;
+                        p.direction = parent.direction;
                         return true; // balanced after single rotation
                     }
                     else
@@ -496,6 +516,10 @@ namespace aoc
                     {
                         return false;
                     }
+                    if (node.child[i].direction != i)
+                    {
+                        return false;
+                    }
                 }
             }
             int x = GetBalance(node);
@@ -517,6 +541,10 @@ namespace aoc
                 return true;
             }
             if (this.head.child[1].parent != this.head)
+            {
+                return false;
+            }
+            if (this.head.child[1].direction != 1)
             {
                 return false;
             }
