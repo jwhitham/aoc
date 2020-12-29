@@ -293,6 +293,8 @@ namespace aoc
         {
             System.Collections.Generic.Stack<AuxStack> stack = new System.Collections.Generic.Stack<AuxStack>();
             AVLNode p = head;
+            AVLNode adjust_p = head;
+            int adjust_direction = 1;
 
             stack.Push(new AuxStack(head, 1));
             p = p.child[1];
@@ -307,11 +309,15 @@ namespace aoc
                 else if (k < p.value)
                 {
                     stack.Push(new AuxStack(p, -1));
+                    adjust_p = p;
+                    adjust_direction = 0;
                     p = p.child[0];
                 }
                 else if (k > p.value)
                 {
                     stack.Push(new AuxStack(p, 1));
+                    adjust_p = p;
+                    adjust_direction = 1;
                     p = p.child[1];
                 }
                 else
@@ -335,6 +341,8 @@ namespace aoc
                 AVLNode q = p;
                 AuxStack q_parent = parent;
                 AuxStack q_item = new AuxStack(p, 1);
+                adjust_p = p;
+                adjust_direction = 1;
                 stack.Push(q_item);
 
                 // find p, a node we can actually remove
@@ -342,6 +350,8 @@ namespace aoc
                 while (p.child[0] != null)
                 {
                     stack.Push(new AuxStack(p, -1));
+                    adjust_p = p;
+                    adjust_direction = 0;
                     p = p.child[0];
                 }
 
@@ -357,6 +367,10 @@ namespace aoc
                 p.parent = q.parent;
                 p.balance = q.balance;
                 p.direction = q.direction;
+                if (adjust_p == q)
+                {
+                    adjust_p = p;
+                }
                 q_item.p = p;
 
                 // fix up a connection to p's child (if p had a child)
@@ -393,11 +407,41 @@ namespace aoc
                 }
             }
 
+            AuxStack[] ast = stack.ToArray();
+
+            // index 0 most recently added element
+            for (int i = 1; i < ast.Length; i++)
+            {
+                if (ast[i].direction != ast[i - 1].p.direction)
+                {
+                    throw new Exception("mismatch");
+                }
+            }
+            if (adjust_direction != stack.Peek().direction)
+            {
+                throw new Exception("mismatch 2");
+            }
+            if (adjust_p != stack.Peek().p)
+            {
+                throw new Exception("mismatch 3");
+            }
+
             // The process of deleting node p sets parent.p.child[parent.direction]
             // and so the balance factor at parent.p is adjusted
             while (stack.Count > 1)
             {
+                if (adjust_direction != stack.Peek().direction)
+                {
+                    throw new Exception("mismatch 4");
+                }
+                if (adjust_p != stack.Peek().p)
+                {
+                    throw new Exception("mismatch 5");
+                }
                 AuxStack adjust = stack.Pop();
+                int next_adjust_direction = adjust_p.direction;
+                AVLNode next_adjust_p = adjust_p.parent;
+
                 if (adjust.p.balance == adjust.a)
                 {
                     // page 466 i: repeat adjustment procedure for parent
@@ -448,6 +492,8 @@ namespace aoc
                         throw new Exception("unexpected balance value");
                     }
                 }
+                adjust_direction = next_adjust_direction;
+                adjust_p = next_adjust_p;
 
             }
             return true;
