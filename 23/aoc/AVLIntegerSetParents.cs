@@ -425,66 +425,58 @@ namespace aoc
             {
                 throw new Exception("mismatch 3");
             }
+            parent = null;
 
             // The process of deleting node p sets parent.p.child[parent.direction]
             // and so the balance factor at parent.p is adjusted
-            while (stack.Count > 1)
+            while (adjust_p.parent != null)
             {
-                if (adjust_direction != stack.Peek().direction)
-                {
-                    throw new Exception("mismatch 4");
-                }
-                if (adjust_p != stack.Peek().p)
-                {
-                    throw new Exception("mismatch 5");
-                }
-                AuxStack adjust = stack.Pop();
                 int next_adjust_direction = adjust_p.direction;
                 AVLNode next_adjust_p = adjust_p.parent;
+                int adjust_a = adjust_direction == 1 ? 1 : -1;
 
-                if (adjust.p.balance == adjust.a)
+                if (adjust_p.balance == adjust_a)
                 {
                     // page 466 i: repeat adjustment procedure for parent
-                    adjust.p.balance = 0;
+                    adjust_p.balance = 0;
                 }
-                else if (adjust.p.balance == 0)
+                else if (adjust_p.balance == 0)
                 {
                     // page 466 ii: tree is balanced
-                    adjust.p.balance = -adjust.a;
+                    adjust_p.balance = -adjust_a;
                     return true;
                 }
                 else
                 {
                     // page 466 iii - rebalancing required
-                    AVLNode s = adjust.p; // parent of subtree requiring rotation
-                    AVLNode r = adjust.p.child[1 - adjust.direction]; // child requiring rotation is the OPPOSITE of the one removed
-                    parent = stack.Peek();
+                    AVLNode s = adjust_p; // parent of subtree requiring rotation
+                    AVLNode r = adjust_p.child[1 - adjust_direction]; // child requiring rotation is the OPPOSITE of the one removed
 
-                    if (r.balance == -adjust.a)
+                    if (r.balance == -adjust_a)
                     {
                         // page 454 case 1
-                        p = SingleRotation(r, s, 1 - adjust.direction);
-                        parent.p.child[parent.direction] = p;                     
-                        p.parent = parent.p;
-                        p.direction = parent.direction;
+                        p = SingleRotation(r, s, 1 - adjust_direction);
+                        next_adjust_p.child[next_adjust_direction] = p;
+                        p.parent = next_adjust_p;
+                        p.direction = next_adjust_direction;
                     }
-                    else if (r.balance == adjust.a)
+                    else if (r.balance == adjust_a)
                     {
                         // page 454 case 2
-                        p = DoubleRotation(r, s, 1 - adjust.direction);
-                        parent.p.child[parent.direction] = p;
-                        p.parent = parent.p;
-                        p.direction = parent.direction;
+                        p = DoubleRotation(r, s, 1 - adjust_direction);
+                        next_adjust_p.child[next_adjust_direction] = p;
+                        p.parent = next_adjust_p;
+                        p.direction = next_adjust_direction;
                     }
                     else if (r.balance == 0)
                     {
                         // case 3: like case 1 except that beta has height h + 1 (same as gamma)
-                        p = SingleRotation(r, s, 1 - adjust.direction);
-                        parent.p.child[parent.direction] = p;
-                        adjust.p.balance = -adjust.a;
-                        p.balance = adjust.a;
-                        p.parent = parent.p;
-                        p.direction = parent.direction;
+                        p = SingleRotation(r, s, 1 - adjust_direction);
+                        next_adjust_p.child[next_adjust_direction] = p;
+                        adjust_p.balance = -adjust_a;
+                        p.balance = adjust_a;
+                        p.parent = next_adjust_p;
+                        p.direction = next_adjust_direction;
                         return true; // balanced after single rotation
                     }
                     else
