@@ -323,14 +323,23 @@ namespace aoc
             AVLNode adjust_p = head;
             int adjust_direction = 1;
 
+            if ((p == null) || (index < 0) || (index >= p.rank))
+            {
+                // unable to delete element outside of list
+                return;
+            }
+
             while (true)
             {
                 if (p == null)
                 {
-                    // not found
-                    return;
+                    // this should not be possible due to the index check at the start of the Delete method
+                    throw new Exception("missing index");
                 }
-                else if (index < p.left_rank())
+
+                // element will be removed below p
+                p.rank--;
+                if (index < p.left_rank())
                 {
                     adjust_p = p;
                     adjust_direction = 0;
@@ -340,6 +349,7 @@ namespace aoc
                 {
                     adjust_p = p;
                     adjust_direction = 1;
+                    index -= p.left_rank() + 1;
                     p = p.child[1];
                 }
                 else
@@ -367,10 +377,12 @@ namespace aoc
                 p = p.child[1];
                 while (p.child[0] != null)
                 {
+                    p.rank--;
                     adjust_p = p;
                     adjust_direction = 0;
                     p = p.child[0];
                 }
+                p.rank--;
 
                 // Now we found p, a node with zero or one child - easily removed:
                 AVLNode p_child_1 = p.child[1];
@@ -384,6 +396,7 @@ namespace aoc
                 p.parent = q.parent;
                 p.balance = q.balance;
                 p.direction = q.direction;
+                p.rank = q.rank;
                 if (adjust_p == q)
                 {
                     adjust_p = p;
@@ -454,6 +467,9 @@ namespace aoc
                         next_adjust_p.child[next_adjust_direction] = p;
                         p.parent = next_adjust_p;
                         p.direction = next_adjust_direction;
+                        Rerank(s);
+                        Rerank(r);
+                        Rerank(p);
                     }
                     else if (r.balance == adjust_a)
                     {
@@ -462,6 +478,9 @@ namespace aoc
                         next_adjust_p.child[next_adjust_direction] = p;
                         p.parent = next_adjust_p;
                         p.direction = next_adjust_direction;
+                        Rerank(s);
+                        Rerank(r);
+                        Rerank(p);
                     }
                     else if (r.balance == 0)
                     {
@@ -472,6 +491,9 @@ namespace aoc
                         p.balance = adjust_a;
                         p.parent = next_adjust_p;
                         p.direction = next_adjust_direction;
+                        Rerank(s);
+                        Rerank(r);
+                        Rerank(p);
                         return; // balanced after single rotation
                     }
                     else
@@ -668,6 +690,35 @@ namespace aoc
                     if (t_readback != s_readback)
                     {
                         throw new Exception("insert error");
+                    }
+                }
+                if (t.Value(s.Count) != -1)
+                {
+                    throw new Exception("end of list should be -1");
+                }
+                if (t.Value(-1) != -1)
+                {
+                    throw new Exception("before start of list should be -1");
+                }
+            }
+            for (int k = 1; k <= 1000; k++)
+            {
+                int i = r.Next(s.Count);
+                t.Delete(i);
+                s.RemoveAt(i);
+                t.OutputTree("test.dot");
+                if (!t.IsConsistent())
+                {
+                    throw new Exception("became imbalanced");
+                }
+                for (int j = 0; j < s.Count; j++)
+                {
+                    int t_readback = t.Value(j);
+                    int s_readback = s[j];
+
+                    if (t_readback != s_readback)
+                    {
+                        throw new Exception("delete error");
                     }
                 }
                 if (t.Value(s.Count) != -1)
