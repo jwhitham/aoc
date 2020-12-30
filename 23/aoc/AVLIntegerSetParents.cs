@@ -1,11 +1,13 @@
 ﻿using System;
 
 // This Adelson-Velsky and Landis (AVL) tree implementation is based on AVLIntegerSet.cs
-// but uses child->parent links instead of a temporary stack.
+// but it uses child->parent links instead of a temporary stack.
+// This design is more complex than AVLIntegerSet.cs.
 // See https://en.wikipedia.org/wiki/AVL_tree for an introduction to AVL trees.
 // In this implementation:
 // * the AVL tree acts as an ordered set of integers, with O(log N) insertion and removal
 // * there is a "parent" reference at each node
+// * there is also a "direction" at each node, such that node == node.parent.child[node.direction]
 // * children are numbered 0 and 1, so that rotation procedures can be generic
 // * Insert and Delete operations are not recursive
 // * a "head" node is always present so that the "empty" set is not a special case
@@ -38,19 +40,6 @@ namespace aoc
             public AVLNode()
             {
                 this.child = new AVLNode[2];
-            }
-
-            public int a()
-            {
-                return (direction == 0) ? -1 : 1;
-            }
-
-            public void AssertChildIs(AVLNode c)
-            {
-                if ((this.child[0] != c) && (this.child[1] != c))
-                {
-                    throw new Exception("not a child");
-                }
             }
         }
 
@@ -111,7 +100,6 @@ namespace aoc
                     p.child[direction] = q;
                     q.parent = p;
                     q.direction = direction;
-                    p.AssertChildIs(q);
                     break;
                 }
             }
@@ -187,14 +175,12 @@ namespace aoc
                 t.child[1] = p;
                 p.parent = t;
                 p.direction = 1;
-                p.parent.AssertChildIs(p);
             }
             else
             {
                 t.child[0] = p;
                 p.parent = t;
                 p.direction = 0;
-                p.parent.AssertChildIs(p);
             }
             return false;
         }
@@ -211,9 +197,6 @@ namespace aoc
             r.child[1 - direction] = s;                    // node A becomes child of B
             s.balance = 0;
             r.balance = 0;
-            r.AssertChildIs(s);
-            //r.parent = s.parent;
-            //r.direction = s.direction;
             s.direction = 1 - direction;
             s.parent = r;
             if (s.child[direction] != null)
@@ -273,31 +256,13 @@ namespace aoc
             return p;
         }
 
-        // The auxiliary stack is only used for deletion
-        private class AuxStack
-        {
-            public AVLNode p = null;
-            public int direction = 0;  // 0 = left, 1 = right
-            public int a = -1;         // -1 = left, 1 = right
-
-            public AuxStack(AVLNode p, int a)
-            {
-                this.direction = (a < 0) ? 0 : 1;
-                this.a = a;
-                this.p = p;
-            }
-        }
 
         // Delete returns true if removed and false if not present
         public bool Delete(int k)
         {
-            System.Collections.Generic.Stack<AuxStack> stack = new System.Collections.Generic.Stack<AuxStack>();
-            AVLNode p = head;
+            AVLNode p = head.child[1];
             AVLNode adjust_p = head;
             int adjust_direction = 1;
-
-            stack.Push(new AuxStack(head, 1));
-            p = p.child[1];
 
             while (true)
             {
@@ -308,14 +273,12 @@ namespace aoc
                 }
                 else if (k < p.value)
                 {
-                    stack.Push(new AuxStack(p, -1));
                     adjust_p = p;
                     adjust_direction = 0;
                     p = p.child[0];
                 }
                 else if (k > p.value)
                 {
-                    stack.Push(new AuxStack(p, 1));
                     adjust_p = p;
                     adjust_direction = 1;
                     p = p.child[1];
@@ -328,7 +291,6 @@ namespace aoc
             }
 
             // found the node to delete (p)
-            AuxStack parent = stack.Peek();
             if ((p.child[0] != null) && (p.child[1] != null))
             {
                 // non-leaf node with two children being deleted
@@ -339,17 +301,13 @@ namespace aoc
 
                 // q - the node we would like to remove
                 AVLNode q = p;
-                AuxStack q_parent = parent;
-                AuxStack q_item = new AuxStack(p, 1);
                 adjust_p = p;
                 adjust_direction = 1;
-                stack.Push(q_item);
 
                 // find p, a node we can actually remove
                 p = p.child[1];
                 while (p.child[0] != null)
                 {
-                    stack.Push(new AuxStack(p, -1));
                     adjust_p = p;
                     adjust_direction = 0;
                     p = p.child[0];
@@ -361,7 +319,7 @@ namespace aoc
                 // swap "p" and "q" within the tree structure
                 // so that "q" moves out of the tree and can be deleted
                 // and "p" takes its place
-                q_parent.p.child[q_parent.direction] = p;
+                q.parent.child[q.direction] = p;
                 p.child[0] = q.child[0];
                 p.child[1] = q.child[1];
                 p.parent = q.parent;
@@ -371,15 +329,13 @@ namespace aoc
                 {
                     adjust_p = p;
                 }
-                q_item.p = p;
 
                 // fix up a connection to p's child (if p had a child)
-                parent = stack.Peek();
-                parent.p.child[parent.direction] = p_child_1;
+                adjust_p.child[adjust_direction] = p_child_1;
                 if (p_child_1 != null)
                 {
-                    p_child_1.parent = parent.p;
-                    p_child_1.direction = parent.direction;
+                    p_child_1.parent = adjust_p;
+                    p_child_1.direction = adjust_direction;
                 }
                 p.child[0].parent = p;
                 p.child[0].direction = 0;
@@ -392,40 +348,20 @@ namespace aoc
             else if (p.child[0] != null)
             {
                 // Node has one child - so it's easily removed:
-                parent.p.child[parent.direction] = p.child[0];
-                p.child[0].parent = parent.p;
-                p.child[0].direction = parent.direction;
+                adjust_p.child[adjust_direction] = p.child[0];
+                p.child[0].parent = adjust_p;
+                p.child[0].direction = adjust_direction;
             }
             else
             {
                 // Node has zero or one child - again easily removed.
-                parent.p.child[parent.direction] = p.child[1];
+                adjust_p.child[adjust_direction] = p.child[1];
                 if (p.child[1] != null)
                 {
-                    p.child[1].parent = parent.p;
-                    p.child[1].direction = parent.direction;
+                    p.child[1].parent = adjust_p;
+                    p.child[1].direction = adjust_direction;
                 }
             }
-
-            AuxStack[] ast = stack.ToArray();
-
-            // index 0 most recently added element
-            for (int i = 1; i < ast.Length; i++)
-            {
-                if (ast[i].direction != ast[i - 1].p.direction)
-                {
-                    throw new Exception("mismatch");
-                }
-            }
-            if (adjust_direction != stack.Peek().direction)
-            {
-                throw new Exception("mismatch 2");
-            }
-            if (adjust_p != stack.Peek().p)
-            {
-                throw new Exception("mismatch 3");
-            }
-            parent = null;
 
             // The process of deleting node p sets parent.p.child[parent.direction]
             // and so the balance factor at parent.p is adjusted
