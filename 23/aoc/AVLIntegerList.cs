@@ -560,75 +560,107 @@ namespace aoc
         private int GetRank(AVLNode node)
         {
             int rank = 1;
-            if (node.child[0] != null)
+            for (int i = 0; i <= 1; i++)
             {
-                rank += GetRank(node.child[0]);
-            }
-            if (node.child[1] != null)
-            {
-                rank += GetRank(node.child[1]);
+                if (node.child[i] != null)
+                {
+                    rank += GetRank(node.child[i]);
+                }
             }
             return rank;
         }
 
-        private bool IsConsistentNode(TestAVLNode node, int visit)
+        private void CheckConsistentNode(TestAVLNode node, int visit)
         {
             if (node.visit == visit)
             {
-                return false; // cycle detected
+                throw new Exception("cycle detected");
             }
             node.visit = visit;
             for (int i = 0; i <= 1; i++)
             {
                 if (node.child[i] != null)
                 {
-                    if (!IsConsistentNode((TestAVLNode)node.child[i], visit))
-                    {
-                        return false;
-                    }
+                    CheckConsistentNode((TestAVLNode)node.child[i], visit);
                     if (node.child[i].parent != node)
                     {
-                        return false;
+                        throw new Exception("node.child.parent != node");
                     }
                     if (node.child[i].direction != i)
                     {
-                        return false;
+                        throw new Exception("node.child direction is incorrect");
                     }
                 }
             }
             int r = GetRank(node);
             if (node.rank != r)
             {
-                return false;
+                throw new Exception("node rank is incorrect");
             }
             int x = GetBalance(node);
             if (!((-1 <= x) && (x <= 1)))
             {
-                return false;
+                throw new Exception("node balance is out of permitted range");
             }
             if (x != node.balance)
             {
-                return false;
+                throw new Exception("node balance is incorrect");
             }
-            return true;
         }
 
-        public bool IsConsistent()
+        public void CheckConsistent()
         {
             if (this.head.child[1] == null)
             {
-                return true;
+                return;
             }
             if (this.head.child[1].parent != this.head)
             {
-                return false;
+                throw new Exception("head child 1 should have parent head");
             }
             if (this.head.child[1].direction != 1)
             {
-                return false;
+                throw new Exception("head child 1 should have direction 1");
             }
             visit++;
-            return this.IsConsistentNode((TestAVLNode)this.head.child[1], visit);
+            this.CheckConsistentNode((TestAVLNode)this.head.child[1], visit);
+        }
+
+        private void CheckWithListNode(AVLNode node, System.Collections.Generic.List<int> s)
+        {
+            int size = 0;
+            if (node.child[0] != null)
+            {
+                size += node.child[0].rank;
+                CheckWithListNode(node.child[0], s.GetRange(0, size));
+            }
+            if (s[size] != node.value)
+            {
+                throw new Exception("value should be " + s[size] + " actually is " + node.value);
+            }
+            size++;
+            if (node.child[1] != null)
+            {
+                CheckWithListNode(node.child[1], s.GetRange(size, s.Count - size));
+                size += node.child[1].rank;
+            }
+            if (size != s.Count)
+            {
+                throw new Exception("size of subtree should be " + s.Count + " actually is " + s.Count);
+            }
+        }
+
+        public void CheckWithList(System.Collections.Generic.List<int> s)
+        {
+            if (head.child[1] == null)
+            {
+                if (s.Count != 0)
+                {
+                    throw new Exception("size of tree should be non-zero");
+                }
+                return;
+            }
+            CheckWithListNode(head.child[1], s);
         }
 
         private int outcounter = 0;
@@ -642,7 +674,7 @@ namespace aoc
                 return src;
             }
             node.visit = visit;
-            sw.WriteLine("N" + src + " [label=\"" + node.value + " ; b=" + node.balance + " r=" + node.rank + "\"];");
+            sw.WriteLine("N" + src + " [label=\"" + node.value + " ; " + node.balance + "\"];");
             for (int i = 0; i < 2; i++)
             {
                 if (node.child[i] != null)
@@ -670,6 +702,8 @@ namespace aoc
         {
             TestAVL3 t = new TestAVL3();
             System.Collections.Generic.List<int> s = new System.Collections.Generic.List<int>();
+            t.CheckConsistent();
+            t.CheckWithList(s);
 
             Random r = new Random(1);
             for (int k = 1; k <= 1000; k++)
@@ -677,21 +711,8 @@ namespace aoc
                 int i = r.Next(s.Count + 1);
                 t.Insert(i, k);
                 s.Insert(i, k);
-                t.OutputTree("test.dot");
-                if (!t.IsConsistent())
-                {
-                    throw new Exception("became imbalanced");
-                }
-                for (int j = 0; j < s.Count; j++)
-                {
-                    int t_readback = t.Value(j);
-                    int s_readback = s[j];
-
-                    if (t_readback != s_readback)
-                    {
-                        throw new Exception("insert error");
-                    }
-                }
+                t.CheckConsistent();
+                t.CheckWithList(s);
                 if (t.Value(s.Count) != -1)
                 {
                     throw new Exception("end of list should be -1");
@@ -706,31 +727,34 @@ namespace aoc
                 int i = r.Next(s.Count);
                 t.Delete(i);
                 s.RemoveAt(i);
-                t.OutputTree("test.dot");
-                if (!t.IsConsistent())
-                {
-                    throw new Exception("became imbalanced");
-                }
-                for (int j = 0; j < s.Count; j++)
-                {
-                    int t_readback = t.Value(j);
-                    int s_readback = s[j];
-
-                    if (t_readback != s_readback)
-                    {
-                        throw new Exception("delete error");
-                    }
-                }
-                if (t.Value(s.Count) != -1)
-                {
-                    throw new Exception("end of list should be -1");
-                }
-                if (t.Value(-1) != -1)
-                {
-                    throw new Exception("before start of list should be -1");
-                }
+                t.CheckConsistent();
+                t.CheckWithList(s);
             }
-            //t.OutputTree("test.dot");
+            for (int k = 0; k < 10000; k++)
+            {
+                if ((r.Next(2) == 0) && (s.Count > 0))
+                {
+                    int i = r.Next(s.Count);
+                    s.RemoveAt(i);
+                    t.Delete(i);
+                }
+                else
+                {
+                    int i = r.Next(s.Count + 1);
+                    s.Insert(i, k);
+                    t.Insert(i, k);
+                }
+                t.CheckConsistent();
+                t.CheckWithList(s);
+            }
+            t.OutputTree("test.dot");
+            while (s.Count > 0)
+            {
+                s.RemoveAt(0);
+                t.Delete(0);
+                t.CheckConsistent();
+                t.CheckWithList(s);
+            }
         }
     }
 }

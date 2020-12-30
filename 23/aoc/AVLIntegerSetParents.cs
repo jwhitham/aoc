@@ -477,59 +477,89 @@ namespace aoc
             return d2 - d1;
         }
 
-        private bool IsConsistentNode(TestAVLNode node, int visit)
+        private void CheckConsistentNode(TestAVLNode node, int visit)
         {
             if (node.visit == visit)
             {
-                return false; // cycle detected
+                throw new Exception("cycle detected");
             }
             node.visit = visit;
             for (int i = 0; i <= 1; i++)
             {
                 if (node.child[i] != null)
                 {
-                    if (!IsConsistentNode((TestAVLNode)node.child[i], visit))
-                    {
-                        return false;
-                    }
+                    CheckConsistentNode((TestAVLNode)node.child[i], visit);
                     if (node.child[i].parent != node)
                     {
-                        return false;
+                        throw new Exception("node.child.parent != node");
                     }
                     if (node.child[i].direction != i)
                     {
-                        return false;
+                        throw new Exception("node.child direction is incorrect");
                     }
                 }
             }
             int x = GetBalance(node);
             if (!((-1 <= x) && (x <= 1)))
             {
-                return false;
+                throw new Exception("node balance is out of permitted range");
             }
             if (x != node.balance)
             {
-                return false;
+                throw new Exception("node balance is incorrect");
             }
-            return true;
         }
 
-        public bool IsConsistent()
+        public void CheckConsistent()
         {
             if (this.head.child[1] == null)
             {
-                return true;
+                return;
             }
             if (this.head.child[1].parent != this.head)
             {
-                return false;
+                throw new Exception("head child 1 should have parent head");
             }
             if (this.head.child[1].direction != 1)
             {
-                return false;
+                throw new Exception("head child 1 should have direction 1");
             }
             visit++;
-            return this.IsConsistentNode((TestAVLNode)this.head.child[1], visit);
+            this.CheckConsistentNode((TestAVLNode)this.head.child[1], visit);
+        }
+
+        private void CheckWithSetNode(AVLNode node, System.Collections.Generic.HashSet<int> s)
+        {
+            for (int i = 0; i <= 1; i++)
+            {
+                if (node.child[i] != null)
+                {
+                    CheckWithSetNode(node.child[i], s);
+                }
+            }
+            if (s.Contains(node.value))
+            {
+                throw new Exception("value " + node.value + " appears twice");
+            }
+            s.Add(node.value);
+        }
+
+        public void CheckWithSet(System.Collections.Generic.HashSet<int> s)
+        {
+            if (head.child[1] == null)
+            {
+                if (s.Count != 0)
+                {
+                    throw new Exception("size of tree should be non-zero");
+                }
+                return;
+            }
+            System.Collections.Generic.HashSet<int> s2 = new System.Collections.Generic.HashSet<int>();
+            CheckWithSetNode(head.child[1], s2);
+            if (!s.SetEquals(s2))
+            {
+                throw new Exception("sets do not match");
+            }
         }
 
         private int outcounter = 0;
@@ -549,7 +579,7 @@ namespace aoc
                 if (node.child[i] != null)
                 {
                     int dest = OutputNode(sw, (TestAVLNode)node.child[i], visit);
-                    sw.WriteLine("N" + src + " -> N" + dest + ";");
+                    sw.WriteLine("N" + src + " -> N" + dest + " [label=\"" + i + "\"];");
                 }
             }
             return src;
@@ -571,15 +601,14 @@ namespace aoc
         {
             TestAVL2 t = new TestAVL2();
             System.Collections.Generic.HashSet<int> s = new System.Collections.Generic.HashSet<int>();
-
+            t.CheckConsistent();
+            t.CheckWithSet(s);
             for (int i = 1; i <= 10; i++)
             {
                 t.Insert(i);
                 s.Add(i);
-                if (!t.IsConsistent())
-                {
-                    throw new Exception("became imbalanced");
-                }
+                t.CheckConsistent();
+                t.CheckWithSet(s);
             }
             Random r = new Random(1);
             for (int i = 0; i < 1000; i++)
@@ -598,14 +627,11 @@ namespace aoc
                     {
                         throw new Exception("should not contain");
                     }
+                    s.Add(v);
                 }
-                if (!t.IsConsistent())
-                {
-                    throw new Exception("became imbalanced");
-                }
-                s.Add(v);
+                t.CheckConsistent();
+                t.CheckWithSet(s);
             }
-            t.OutputTree("test.dot");
             for (int i = 0; i < 1000; i++)
             {
                 int v = r.Next(100);
@@ -624,10 +650,8 @@ namespace aoc
                         throw new Exception("should not remove");
                     }
                 }
-                if (!t.IsConsistent())
-                {
-                    throw new Exception("became imbalanced");
-                }
+                t.CheckConsistent();
+                t.CheckWithSet(s);
             }
             for (int i = 0; i < 10000; i++)
             {
@@ -648,10 +672,8 @@ namespace aoc
                         throw new Exception("should insert");
                     }
                 }
-                if (!t.IsConsistent())
-                {
-                    throw new Exception("became imbalanced");
-                }
+                t.CheckConsistent();
+                t.CheckWithSet(s);
             }
             for (int i = 0; i <= 110; i++)
             {
@@ -670,10 +692,8 @@ namespace aoc
                         throw new Exception("should not be present");
                     }
                 }
-                if (!t.IsConsistent())
-                {
-                    throw new Exception("became imbalanced");
-                }
+                t.CheckConsistent();
+                t.CheckWithSet(s);
             }
             t.OutputTree("test.dot");
         }
