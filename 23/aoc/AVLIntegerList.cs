@@ -146,32 +146,33 @@ namespace aoc
             q.value = value;
             q.balance = 0;
             // adjust balance factors
-            if (s_index < s.left_rank())
+            index = s_index;
+            if (index <= s.left_rank())
             {
                 r = p = s.child[0];
             }
             else
             {
-                s_index -= s.left_rank() + 1;
+                index -= s.left_rank() + 1;
                 r = p = s.child[1];
             }
             while (p != q)
             {
-                if (s_index < p.left_rank())
+                if (index <= p.left_rank())
                 {
                     p.balance = -1;
                     p = p.child[0];
                 }
                 else
                 {
-                    s_index -= p.left_rank() + 1;
+                    index -= p.left_rank() + 1;
                     p.balance = 1;
                     p = p.child[1];
                 }
             }
             // A7 balancing act
             int a;
-            if (s_index < s.left_rank())
+            if (s_index <= s.left_rank())
             {
                 a = -1;
                 direction = 0;
