@@ -13,7 +13,7 @@
 // * Insert and Delete operations are not recursive
 // * a "head" node is always present so that the "empty" set is not a special case
 
-namespace aoc
+namespace taocp_avl_tree
 {
 
     public class AVLIntegerSet
