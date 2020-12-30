@@ -3,7 +3,9 @@
 // This Adelson-Velsky and Landis (AVL) tree implementation is based on AVLIntegerSetParents.cs
 // and it implements a list of integers in which any element can be inserted, deleted or
 // accessed in O(log N) time, based on its index.
+//
 // See https://en.wikipedia.org/wiki/AVL_tree for an introduction to AVL trees.
+//
 // In this implementation:
 // * the AVL tree acts as an indexed list of integers, with O(log N) insertion and removal
 // * there is a "parent" reference at each node
@@ -235,12 +237,20 @@ namespace aoc
         {
             // page 457 A8 single rotation
             // as applied to case 1 (top of page 454) in which s is A and r is B
-            // initially B is a child of A (i.e. r is a child of s)
-            // In the book, direction = 1
+            // Initially r is a child of s. In the book, direction = 1, as follows:
+            //
+            //      |               ->            |
+            //      s               ->            r
+            //    /   \        SingleRotation   /   \
+            // alpha   r            ->        s     gamma
+            //       /   \          ->      /   \
+            //    beta   gamma      ->  alpha   beta
+            //
+            // direction = 0 is the same operation applied to a mirror image.
 
             AVLNode p = r;
-            s.child[direction] = r.child[1 - direction];   // beta subtree moved from B to A
-            r.child[1 - direction] = s;                    // node A becomes child of B
+            s.child[direction] = r.child[1 - direction];   // beta subtree moved from r to s
+            r.child[1 - direction] = s;                    // node r becomes child of s
             s.balance = 0;
             r.balance = 0;
             s.direction = 1 - direction;
@@ -257,18 +267,28 @@ namespace aoc
         private AVLNode DoubleRotation(AVLNode r, AVLNode s, int direction)
         {
             // A9 double rotation
-            // as applied to case 2 (top of page 454) in which s is A and r is B
-            // initially B is a child of A (i.e. r is a child of s)
-            // In the book, direction = 1
+            // as applied to case 2 (top of page 454) in which s is A, r is B, and p is X
+            // Initially r is a child of s. In the book, direction = 1, as follows:
+            //
+            //         |            ->                     |
+            //         s            ->                     p
+            //       /   \      DoubleRotation           /    \
+            //    alpha   r         ->                 s        r  
+            //          /   \       ->               /   \    /   \
+            //         p    delta   ->           alpha beta gamma delta
+            //       /   \          ->
+            //     beta  gamma      ->
+            //
+            // direction = 0 is the same operation applied to a mirror image.
 
             int a = (direction > 0) ? 1 : -1;
             AVLNode p;
 
-            p = r.child[1 - direction];                     // p is node X
-            r.child[1 - direction] = p.child[direction];    // gamma subtree moved from X to B
-            p.child[direction] = r;                         // B becomes child of X
-            s.child[direction] = p.child[1 - direction];    // beta subtree moved from X to A
-            p.child[1 - direction] = s;                     // A becomes child of X
+            p = r.child[1 - direction];                     // p is child of r (node X in the book)
+            r.child[1 - direction] = p.child[direction];    // gamma subtree moved from p to r
+            p.child[direction] = r;                         // r becomes child of p
+            s.child[direction] = p.child[1 - direction];    // beta subtree moved from p to s
+            p.child[1 - direction] = s;                     // s becomes child of p
             if (p.balance == a)
             {
                 s.balance = -a;
@@ -387,20 +407,9 @@ namespace aoc
                 // Now we found p, a node with zero or one child - easily removed:
                 AVLNode p_child_1 = p.child[1];
 
-                // swap "p" and "q" within the tree structure
-                // so that "q" moves out of the tree and can be deleted
-                // and "p" takes its place
-                q.parent.child[q.direction] = p;
-                p.child[0] = q.child[0];
-                p.child[1] = q.child[1];
-                p.parent = q.parent;
-                p.balance = q.balance;
-                p.direction = q.direction;
-                p.rank = q.rank;
-                if (adjust_p == q)
-                {
-                    adjust_p = p;
-                }
+                // move p's contents to q
+                q.value = p.value;
+                p = q;
 
                 // fix up a connection to p's child (if p had a child)
                 adjust_p.child[adjust_direction] = p_child_1;
