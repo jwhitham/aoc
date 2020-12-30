@@ -2,6 +2,13 @@
 
 namespace aoc
 {
+    public class CupList : taocp_avl_tree.AVLIntegerList
+    {
+        protected class CupAVLNode : taocp_avl_tree.AVLIntegerList.AVLNode
+        {
+
+        }
+    }
     public class CrabGame
     {
         private class Cup
@@ -128,9 +135,9 @@ namespace aoc
         }
     }
 
-    class Program
+    public class CrabGameProgram
     {
-        static void Main(string[] args)
+        public static void CrabMain()
         {
             string test_input = "389125467";
             string my_input = "158937462";

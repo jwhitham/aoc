@@ -6,6 +6,7 @@ namespace taocp_avl_tree
     {
         static void Main(string[] args)
         {
+            TestAVL4.Test();
             TestAVL3.Test();
             TestAVL2.Test();
             TestAVL.Test();
