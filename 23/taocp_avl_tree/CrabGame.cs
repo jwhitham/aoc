@@ -1,113 +1,86 @@
 ﻿using System;
 
+// This version of Crab Game (AOC 2020 day 23) uses a list data structure
+// based on a balanced tree. Each value can be found, added and removed in O(log N) time.
+// This is not the best solution for the puzzle which can also be solved with a linked
+// list: there is no need for the list index to be known at each iteration.
+
+
 namespace aoc
 {
-    public class CupList : taocp_avl_tree.AVLIntegerList
-    {
-        protected class CupAVLNode : taocp_avl_tree.AVLIntegerList.AVLNode
-        {
 
-        }
-    }
     public class CrabGame
     {
-        private class Cup
-        {
-            public uint previous = 0;
-            public uint next = 0;
-        }
+        private taocp_avl_tree.AVLIntegerFindList all_cups;
+        private int number_of_cups;
 
-        private Cup[] all_cups;
-        private uint current_cup;
-        private uint number_of_cups;
-
-        public CrabGame(string initial_state, uint number_of_cups)            
+        public CrabGame(string initial_state, int number_of_cups)            
         {
             this.number_of_cups = number_of_cups;
-            all_cups = new Cup[number_of_cups + 1];
-            for (uint i = 1; i <= number_of_cups; i++)
+            all_cups = new taocp_avl_tree.AVLIntegerFindList();
+            for (int i = 0; i < initial_state.Length; i++)
             {
-                all_cups[i] = new Cup();
+                all_cups.Insert(i, int.Parse(initial_state.Substring(i, 1)));
             }
-            this.current_cup = uint.Parse(initial_state.Substring(0, 1));
-
-            uint previous = this.current_cup;
-            for (uint i = 0; i < (uint) initial_state.Length; i++)
+            for (int i = initial_state.Length + 1; i <= number_of_cups; i++)
             {
-                uint current = uint.Parse(initial_state.Substring((int)i, 1));
-                all_cups[current].previous = previous;
-                all_cups[previous].next = current;
-                previous = current;
+                all_cups.Insert(i, i);
             }
-            for (uint current = (uint) initial_state.Length + 1; current <= number_of_cups; current++)
-            {
-                all_cups[current].previous = previous;
-                all_cups[previous].next = current;
-                previous = current;
-            }
-            // link around the end of the list
-            all_cups[previous].next = this.current_cup;
-            all_cups[this.current_cup].previous = previous;
         }
 
-        private void Remove(uint cup)
+        public void Play(int number_of_rounds)
         {
-            uint previous = all_cups[cup].previous;
-            uint next = all_cups[cup].next;
-            all_cups[previous].next = next;
-            all_cups[next].previous = previous;
-            all_cups[cup].previous = 0;
-            all_cups[cup].next = 0;
-        }
-
-        private void Insert(uint where, uint what)
-        {
-            uint next = all_cups[where].next;
-            all_cups[where].next = what;
-            all_cups[what].next = next;
-            all_cups[next].previous = what;
-            all_cups[what].previous = where;
-        }
-
-        public void Play(uint number_of_rounds)
-        {
-            for (uint i = 1; i <= number_of_rounds; i++)
+            for (int i = 1; i <= number_of_rounds; i++)
             {
-                uint cup1 = all_cups[current_cup].next;
-                uint cup2 = all_cups[cup1].next;
-                uint cup3 = all_cups[cup2].next;
-                Remove(cup3);
-                Remove(cup2);
-                Remove(cup1);
-                uint destination = current_cup - 1;
-                while ((destination == cup1) || (destination == cup2)
-                    || (destination == cup3) || (destination == 0))
+                int current_cup = all_cups.Value(0);
+
+                // remove cups 1, 2, 3
+                int cup1 = all_cups.Value(1);
+                int cup2 = all_cups.Value(2);
+                int cup3 = all_cups.Value(3);
+                all_cups.Delete(1);
+                all_cups.Delete(1);
+                all_cups.Delete(1);
+
+                // determine destination
+                int destination_cup = current_cup - 1;
+                while ((destination_cup == cup1) || (destination_cup == cup2)
+                    || (destination_cup == cup3) || (destination_cup == 0))
                 {
-                    if (destination == 0)
+                    if (destination_cup == 0)
                     {
-                        destination = number_of_cups + 1;
+                        destination_cup = number_of_cups + 1;
                     }
-                    destination--;
+                    destination_cup--;
                 }
-                Insert(destination, cup3);
-                Insert(destination, cup2);
-                Insert(destination, cup1);
-                // rotate the board
-                current_cup = all_cups[current_cup].next;
+
+                // insert at destination
+                int destination_index = all_cups.Index(destination_cup);
+                destination_index = (destination_index + 1) % number_of_cups;
+                all_cups.Insert(destination_index, cup3);
+                all_cups.Insert(destination_index, cup2);
+                all_cups.Insert(destination_index, cup1);
+
+                // rotate so that the next cup is at index 0
+                all_cups.Delete(0);
+                all_cups.Insert(number_of_cups - 1, current_cup);
             }
         }
 
         public override string ToString()
         {
-            uint iter = current_cup;
             string output = "";
-            for (uint i = 1; (i <= number_of_cups) && (i <= 10); i++)
+            int current_cup = all_cups.Value(0);
+            for (int i = 1; (i <= number_of_cups) && (i <= 10); i++)
             {
-                output += " " + iter.ToString();
-                iter = all_cups[iter].next;
-                if (iter == current_cup)
+                int v = all_cups.Value(i - 1);
+                if (v == current_cup)
                 {
-                    break;
+                    output += " (" + v + ")";
+                }
+                else
+                {
+                    output += " " + v;
                 }
             }
             return output;
@@ -115,22 +88,23 @@ namespace aoc
 
         public string Part1Result()
         {
-            uint iter = all_cups[1].next;
+            int iter = all_cups.Index(1);
             string output = "";
-            for (uint i = 1; (i <= number_of_cups) && (i <= 8); i++)
+            for (int i = 1; (i <= number_of_cups) && (i <= 8); i++)
             {
-                output += iter.ToString();
-                iter = all_cups[iter].next;
+                iter = (iter + 1) % number_of_cups;
+                output += all_cups.Value(iter).ToString();
             }
             return output;
         }
 
         public ulong Part2Result()
         {
-            uint iter = all_cups[1].next;
-            ulong r1 = (ulong)iter;
-            iter = all_cups[iter].next;
-            ulong r2 = (ulong)iter;
+            int iter = all_cups.Index(1);
+            iter = (iter + 1) % number_of_cups;
+            ulong r1 = (ulong)all_cups.Value(iter);
+            iter = (iter + 1) % number_of_cups;
+            ulong r2 = (ulong)all_cups.Value(iter);
             return r1 * r2;  // <-- that's numberwang
         }
     }
@@ -153,6 +127,7 @@ namespace aoc
             {
                 throw new Exception("test 2 failed");
             }
+            Console.WriteLine("part 1 tests ok");
 
             cg = new CrabGame(test_input, 1000 * 1000);
             cg.Play(10 * 1000 * 1000);
@@ -160,6 +135,7 @@ namespace aoc
             {
                 throw new Exception("test 3 failed");
             }
+            Console.WriteLine("part 2 tests ok");
 
             cg = new CrabGame(my_input, 9);
             cg.Play(100);

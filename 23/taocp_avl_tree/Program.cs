@@ -11,6 +11,7 @@ namespace taocp_avl_tree
             TestAVL2.Test();
             TestAVL.Test();
             Console.WriteLine("all tests ok");
+            aoc.CrabGameProgram.CrabMain();
         }
     }
 }
