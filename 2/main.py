@@ -22,9 +22,18 @@ def multiply_horiz_and_depth(filename: Path) -> int:
 def test_multiply_horiz_and_depth() -> None:
     assert multiply_horiz_and_depth(Path("part1test.txt")) == 150
 
+def multiply_horiz_and_depth_with_aim(filename: Path) -> int:
+    horiz = 0
+    depth = 0
+    return horiz * depth
+
+def test_multiply_horiz_and_depth_with_aim() -> None:
+    assert multiply_horiz_and_depth_with_aim(Path("part1test.txt")) == 900
+
 
 def main() -> None:
     print("part 1:", multiply_horiz_and_depth(Path("part1.txt")))
+    print("part 2:", multiply_horiz_and_depth_with_aim(Path("part1.txt")))
 
 if __name__ == "__main__":
     main()
