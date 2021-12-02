@@ -25,6 +25,20 @@ def test_multiply_horiz_and_depth() -> None:
 def multiply_horiz_and_depth_with_aim(filename: Path) -> int:
     horiz = 0
     depth = 0
+    aim = 0
+    for line in open(filename, "rt"):
+        (cmd, arg) = line.split()
+        value = int(arg)
+        if cmd == "forward":
+            horiz += value
+            depth += aim * value
+        elif cmd == "down":
+            aim += value
+        elif cmd == "up":
+            aim -= value
+        else:
+            raise Exception("unknown command " + cmd)
+
     return horiz * depth
 
 def test_multiply_horiz_and_depth_with_aim() -> None:
