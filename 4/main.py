@@ -33,7 +33,7 @@ class Board:
             t += sum(col)
         return t
 
-def bingo_1(filename: Path) -> int:
+def bingo(filename: Path, pick_first: bool) -> int:
     fd = open(filename, "rt")
     number_sequence = [int(x) for x in fd.readline().split(",")]
     boards: typing.List[Board] = []
@@ -50,19 +50,32 @@ def bingo_1(filename: Path) -> int:
         boards.append(b)
         blank = fd.readline()
 
+    last_non_empty_board: typing.Optional[Board] = None
     for n in number_sequence:
+        non_empty_board_count = 0
         for b in boards:
             b.remove(n)
             if b.is_empty():
-                return b.total() * n
+                if pick_first or (b == last_non_empty_board):
+                    return b.total() * n
+            else:
+                non_empty_board_count += 1
+                last_non_empty_board = b
+
+        if non_empty_board_count != 1:
+            last_non_empty_board = None
 
     assert False, "no board finished"
 
 def test_bingo_1() -> None:
-    assert bingo_1(Path("part1test.txt")) == 4512
+    assert bingo(Path("part1test.txt"), True) == 4512
+
+def test_bingo_2() -> None:
+    assert bingo(Path("part1test.txt"), False) == 1924
 
 def main() -> None:
-    print("part 1:", bingo_1(Path("part1.txt")))
+    print("part 1:", bingo(Path("part1.txt"), True))
+    print("part 2:", bingo(Path("part1.txt"), False))
 
 if __name__ == "__main__":
     main()
