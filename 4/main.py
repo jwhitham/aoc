@@ -18,7 +18,7 @@ class Board:
         for row in self.rows:
             row.discard(n)
 
-    def is_empty(self) -> None:
+    def is_empty(self) -> bool:
         for col in self.cols:
             if len(col) == 0:
                 return True
