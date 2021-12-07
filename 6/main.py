@@ -27,6 +27,9 @@ def test_lanternfish_1() -> None:
     assert lanternfish(Path("part1test.txt"), 18) == 26
     assert lanternfish(Path("part1test.txt"), 80) == 5934
 
+def test_lanternfish_2() -> None:
+    assert lanternfish(Path("part1test.txt"), 256) == 26984457539
+
 def main() -> None:
     print("part 1:", lanternfish(Path("part1.txt"), 80))
     print("part 2:", lanternfish(Path("part1.txt"), 256))
