@@ -75,6 +75,8 @@ def deduce(all_patterns: typing.Set[str]) -> typing.Dict[str, int]:
     assert segment_cf
     assert segment_bdcf
     assert segment_acf
+
+    # Initially we know 4 of the numbers
     translation: typing.Dict[str, int] = {
             segment_cf: 1,
             segment_acf: 7,
@@ -86,7 +88,7 @@ def deduce(all_patterns: typing.Set[str]) -> typing.Dict[str, int]:
     assert len(segment_a) == 1
     
     # Find segments bd (which is 4 - 1)
-    segment_bd = (normalise(set(segment_bdcf) - set(segment_cf)))
+    segment_bd = normalise(set(segment_bdcf) - set(segment_cf))
     assert len(segment_bd) == 2
 
     # b -> 6 patterns
@@ -95,6 +97,8 @@ def deduce(all_patterns: typing.Set[str]) -> typing.Dict[str, int]:
                     all_patterns=all_patterns,
                     candidate_1=segment_bd[0], candidate_2=segment_bd[1],
                     count_x=6, count_y=7)
+    # 0 is identified
+    translation[normalise(set(segment_abcdefg) - set(segment_d))] = 0
 
     # c -> 8 patterns
     # f -> 9 patterns
@@ -102,6 +106,9 @@ def deduce(all_patterns: typing.Set[str]) -> typing.Dict[str, int]:
                     all_patterns=all_patterns,
                     candidate_1=segment_cf[0], candidate_2=segment_cf[1],
                     count_x=8, count_y=9)
+    # 2, 6 are identified
+    translation[normalise(set(segment_abcdefg) - set(segment_c))] = 6
+    translation[normalise(set(segment_abcdefg) - set(segment_b) - set(segment_f))] = 2
     
     # Got abcdf
     # Not got eg
@@ -112,14 +119,11 @@ def deduce(all_patterns: typing.Set[str]) -> typing.Dict[str, int]:
                     all_patterns=all_patterns,
                     candidate_1=segment_eg[0], candidate_2=segment_eg[1],
                     count_x=4, count_y=7)
-
     # Now everything can be identified
-    translation[(normalise(set(segment_abcdefg) - set(segment_d)))] = 0
-    translation[(normalise(set(segment_abcdefg) - set(segment_b) - set(segment_f)))] = 2
-    translation[(normalise(set(segment_abcdefg) - set(segment_b) - set(segment_e)))] = 3
-    translation[(normalise(set(segment_abcdefg) - set(segment_c) - set(segment_e)))] = 5
-    translation[(normalise(set(segment_abcdefg) - set(segment_c)))] = 6
-    translation[(normalise(set(segment_abcdefg) - set(segment_e)))] = 9
+    translation[normalise(set(segment_abcdefg) - set(segment_b) - set(segment_e))] = 3
+    translation[normalise(set(segment_abcdefg) - set(segment_c) - set(segment_e))] = 5
+    translation[normalise(set(segment_abcdefg) - set(segment_e))] = 9
+
     return translation
 
 def normalise_line(line: str) -> typing.Set[str]:
