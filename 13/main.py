@@ -23,54 +23,48 @@ def combine(a: str, b: str) -> str:
 
 class Grid:
     def __init__(self) -> None:
-        self.matrix: typing.Dict[XY, str] = collections.defaultdict(lambda: ' ')
-        self.rows = 0
-        self.cols = 0
+        self.dots: typing.Set[XY] = set()
 
     def add(self, line: str) -> None:
         pair = line.split(",")
         x = int(pair[0])
         y = int(pair[1])
-        self.matrix[(x, y)] = '#'
-        self.rows = max(self.rows, y + 1)
-        self.cols = max(self.cols, x + 1)
+        self.dots.add((x, y))
 
     def fold_x(self, at_x: int) -> None:
-        for y in range(self.rows):
-            for x1 in range(at_x + 1, self.cols):
+        copy: typing.Set[XY] = set()
+        for (x1, y) in self.dots:
+            if x1 > at_x:
                 x2 = at_x - (x1 - at_x)
-                self.matrix[(x2, y)] = combine(
-                    self.matrix[(x2, y)], self.matrix[(x1, y)])
-                self.matrix[(x1, y)] = ' '
-
-        self.recompute_boundary()
+                copy.add((x2, y))
+            else:
+                copy.add((x1, y))
+        self.dots = copy
 
     def fold_y(self, at_y: int) -> None:
-        for x in range(self.cols):
-            for y1 in range(at_y + 1, self.rows):
+        copy: typing.Set[XY] = set()
+        for (x, y1) in self.dots:
+            if y1 > at_y:
                 y2 = at_y - (y1 - at_y)
-                self.matrix[(x, y2)] = combine(
-                    self.matrix[(x, y2)], self.matrix[(x, y1)])
-                self.matrix[(x, y1)] = ' '
-
-        self.recompute_boundary()
-
-    def recompute_boundary(self) -> None:
-        mx = my = 0
-        for x in range(self.cols - 1, 0, -1):
-            for y in range(self.rows - 1, 0, -1):
-                if self.matrix[(x, y)] == '#':
-                    mx = max(x, mx)
-                    my = max(y, my)
-        self.cols = mx + 1
-        self.rows = my + 1
+                copy.add((x, y2))
+            else:
+                copy.add((x, y1))
+        self.dots = copy
 
     def count(self) -> int:
-        return len([1 for i in self.matrix.values() if i == '#'])
+        return len(self.dots)
 
     def do_print(self) -> None:
-        for y in range(self.rows):
-            print(''.join([self.matrix[(x, y)] for x in range(self.cols)]))
+        matrix: typing.Dict[XY, str] = collections.defaultdict(lambda: " ")
+        rows = cols = 0
+        for (x, y) in self.dots:
+            matrix[(x, y)] = '#'
+            cols = max(x + 1, cols)
+            rows = max(y + 1, rows)
+
+
+        for y in range(rows):
+            print(''.join([matrix[(x, y)] for x in range(cols)]))
                             
 
 def folding1(filename: Path) -> int:
