@@ -24,16 +24,27 @@ class Cell:
 
 class Map:
     def __init__(self, filename: Path) -> None:
-        self.cells = {}
-        self.rows = self.cols = 0
+        self.cells: typing.List[typing.List[Cell]] = []
         for (y, line) in enumerate(open(filename, "rt")):
+            row: typing.List[Cell] = []
+            self.cells.append(row)
             for (x, col) in enumerate(line.strip()):
-                self.cells[(x, y)] = Cell(x, y, int(col))
-                self.cols = max(x + 1, self.cols)
-            self.rows = y + 1
+                row.append(Cell(x, y, int(col)))
+
+        self.rows = len(self.cells)
+        self.cols = len(self.cells[0])
+
+    def get(self, x: int, y: int) -> typing.Optional[Cell]:
+        if (0 <= x < self.cols) and (0 <= y < self.rows):
+            return self.cells[y][x]
+        else:
+            return None
 
     def shortest_path(self) -> int:
-        start = self.cells[(0, 0)]
+        start = self.get(0, 0)
+        end = self.get(self.cols - 1, self.rows - 1)
+        assert start
+        assert end
         start.best_risk = 0
 
         todo: typing.List[Cell] = []
@@ -50,12 +61,12 @@ class Map:
                 then.best_risk = now.best_risk + then.risk_here
                 heapq.heappush(todo, then)
 
-            evaluate(self.cells.get((now.x - 1, now.y), None))
-            evaluate(self.cells.get((now.x, now.y - 1), None))
-            evaluate(self.cells.get((now.x + 1, now.y), None))
-            evaluate(self.cells.get((now.x, now.y + 1), None))
+            evaluate(self.get(now.x - 1, now.y))
+            evaluate(self.get(now.x + 1, now.y))
+            evaluate(self.get(now.x, now.y - 1))
+            evaluate(self.get(now.x, now.y + 1))
 
-        return self.cells[(self.cols - 1, self.rows - 1)].best_risk
+        return end.best_risk
 
 
 def thing1(filename: Path) -> int:
@@ -67,21 +78,33 @@ def test_part_1() -> None:
 class Map2(Map):
     def __init__(self, filename: Path, mult: int) -> None:
         Map.__init__(self, filename)
-        for y in range(self.rows):
-            for x in range(self.cols):
-                for ry in range(mult):
-                    ty = (ry * self.rows) + y
-                    for rx in range(mult):
-                        tx = (rx * self.cols) + x
-                        risk = self.cells[(x, y)].risk_here
-                        risk += rx + ry
-                        risk -= 1
-                        risk %= 9
-                        risk += 1
-                        self.cells[(tx, ty)] = Cell(tx, ty, risk)
 
-        self.rows = self.rows * mult
-        self.cols = self.cols * mult
+        def modulo(risk: int) -> int:
+            return ((risk - 1) % 9) + 1
+
+        # Expand in X direction
+        for y in range(self.rows):
+            row = self.cells[y]
+            for rx in range(1, mult):
+                for x in range(self.cols):
+                    risk = modulo(row[x].risk_here + rx)
+                    row.append(Cell(x + (rx * self.cols), y, risk))
+
+        self.cols *= mult
+
+        # Expand in Y direction
+        for ry in range(1, mult):
+            for y in range(self.rows):
+                old_row = self.cells[y]
+                new_row: typing.List[Cell] = []
+                for x in range(self.cols):
+                    risk = modulo(old_row[x].risk_here + ry)
+                    new_row.append(Cell(x, y + (ry * self.rows), risk))
+
+                self.cells.append(new_row)
+
+        self.rows *= mult
+
 
 def thing2(filename: Path) -> int:
     return Map2(filename, 5).shortest_path()
