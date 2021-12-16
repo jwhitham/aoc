@@ -117,6 +117,18 @@ class Packet:
 
         return s
 
+    def dump(self, indent="") -> None:
+        if self.ptype == PacketType.VALUE:
+            print("{}version = {} type = {} value = {}".format(
+                indent, self.version, self.ptype.name, self.value))
+        else:
+            print("{}version = {} type = {}".format(
+                indent, self.version, self.ptype.name))
+            indent += "  "
+            for s in self.subpackets:
+                s.dump(indent)
+
+
 def test1() -> None:
     h = "D2FE28"
     b = "110100101111111000101000"
