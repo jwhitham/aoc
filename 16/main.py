@@ -1,6 +1,6 @@
 YEAR = 2021
 DAY = 16
-PART = 1
+PART = 3
  
 from pathlib import Path
 import unittest
@@ -77,6 +77,37 @@ class Packet:
             s += p.version_sum()
         return s
 
+    def calculate(self) -> int:
+        if self.ptype == 4:
+            return self.value
+
+        s = self.subpackets[0].calculate()
+        if self.ptype == 0:
+            for p in self.subpackets[1:]:
+                s += p.calculate()
+
+        elif self.ptype == 1:
+            for p in self.subpackets[1:]:
+                s *= p.calculate()
+
+        elif self.ptype == 2:
+            for p in self.subpackets[1:]:
+                s = min(s, p.calculate())
+
+        elif self.ptype == 3:
+            for p in self.subpackets[1:]:
+                s = max(s, p.calculate())
+
+        elif self.ptype == 5:
+            s = 1 if s > self.subpackets[1].calculate() else 0
+
+        elif self.ptype == 6:
+            s = 1 if s < self.subpackets[1].calculate() else 0
+
+        else:
+            s = 1 if s == self.subpackets[1].calculate() else 0
+
+        return s
 
 def test1() -> None:
     h = "D2FE28"
@@ -121,19 +152,33 @@ def test3() -> None:
     assert p2.value == 3
 
 def test4() -> None:
-    assert Packet(PacketReader("8A004A801A8002F478")).version_sum() == 16
-    assert Packet(PacketReader("620080001611562C8802118E34")).version_sum() == 12
-    assert Packet(PacketReader("C0015000016115A2E0802F182340")).version_sum() == 23
-    assert Packet(PacketReader("A0016C880162017C3686B18A3D4780")).version_sum() == 31
+    def t(s: str) -> int:
+        return Packet(PacketReader(s)).version_sum()
+
+    assert t("8A004A801A8002F478") == 16
+    assert t("620080001611562C8802118E34") == 12
+    assert t("C0015000016115A2E0802F182340") == 23
+    assert t("A0016C880162017C3686B18A3D4780") == 31
 
 def thing1(filename: Path) -> int:
     return Packet(PacketReader(open(filename, "rt").read())).version_sum()
 
-def thing2(filename: Path) -> int:
-    return 0
+def test5() -> None:
+    def t(s: str) -> int:
+        return Packet(PacketReader(s)).calculate()
 
-#def test_part_2() -> None:
-#    assert thing2(Path("test2")) == 1
+    assert t("C200B40A82") == 3
+    assert t("04005AC33890") == 54
+    assert t("880086C3E88112") == 7
+    assert t("CE00C43D881120") == 9
+    assert t("D8005AC2A8F0") == 1
+    assert t("F600BC2D8F") == 0
+    assert t("9C005AC2F8F0") == 0
+    assert t("9C0141080250320F1802104A08") == 1
+    assert t("D2FE28") == 2021
+
+def thing2(filename: Path) -> int:
+    return Packet(PacketReader(open(filename, "rt").read())).calculate()
 
 def main() -> None:
     if not INPUT.exists():
