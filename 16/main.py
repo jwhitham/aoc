@@ -8,7 +8,7 @@ import typing
 import subprocess
 import collections
 import sys
-import os
+import enum
 
 INPUT = Path("input")
 
@@ -38,16 +38,24 @@ class PacketReader:
     def remaining(self) -> int:
         return len(self.bits)
 
-VALUE = 4
+class PacketType(enum.Enum):
+    SUM = 0
+    PRODUCT = 1
+    MINIMUM = 2
+    MAXIMUM = 3
+    VALUE = 4
+    GREATER_THAN = 5
+    LESS_THAN = 6
+    EQUAL_TO = 7
 
 class Packet:
     def __init__(self, pr: PacketReader) -> None:
         self.version = pr.get_n(3)
-        self.ptype = pr.get_n(3)
+        self.ptype = PacketType(pr.get_n(3))
         self.value = 0
         self.subpackets: typing.List[Packet] = []
 
-        if self.ptype == VALUE:
+        if self.ptype == PacketType.VALUE:
             while pr.get() == 1:
                 self.value = self.value << 4
                 self.value |= pr.get_n(4)
@@ -78,30 +86,30 @@ class Packet:
         return s
 
     def calculate(self) -> int:
-        if self.ptype == 4:
+        if self.ptype == PacketType.VALUE:
             return self.value
 
         s = self.subpackets[0].calculate()
-        if self.ptype == 0:
+        if self.ptype == PacketType.SUM:
             for p in self.subpackets[1:]:
                 s += p.calculate()
 
-        elif self.ptype == 1:
+        elif self.ptype == PacketType.PRODUCT:
             for p in self.subpackets[1:]:
                 s *= p.calculate()
 
-        elif self.ptype == 2:
+        elif self.ptype == PacketType.MINIMUM:
             for p in self.subpackets[1:]:
                 s = min(s, p.calculate())
 
-        elif self.ptype == 3:
+        elif self.ptype == PacketType.MAXIMUM:
             for p in self.subpackets[1:]:
                 s = max(s, p.calculate())
 
-        elif self.ptype == 5:
+        elif self.ptype == PacketType.GREATER_THAN:
             s = 1 if s > self.subpackets[1].calculate() else 0
 
-        elif self.ptype == 6:
+        elif self.ptype == PacketType.LESS_THAN:
             s = 1 if s < self.subpackets[1].calculate() else 0
 
         else:
@@ -115,7 +123,7 @@ def test1() -> None:
     assert PacketReader(h).get_n(len(b)) == int(b, 2)
     p = Packet(PacketReader(h))
     assert p.version == 6
-    assert p.ptype == VALUE
+    assert p.ptype == PacketType.VALUE
     assert p.value == 2021
 
 def test2() -> None:
@@ -124,13 +132,13 @@ def test2() -> None:
     assert PacketReader(h).get_n(len(b)) == int(b, 2)
     p = Packet(PacketReader(h))
     assert p.version == 1
-    assert p.ptype == 6
+    assert p.ptype == PacketType(6)
     assert len(p.subpackets) == 2
     p0 = p.subpackets[0]
     p1 = p.subpackets[1]
-    assert p0.ptype == VALUE
+    assert p0.ptype == PacketType.VALUE
     assert p0.value == 10
-    assert p1.ptype == VALUE
+    assert p1.ptype == PacketType.VALUE
     assert p1.value == 20
 
 def test3() -> None:
@@ -139,16 +147,16 @@ def test3() -> None:
     assert PacketReader(h).get_n(len(b)) == int(b, 2)
     p = Packet(PacketReader(h))
     assert p.version == 7
-    assert p.ptype == 3
+    assert p.ptype == PacketType(3)
     assert len(p.subpackets) == 3
     p0 = p.subpackets[0]
     p1 = p.subpackets[1]
     p2 = p.subpackets[2]
-    assert p0.ptype == VALUE
+    assert p0.ptype == PacketType.VALUE
     assert p0.value == 1
-    assert p1.ptype == VALUE
+    assert p1.ptype == PacketType.VALUE
     assert p1.value == 2
-    assert p2.ptype == VALUE
+    assert p2.ptype == PacketType.VALUE
     assert p2.value == 3
 
 def test4() -> None:
@@ -179,6 +187,10 @@ def test5() -> None:
 
 def thing2(filename: Path) -> int:
     return Packet(PacketReader(open(filename, "rt").read())).calculate()
+
+def test_things() -> None:
+    assert thing1(INPUT) == 960
+    assert thing2(INPUT) == 12301926782560
 
 def main() -> None:
     if not INPUT.exists():
