@@ -20,7 +20,10 @@ class Cell:
         self.best_risk = 1 << 31
 
     def __lt__(self, other) -> None:
-        return self.best_risk < other.best_risk
+        if self.x != other.x:
+            return self.x < other.x
+        else:
+            return self.y < other.y
 
 class Map:
     def __init__(self, filename: Path) -> None:
@@ -47,11 +50,11 @@ class Map:
         assert end
         start.best_risk = 0
 
-        todo: typing.List[Cell] = []
-        heapq.heappush(todo, start)
+        todo: typing.List[typing.Tuple[int, Cell]] = []
+        heapq.heappush(todo, (0, start))
 
         while len(todo) != 0:
-            now = heapq.heappop(todo)
+            (_, now) = heapq.heappop(todo)
 
             def evaluate(then: typing.Optional[Cell]) -> None:
                 if not then:
@@ -59,7 +62,7 @@ class Map:
                 if then.best_risk <= (now.best_risk + then.risk_here):
                     return
                 then.best_risk = now.best_risk + then.risk_here
-                heapq.heappush(todo, then)
+                heapq.heappush(todo, (then.best_risk, then))
 
             evaluate(self.get(now.x - 1, now.y))
             evaluate(self.get(now.x + 1, now.y))
