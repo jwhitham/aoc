@@ -67,7 +67,7 @@ class Scanner:
                 else:
                     maybe[tuple(t)] += 1
 
-        # Probably it's enough to exit the function when one of
+        # Actually it's enough to exit the function when one of
         # the values of "maybe" has gone above THRES.
         v = sorted(maybe.values())
         if len(v) == 0:
@@ -96,6 +96,9 @@ class Scanner:
     def try_match_rot(self, other):
         # I know that this rotates the vectors up to 64 times
         # and some of these rotations are equivalent so it's wasteful.
+        # In fact there are only 24 unique rotations. But I don't know
+        # a general way to find them and be sure I didn't miss one
+        # (though I could hash the state of self.sees...).
         #
         # Lost some time by initially rotating the vectors back
         # into their original state, which is not useful, because
