@@ -14,6 +14,9 @@ INPUT = Path("input")
 
 
 def gen_vec():
+    # Lost some time here due to initially thinking I might not need
+    # true rotation and it would be ok to flip on the X/Y/Z axes,
+    # which is not true.
     l = []
     for z in [-1, 1]:
         for y in [-1, 1]:
@@ -31,6 +34,28 @@ class Scanner:
         self.rel_pos = None
 
     def try_match(self, other):
+        # Lost some time here due to confusion about the loop structure
+        # needed to figure out whether the two lists of beacons actually
+        # match or not.
+        #
+        # The basic idea, unchanged since the beginning, is to compute
+        # "t", the vector between "self" and "other" when a pair (a, b)
+        # actually represents the same beacon.
+        #
+        # There are "self.sees" * "other.sees" possible vectors and most
+        # won't match because the beacons are different. But you don't
+        # know if a vector is valid on the first time you see it. Initially
+        # my code wrongly accepted the first vector as valid and then
+        # tried to match others against it, which would only have worked
+        # if the first pair from "self.sees" * "other.sees" happened
+        # to be the same beacon (quite unlikely).
+        #
+        # I also wrongly used 1000 as the longest allowable distance
+        # for a time (misunderstanding the problem).
+        #
+        # Could have made progress faster here by checking that each
+        # Scanner object matches itself, and also using test cases.
+        # My computation of "t" is also the wrong way round.
         matching = 0
         maybe = collections.defaultdict(lambda: 0)
         for a in self.sees:
@@ -42,6 +67,8 @@ class Scanner:
                 else:
                     maybe[tuple(t)] += 1
 
+        # Probably it's enough to exit the function when one of
+        # the values of "maybe" has gone above THRES.
         v = sorted(maybe.values())
         if len(v) == 0:
             return None
@@ -55,6 +82,8 @@ class Scanner:
             return None
 
     def rotate(self, axis: int) -> None:
+        # I knew it was hard to write a correct rotate function
+        # so I unit-tested this.
         assert 0 <= axis <= 2
         axis2 = (axis + 1) % 3
         for i in range(len(self.sees)):
@@ -65,6 +94,12 @@ class Scanner:
             self.sees[i][axis2] = b
 
     def try_match_rot(self, other):
+        # I know that this rotates the vectors up to 64 times
+        # and some of these rotations are equivalent so it's wasteful.
+        #
+        # Lost some time by initially rotating the vectors back
+        # into their original state, which is not useful, because
+        # the resulting vector then doesn't match the rotation.
         for i in range(4):
             self.rotate(0)
             for j in range(4):
@@ -98,6 +133,7 @@ def thing1(filename: Path) -> int:
     for line in open(filename, "rt"):
         line = line.strip()
         if line.startswith("--"):
+            # Lost some time here because startswith("-") matches "-123"...
             fields = line.split()
             fields.pop()
             scanner = Scanner(int(fields.pop()))
@@ -109,30 +145,39 @@ def thing1(filename: Path) -> int:
             z = int(coords[2])
             scanner.sees.append([x, y, z])
 
-    # try to find any match
+    # This sanity check should have existed from the beginning.
     v = scanners[0].try_match(scanners[0])
     assert v == [0, 0, 0], v
 
     s1 = scanners[0]
     s1.rel_pos = [0, 0, 0]
-    """
-    s2 = scanners[1]
-    v = s2.try_match_rot(s1)
-    assert v == [-68, 1246, 43], v
-    save = v
-    s2 = scanners[4]
-    v = s2.try_match_rot(s1)
-    assert v == [20, 1133, -1061], v
-    s2 = scanners[2]
-    v = s2.try_match_rot(s1)
-    assert v == [-1105, 1205, -1229], v
-    s1 = scanners[1]
-    s2 = scanners[3]
-    v = s2.try_match_rot(s1)
-    v = [a + b for (a, b) in zip(save, v)]
-    assert v == [92,2380,20], v
-    """
+    # Lost some time by skipping this initially and moving to
+    # try to calculate all scanner locations in a loop.
+    #
+    # Initially writing these tests for try_match_rot would have saved some
+    # time with all the bugs I had in it. When I did write them I found
+    # each produced the negation of the vector in the worked example,
+    # which I considered equivalent at the time, being due to different
+    # rotation code.
+    if filename.name == "test1":
+        s2 = scanners[1]
+        v = s2.try_match_rot(s1)
+        assert v == [-68, 1246, 43], v
+        save = v
+        s2 = scanners[4]
+        v = s2.try_match_rot(s1)
+        assert v == [20, 1133, -1061], v
+        s2 = scanners[2]
+        v = s2.try_match_rot(s1)
+        assert v == [-1105, 1205, -1229], v
+        s1 = scanners[1]
+        s2 = scanners[3]
+        v = s2.try_match_rot(s1)
+        v = [a + b for (a, b) in zip(save, v)]
+        assert v == [92,2380,20], v
 
+    # This part seemed straightforward, though it was here that I
+    # really hit bugs in try_match_rot and began to backtrack.
     s1 = scanners[0]
     unmatched = True
     while unmatched:
@@ -145,6 +190,8 @@ def thing1(filename: Path) -> int:
                 if s1 == s2:
                     continue
                 if s2.rel_pos is not None:
+                    # Lost time here by forgetting to do this check
+                    # (infinite loop).
                     continue
 
                 v = s2.try_match_rot(s1)
@@ -156,16 +203,33 @@ def thing1(filename: Path) -> int:
         assert s1.rel_pos is not None
         print(s1.number, s1.rel_pos)
 
+    # I seemed to be on track again when I wrote this...
     all_beacons = set()
     for s1 in scanners:
         for v in s1.sees:
+            # Lost time here because I couldn't understand why a + b
+            # wasn't the correct way to compute the beacon location.
+            # Turned out that this is due to the wrong subtraction
+            # being used to produce the "t" vector in "try_match".
+            # I'm doing self - other, should be doing other - self.
+            # This is also why the test values above are all negative.
+
             bpos = [b - a for (a, b) in zip(s1.rel_pos, v)]
             all_beacons.add(tuple(bpos))
 
+    # Working out the Manhattan distance seemed an easy extension.
+    # Still lost time due to forgetting abs, which is ok on the test
+    # input (ho ho ho) but not on the real input, so a 60 second penalty
+    # for submitting the wrong answer.
     mh = 0
     for s1 in scanners:
         for s2 in scanners:
             mh = max(mh, sum([abs(b - a) for (a, b) in zip(s1.rel_pos, s2.rel_pos)]))
+
+    # Curiously some other people solving this puzzle seemed to find
+    # the second part required a lot of rework. They must have done
+    # it in some other way, which didn't give them the scanner positions.
+    # What was this...?
 
     return (len(all_beacons), mh)
 
