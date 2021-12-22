@@ -247,49 +247,58 @@ def xtest_part_2() -> None:
 # zero, because of repeatedly adding and removing elements. If it's zero,
 # nothing needs to be cancelled. The complexity of the solution means I'm
 # not sure I would have got it done in time even if I thought of it.
+#
+# .. make it even faster by not computing the volume of each cuboid more than once,
+# and by removing cuboids from the dict when they are cancelled back to zero.
 
 class T2A(T2):
     def run(self):
         self.cuboids = collections.defaultdict(lambda: 0)
 
-        def get_volume(bounds):
-            return (max(0, bounds[1] + 1 - bounds[0])
-                    * max(0, bounds[3] + 1 - bounds[2])
-                    * max(0, bounds[5] + 1 - bounds[4]))
-
         for (new_cuboid_is_on, new_cuboid_bounds) in self.cmd:
             # Remove the new cuboid from all existing cuboids
             new_cuboids = []
-            for (old_cuboid_bounds, old_volume) in self.cuboids.items():
+            for (old_cuboid_bounds, delta) in self.cuboids.items():
                 clipped_bounds = new_cuboid_bounds[:]
+                intersects = True
                 for i in range(0, 6, 2):
                     ul = old_cuboid_bounds[i+1] # upper limit for clip
                     ll = old_cuboid_bounds[i+0] # lower limit for clip
                     clipped_bounds[i+0] = min(ul + 1, max(clipped_bounds[i+0], ll))
                     clipped_bounds[i+1] = min(ul, max(clipped_bounds[i+1], ll - 1))
+                    if clipped_bounds[i+0] > clipped_bounds[i+1]:
+                        intersects = False
+                        break
 
-                volume = get_volume(clipped_bounds)
-                assert volume >= 0
-                if volume == 0 or old_volume == 0:
-                    # If volume is zero they don't intersect
+                if not intersects:
+                    # Cuboids don't intersect - skip
                     pass
-                elif old_volume > 0:
+                elif delta > 0:
                     # Existing cuboid has positive volume, so subtract volume
-                    new_cuboids.append((clipped_bounds, -volume))
+                    new_cuboids.append((tuple(clipped_bounds), -1))
                 else:
                     # Existing cuboid has negative volume, so add volume
-                    new_cuboids.append((clipped_bounds, volume))
+                    new_cuboids.append((tuple(clipped_bounds), 1))
 
             # Add positive volume cuboids only
-            volume = get_volume(new_cuboid_bounds)
-            if new_cuboid_is_on and volume > 0:
-                new_cuboids.append((new_cuboid_bounds, volume))
+            if new_cuboid_is_on:
+                new_cuboids.append((tuple(new_cuboid_bounds), 1))
 
             # Update existing cuboids
-            for (new_cuboid_bounds, volume) in new_cuboids:
-                self.cuboids[tuple(new_cuboid_bounds)] += volume
+            for (new_cuboid_bounds, delta) in new_cuboids:
+                delta += self.cuboids[new_cuboid_bounds]
+                if delta == 0:
+                    del self.cuboids[new_cuboid_bounds]
+                else:
+                    self.cuboids[new_cuboid_bounds] = delta
 
-        self.total = sum(self.cuboids.values())
+        self.total = 0
+        for (bounds, delta) in self.cuboids.items():
+            volume = (max(0, bounds[1] + 1 - bounds[0])
+                    * max(0, bounds[3] + 1 - bounds[2])
+                    * max(0, bounds[5] + 1 - bounds[4]) * delta)
+            self.total += volume
+
 
 
 def thing2a(filename: Path, small) -> int:
