@@ -147,19 +147,24 @@ class T2:
             self.cmd.append((m.group(1) == "on",
                     [int(x) for x in m.groups()[1:]]))
 
-        self.cube = set()
         self.total = 0
-        self.small = small
+
+        if small:
+            # clip to the starting area cube.
+            new_cmd = []
+            for j in range(len(self.cmd)):
+                (on, cmd) = self.cmd[j]
+                for i in range(0, 6, 2):
+                    cmd[i+0] = min(UL + 1, max(cmd[i+0], LL))
+                    cmd[i+1] = min(UL, max(cmd[i+1], LL - 1))
 
     def run(self):
-        small = self.small
-        u = set([LL, UL, LL - 1, UL - 1])
         dimensionx = sorted(set([cmd[0] for (_, cmd) in self.cmd])
-                    | u | set([cmd[1] + 1 for (_, cmd) in self.cmd]))
+                    | set([cmd[1] + 1 for (_, cmd) in self.cmd]))
         dimensiony = sorted(set([cmd[2] for (_, cmd) in self.cmd])
-                    | u | set([cmd[3] + 1 for (_, cmd) in self.cmd]))
+                    | set([cmd[3] + 1 for (_, cmd) in self.cmd]))
         dimensionz = sorted(set([cmd[4] for (_, cmd) in self.cmd])
-                    | u | set([cmd[5] + 1 for (_, cmd) in self.cmd]))
+                    | set([cmd[5] + 1 for (_, cmd) in self.cmd]))
         dimensionx.append(dimensionx[-1] + 1)
         dimensiony.append(dimensiony[-1] + 1)
         dimensionz.append(dimensionz[-1] + 1)
@@ -175,20 +180,6 @@ class T2:
 
 
         for (on, cmd) in self.cmd:
-            if small:
-                cmd = cmd[:]
-                print("")
-                print(cmd)
-                for i in range(6):
-                    cmd[i] = min(max(cmd[i], LL - 1), UL + 1)
-                bad = False
-                for i in range(3):
-                    if (cmd[(i * 2) + 1] < LL) or (cmd[(i * 2)] > UL):
-                        bad = True
-                print(cmd, bad)
-                if bad:
-                    continue
-
             x1 = bisect.bisect_right(dimensionx, cmd[0] - 1)
             x2 = bisect.bisect(dimensionx, cmd[1])
             y1 = bisect.bisect_right(dimensiony, cmd[2] - 1)
@@ -242,14 +233,8 @@ def thing2(filename: Path, small) -> int:
 
 def test_part_2() -> None:
     assert thing2(Path("test1"), True) == 39
-    #assert thing2(Path("test2"), True) == 590784
-    #assert thing2(Path("test2"), True) == 474140
-    assert thing2(Path("test3"), False) == 2758514936282235
-
-def xmain() -> None:
-    assert thing2(Path("test1"), True) == 39
-    #assert thing2(Path("test2"), True) == 590784
-    #assert thing2(Path("test2"), True) == 474140
+    assert thing2(Path("test2"), True) == 590784
+    assert thing2(Path("test3"), True) == 474140
     assert thing2(Path("test3"), False) == 2758514936282235
 
 def main() -> None:
