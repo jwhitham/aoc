@@ -118,22 +118,24 @@ def test_part_1() -> None:
 #    because of the system call overhead. NumPy? Ah, yes, I can use
 #    numpy.zeros to make the array. But it's still very slow...
 #    because there are 5.9e8 and I need to iterate over all of them.
-# 5. I don't need to iterate over all of them. I should have tracked
-#    the total volume as the cuboids were turned on and off.
+# 5. I don't need to iterate over all of them. I could have tracked
+#    the total volume as the cuboids were turned on and off. (Actually
+#    this is probably not a major help.)
 # 
 # The result works but is very slow and required substantial CPU time.
 # I was looking for better options while it ran. But I did not think of:
 #
 # 1. keep a dict of known cuboids while reading the input:
 #     (x1, y1, z1, x2, y2, z2): volume
-# 2. when a new cuboid is added, intersect with all existing cuboid
+# 2. when a new cuboid is added, intersect with all existing cuboids
 #    and create additional cuboids which subtract the intersecting volume
 #    i.e. have negative volume
 # 3. if "on", add the new cuboid as a positive volume
 # 4. Sum the values of the dict to get the total volume
 #
 # which I'm not sure I would have thought of, even if I had realised
-# that the "discretise" solution would be too slow.
+# that the "discretise" solution would be too slow. Maybe with a break
+# from the problem.
 #    
 
 class T2:
@@ -164,40 +166,12 @@ class T2:
         dimensionx.append(dimensionx[-1] + 1)
         dimensiony.append(dimensiony[-1] + 1)
         dimensionz.append(dimensionz[-1] + 1)
-        #M = 100 ** 10
-        #dimensionx.append(dimensionx[-1] + M)
-        #dimensiony.append(dimensiony[-1] + M)
-        #dimensionz.append(dimensionz[-1] + M)
-        #print(dimensionx)
-        #print(dimensiony)
-        #print(dimensionz)
-        print(len(dimensionx))
-        print(len(dimensiony))
-        print(len(dimensionz))
         gridx = [0 for i in dimensionx]
         gridy = [0 for i in dimensiony]
 
         data = numpy.zeros([len(dimensionx),
                 len(dimensiony),
                 len(dimensionz)], dtype=numpy.int8)
-        """
-        t = open("x.bin", "wb+")
-        t.seek(len(dimensionx) * len(dimensiony) * len(dimensionz), 0)
-        t.write(b"\x00")
-
-        def index(x, y, z):
-            return z + (y * len(dimensionz)) + (x * len(dimensiony) * len(dimensionz))
-
-        def iset(x, y, z, on):
-            t.seek(index(x, y, z))
-            if on:
-                t.write(b"\x01")
-            else:
-                t.write(b"\x00")
-        def get(x, y, z):
-            t.seek(index(x, y, z))
-            return t.read(1) != b"\x00"
-        """
 
 
         for (on, cmd) in self.cmd:
@@ -221,15 +195,12 @@ class T2:
             y2 = bisect.bisect(dimensiony, cmd[3])
             z1 = bisect.bisect_right(dimensionz, cmd[4] - 1)
             z2 = bisect.bisect(dimensionz, cmd[5])
-            #print(dimensionx[x1], dimensiony[y1], dimensionz[z1])
-            #print(dimensionx[x2], dimensiony[y2], dimensionz[z2])
             assert dimensionx[x2] == cmd[1] + 1
             assert dimensiony[y2] == cmd[3] + 1
             assert dimensionz[z2] == cmd[5] + 1
             assert dimensionx[x1] == cmd[0]
             assert dimensiony[y1] == cmd[2]
             assert dimensionz[z1] == cmd[4]
-            #print(x1, y1, z1, x2, y2, z2)
             for x in range(x1, x2):
                 for y in range(y1, y2):
                     for z in range(z1, z2):
