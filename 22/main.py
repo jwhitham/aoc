@@ -122,21 +122,6 @@ def test_part_1() -> None:
 #    the total volume as the cuboids were turned on and off. (Actually
 #    this is probably not a major help.)
 # 
-# The result works but is very slow and required substantial CPU time.
-# I was looking for better options while it ran. But I did not think of:
-#
-# 1. keep a dict of known cuboids while reading the input:
-#     (x1, y1, z1, x2, y2, z2): volume
-# 2. when a new cuboid is added, intersect with all existing cuboids
-#    and create additional cuboids which subtract the intersecting volume
-#    i.e. have negative volume
-# 3. if "on", add the new cuboid as a positive volume
-# 4. Sum the values of the dict to get the total volume
-#
-# which I'm not sure I would have thought of, even if I had realised
-# that the "discretise" solution would be too slow. Maybe with a break
-# from the problem.
-#    
 
 class T2:
     def __init__(self, filename: Path, small):
@@ -204,6 +189,7 @@ class T2:
                             gridx[x] -= 1
                             gridy[y] -= 1
 
+        self.total = 0
         for x in range(len(dimensionx) - 1):
             assert gridx[x] >= 0
             if gridx[x] == 0:
@@ -231,11 +217,91 @@ def thing2(filename: Path, small) -> int:
     t.run()
     return t.count()
 
-def test_part_2() -> None:
+def xtest_part_2() -> None:
     assert thing2(Path("test1"), True) == 39
     assert thing2(Path("test2"), True) == 590784
     assert thing2(Path("test3"), True) == 474140
     assert thing2(Path("test3"), False) == 2758514936282235
+
+
+# The above works but is very slow and required substantial CPU time.
+# I was looking for better options while it ran. But I did not think of:
+#
+# 1. keep a dict of known cuboids while reading the input:
+#     (x1, y1, z1, x2, y2, z2): volume
+# 2. when a new cuboid is added, intersect with all existing cuboids
+#    and create additional cuboids which subtract the intersecting volume
+#    i.e. have negative volume
+# 3. if "on", add the new cuboid as a positive volume
+# 4. Sum the values of the dict to get the total volume
+#
+# which I'm not sure I would have thought of, even if I had realised
+# that the "discretise" solution would be too slow. Maybe with a break
+# from the problem.
+#
+# .... so I returned to the problem in an attempt to write up this better
+# solution. It is fiddly to get it right. A simpler implementation uses
+# a list of cuboids, but this is a bad idea, because many of them overlap,
+# and so it is better to use a map. If a map is used, however, you must be
+# mindful that the previous volume of a cuboid may be positive, negative or
+# zero, because of repeatedly adding and removing elements. If it's zero,
+# nothing needs to be cancelled. The complexity of the solution means I'm
+# not sure I would have got it done in time even if I thought of it.
+
+class T2A(T2):
+    def run(self):
+        self.cuboids = collections.defaultdict(lambda: 0)
+
+        def get_volume(bounds):
+            return (max(0, bounds[1] + 1 - bounds[0])
+                    * max(0, bounds[3] + 1 - bounds[2])
+                    * max(0, bounds[5] + 1 - bounds[4]))
+
+        for (new_cuboid_is_on, new_cuboid_bounds) in self.cmd:
+            # Remove the new cuboid from all existing cuboids
+            new_cuboids = []
+            for (old_cuboid_bounds, old_volume) in self.cuboids.items():
+                clipped_bounds = new_cuboid_bounds[:]
+                for i in range(0, 6, 2):
+                    ul = old_cuboid_bounds[i+1] # upper limit for clip
+                    ll = old_cuboid_bounds[i+0] # lower limit for clip
+                    clipped_bounds[i+0] = min(ul + 1, max(clipped_bounds[i+0], ll))
+                    clipped_bounds[i+1] = min(ul, max(clipped_bounds[i+1], ll - 1))
+
+                volume = get_volume(clipped_bounds)
+                assert volume >= 0
+                if volume == 0 or old_volume == 0:
+                    # If volume is zero they don't intersect
+                    pass
+                elif old_volume > 0:
+                    # Existing cuboid has positive volume, so subtract volume
+                    new_cuboids.append((clipped_bounds, -volume))
+                else:
+                    # Existing cuboid has negative volume, so add volume
+                    new_cuboids.append((clipped_bounds, volume))
+
+            # Add positive volume cuboids only
+            volume = get_volume(new_cuboid_bounds)
+            if new_cuboid_is_on and volume > 0:
+                new_cuboids.append((new_cuboid_bounds, volume))
+
+            # Update existing cuboids
+            for (new_cuboid_bounds, volume) in new_cuboids:
+                self.cuboids[tuple(new_cuboid_bounds)] += volume
+
+        self.total = sum(self.cuboids.values())
+
+
+def thing2a(filename: Path, small) -> int:
+    t = T2A(filename, small)
+    t.run()
+    return t.count()
+
+def test_part_2a() -> None:
+    assert thing2a(Path("test1"), True) == 39
+    assert thing2a(Path("test2"), True) == 590784
+    assert thing2a(Path("test3"), True) == 474140
+    assert thing2a(Path("test3"), False) == 2758514936282235
 
 def main() -> None:
     if not INPUT.exists():
@@ -253,7 +319,7 @@ def main() -> None:
                                "submit", "1", str(answer)])
         return
 
-    answer = thing2(INPUT, False)
+    answer = thing2a(INPUT, False)
     print("part 2:", answer)
 
     if PART == 2:
