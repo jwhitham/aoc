@@ -21,6 +21,18 @@ r"z=(-*\d+)[.][.](-*\d+)\s*$")
 LL = -50
 UL = 50
 
+# part 1 solution - very simple.
+# I can't think of much potential for time saving here,
+# limitation was understanding the instructions, typing speed
+# and copying the test cases. Nevertheless it took me 9 minutes
+# to write, which is not a good time.
+#
+# Small speed ups: the notorious "ints" function
+# i.e. 're.findall(r"-?\d+", <line>)' might have been a slight
+# speed up versus writing a new regular expression even though
+# this was mostly copy/paste. An initial test run failed due
+# to failing to correctly interpret the "off" case.
+
 class T:
     def __init__(self, filename: Path):
         self.cmd = []
@@ -54,6 +66,75 @@ class T:
 
     def count(self):
         return len(self.cube)
+
+def thing1(filename: Path) -> int:
+    t = T(filename)
+    t.run()
+    return t.count()
+
+def test_part_1() -> None:
+    assert thing1(Path("test1")) == 39
+    assert thing1(Path("test2")) == 590784
+    assert thing1(Path("test3")) == 474140
+
+# part 2 initial solution
+# Horrible.
+# When I saw this, I thought of two directions to take, which were:
+# 1. group ("discretise"?) coordinates in each of the 3 dimensions,
+#    and calculate the volume of each group, knowing that none of
+#    the groups can be subdivided. The space consists of a large number
+#    of cuboid shapes, some of which are "on".
+# 2. generate a 3D binary space partition tree and walk across the
+#    leaf nodes of this tree to determine the "on" volume.
+#
+# I decided that 2 was completely impractical to write in the
+# available time, though it would be fast. I didn't think of any
+# other solutions. I thought that 1 would be good enough since
+# there would be O(N^3) groups for N lines of input.
+#
+# I think I would have got away with 1 if I were working in a
+# compile-to-machine-code language, but as it is, there were
+# 590578800 cuboids. This was more than I expected.
+# I also made the following mistakes.
+#
+# 1. Bisecting to convert coordinates to groups. It is so easy
+#    to get an off-by-one error with bisect; I know this from experience,
+#    and I was looking out for it, but still... There were a few
+#    errors of that sort, caught by testing.
+# 2. I needed to use X2+1, Y2+1, Z2+1 rather than X2, Y2, Z2 because
+#    the ranges are inclusive. The first example (answer 39) doesn't
+#    require this but the others do.
+# 3. Trying to make the code generalise to support the small problems
+#    from part 1. I did not make this work at the time, but I really
+#    wanted to, because I hoped it would help me to debug bad results
+#    in the large problem (which were bisecting/off-by-one errors).
+# 4. How to remember the state of up to 5.9e8 Boolean elements in Python?
+#    I'm using a 32-bit Python interpreter, oh dear... A set? No. 
+#    A list of list of lists? No - crashes when initialising.
+#    The overhead of pointers, reference counts etc. must be a problem.
+#    The array module? No - can't create a 3D array that initially
+#    contains many zeroes. (Or apparently even a 1D array that's
+#    initially zero?) A file, then? Yes, but that's slow, presumably
+#    because of the system call overhead. NumPy? Ah, yes, I can use
+#    numpy.zeros to make the array. But it's still very slow...
+#    because there are 5.9e8 and I need to iterate over all of them.
+# 5. I don't need to iterate over all of them. I should have tracked
+#    the total volume as the cuboids were turned on and off.
+# 
+# The result works but is very slow and required substantial CPU time.
+# I was looking for better options while it ran. But I did not think of:
+#
+# 1. keep a dict of known cuboids while reading the input:
+#     (x1, y1, z1, x2, y2, z2): volume
+# 2. when a new cuboid is added, intersect with all existing cuboid
+#    and create additional cuboids which subtract the intersecting volume
+#    i.e. have negative volume
+# 3. if "on", add the new cuboid as a positive volume
+# 4. Sum the values of the dict to get the total volume
+#
+# which I'm not sure I would have thought of, even if I had realised
+# that the "discretise" solution would be too slow.
+#    
 
 class T2:
     def __init__(self, filename: Path, small):
@@ -182,16 +263,6 @@ class T2:
     def count(self):
         return self.total
 
-
-def thing1(filename: Path) -> int:
-    t = T(filename)
-    t.run()
-    return t.count()
-
-def test_part_1() -> None:
-    assert thing1(Path("test1")) == 39
-    assert thing1(Path("test2")) == 590784
-    assert thing1(Path("test3")) == 474140
 
 def thing2(filename: Path, small) -> int:
     t = T2(filename, small)
