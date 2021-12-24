@@ -51,7 +51,7 @@ class GameState:
     def implicit_start_to_done(self):
         # Anything already done? Move
         for j in range(self.levels):
-            for key in sorted(self.start):
+            for key in list(self.start):
                 (x, y) = self.start[key]
                 c = key[0]
                 if ((self.done.get(c, 0) == j)
@@ -67,7 +67,7 @@ class GameState:
         action = True
         while action:
             action = False
-            for key in sorted(self.moved):
+            for key in list(self.moved):
                 c = key[0]
                 (x1, y1) = self.moved[key]
                 x2 = DEST[c]
@@ -86,7 +86,7 @@ class GameState:
 
     def what_can_move(self):
         # List of available moves
-        for key in sorted(self.start):
+        for key in (self.start):
             (x1, y1) = self.start[key]
             assert y1 >= 1
             # non-terminal moves
@@ -128,7 +128,7 @@ class GameState:
         return g
 
     def state(self):
-        return (tuple(self.occupied.items()))
+        return (tuple(self.moved.items()), tuple(self.done.items()))
 
     def search(self):
         if len(self.start) == 0 and len(self.moved) == 0:
