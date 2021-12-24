@@ -1,6 +1,6 @@
 YEAR = 2021
 DAY = 23
-PART = 3
+PART = 2
  
 from pathlib import Path
 import unittest
@@ -12,6 +12,7 @@ import os
 import re
 
 INPUT = Path("input")
+INPUT2 = Path("input2")
 
 IMPOSSIBLE = 1 << 31
 BLANK = """#############
@@ -23,13 +24,15 @@ DEST = { "A": 2, "B": 4, "C": 6, "D": 8 }
 COST = { "A": 1, "B": 10, "C": 100, "D": 1000 }
 
 class GameState:
-    def __init__(self, memo):
+    def __init__(self, memo, levels):
         self.start = {}
         self.moved = {}
         self.done = {}
         self.energy = 0
         self.record = []
         self.memo = memo
+        self.occupied = dict()
+        self.levels = levels
 
     def read(self, filename):
         with open(filename, "rt") as fd:
@@ -37,29 +40,27 @@ class GameState:
             fd.readline()
             r = re.compile(r"[A-D]")
             count = collections.defaultdict(lambda: 0)
-            for (i, c) in enumerate(r.findall(fd.readline())):
-                count[c] += 1
-                self.start[c + str(count[c])] = ((i + 1) * 2, 1)
-            for (i, c) in enumerate(r.findall(fd.readline())):
-                count[c] += 1
-                self.start[c + str(count[c])] = ((i + 1) * 2, 2)
+            for j in range(self.levels):
+                for (i, c) in enumerate(r.findall(fd.readline())):
+                    count[c] += 1
+                    (x, y) = ((i + 1) * 2, j + 1)
+                    self.start[c + str(count[c])] = (x, y)
+                    self.occupied[(x, y)] = c
         self.implicit_start_to_done()
 
     def implicit_start_to_done(self):
         # Anything already done? Move
-        for key in sorted(self.start):
-            (x, y) = self.start[key]
-            c = key[0]
-            if y == 2 and x == DEST[c]:
-                del self.start[key]
-                self.done[c] = self.done.get(c, 0) + 1
-
-        for key in sorted(self.start):
-            (x, y) = self.start[key]
-            c = key[0]
-            if y == 1 and x == DEST[c] and (c in self.done):
-                del self.start[key]
-                self.done[c] = self.done.get(c, 0) + 1
+        for j in range(self.levels):
+            for key in sorted(self.start):
+                (x, y) = self.start[key]
+                c = key[0]
+                if ((self.done.get(c, 0) == j)
+                        and (y == (self.levels - j))
+                        and (x == DEST[c])):
+                    del self.occupied[self.start[key]]
+                    self.occupied[(x, y)] = c
+                    del self.start[key]
+                    self.done[c] = self.done.get(c, 0) + 1
 
     def move_to_done(self):
         # Can anything move into the final state from the moved state?
@@ -70,15 +71,17 @@ class GameState:
                 c = key[0]
                 (x1, y1) = self.moved[key]
                 x2 = DEST[c]
-                y2 = 2 - self.done.get(c, 0)
+                y2 = self.levels - self.done.get(c, 0)
                 steps = self.check_path((x1, y1), (x2, y2), key)
                 if steps > 0:
                     # Immediately move this
+                    del self.occupied[self.moved[key]]
+                    self.occupied[(x2, y2)] = c
                     del self.moved[key]
                     self.done[c] = self.done.get(c, 0) + 1
                     self.energy += steps * COST[c]
-                    self.record.append("move {} to ({}, {}) - steps {} cost {}".format(
-                            key, x2, y2, steps, steps * COST[c]))
+                    #self.record.append("move {} to ({}, {}) - steps {} cost {}".format(
+                    #        key, x2, y2, steps, steps * COST[c]))
                     action = True
 
     def what_can_move(self):
@@ -94,7 +97,7 @@ class GameState:
             # finishing move?
             c = key[0]
             x2 = DEST[c]
-            y2 = 2 - self.done.get(c, 0)
+            y2 = self.levels - self.done.get(c, 0)
             steps = self.check_path((x1, y1), (x2, 0), key)
             if steps > 0:
                 steps = self.check_path((x2, 0), (x2, y2), key)
@@ -102,27 +105,30 @@ class GameState:
                     yield (key, x2)
 
     def do_move(self, key, x2):
-        g = GameState(self.memo)
+        g = GameState(self.memo, self.levels)
         g.start = dict(self.start)
         g.moved = dict(self.moved)
         g.done = dict(self.done)
         g.energy = self.energy
-        g.record = self.record[:]
+        g.occupied = dict(self.occupied)
+        #g.record = self.record[:]
 
         (x1, y1) = self.start[key]
         steps = self.check_path((x1, y1), (x2, 0), key)
         assert steps > 0
-        del g.start[key]
         c = key[0]
-        g.record.append("move {} to ({}, 0) - steps {} cost {}".format(
-                key, x2, steps, steps * COST[c]))
+        del g.occupied[g.start[key]]
+        g.occupied[(x2, 0)] = c
+        del g.start[key]
+        #g.record.append("move {} to ({}, 0) - steps {} cost {}".format(
+        #        key, x2, steps, steps * COST[c]))
         g.moved[key] = (x2, 0)
         g.energy += steps * COST[c]
         g.move_to_done()
         return g
 
     def state(self):
-        return (tuple(self.moved.items()), tuple(self.done.items()))
+        return (tuple(self.occupied))
 
     def search(self):
         if len(self.start) == 0 and len(self.moved) == 0:
@@ -158,10 +164,10 @@ class GameState:
         # Path must be clear from x1..x2 at y == 0
         xmin = min(x1, x2)
         xmax = max(x1, x2)
-        for (k, (x, y)) in self.moved.items():
-            assert y == 0
-            if (xmin <= x <= xmax) and (k != key):
-                return -1 # blocked
+        for x in range(xmin, xmax + 1):
+            if (x, 0) in self.occupied:
+                if x != x1:
+                    return -1 # blocked in corridor
 
         # calculate steps
         steps = (xmax - xmin) + abs(y2 - y1)
@@ -175,8 +181,9 @@ class GameState:
             xroom = x1
             yroom = y1
 
-        for (k, (x, y)) in self.start.items():
-            if x == xroom and y <= yroom and k != key:
+        c = key[0]
+        for y in range(1, yroom + 1):
+            if self.occupied.get((xroom, y), c) != c:
                 return -1 # blocked by something at the entrance
 
         return steps
@@ -186,6 +193,8 @@ class GameState:
         print("moved = {}".format(self.moved))
         print("done = {}".format(self.done))
         rows = [list(row) for row in BLANK.split("\n")]
+        for i in range(self.levels - 2):
+            rows.insert(3, rows[3][:])
         for (k, (x, y)) in self.moved.items():
             assert y == 0
             rows[y + 1][x + 1] = k[0]
@@ -194,7 +203,7 @@ class GameState:
             rows[y + 1][x + 1] = k[0]
         for (k, v) in self.done.items():
             for i in range(v):
-                rows[3 - i][DEST[k] + 1] = k[0]
+                rows[self.levels + 1 - i][DEST[k] + 1] = k[0]
 
         for row in rows:
             print("".join(row))
@@ -202,14 +211,14 @@ class GameState:
 
 
 
-def read(filename: Path) -> GameState:
-    g = GameState({})
+def read(filename: Path, levels: int) -> GameState:
+    g = GameState({}, levels)
     g.read(filename)
     return g
 
 
 def test_part_1() -> int:
-    g = read(Path("test1"))
+    g = read(Path("test1"), 2)
     assert g.done["C"] == 1
     #g.draw()
 
@@ -275,15 +284,28 @@ def test_part_1() -> int:
     assert g.done["D"] == 2
     #print("\n".join(g.record))
 
-    g = read(Path("test1"))
+    g = read(Path("test1"), 2)
     assert ("B2", 3) in g.what_can_move()
     (best_total, best_record) = g.search()
     assert best_total == 12521
 
 def thing1(filename: Path) -> int:
-    g = read(filename)
+    g = read(filename, 2)
     (best_total, best_record) = g.search()
     return best_total
+
+def test_part_1a() -> None:
+    return thing1(INPUT) == 10526
+
+def thing2(filename: Path) -> int:
+    g = read(filename, 4)
+    (best_total, best_record) = g.search()
+    assert best_total > 14768
+    assert best_total < 41293
+    return best_total
+
+def test_part_2() -> None:
+    return thing2(Path("test2")) == 44169
 
 def main() -> None:
     if not INPUT.exists():
@@ -301,7 +323,7 @@ def main() -> None:
                                "submit", "1", str(answer)])
         return
 
-    answer = thing2(INPUT)
+    answer = thing2(INPUT2)
     print("part 2:", answer)
 
     if PART == 2:
