@@ -1,6 +1,6 @@
 YEAR = 2021
 DAY = 23
-PART = 2
+PART = 3
  
 from pathlib import Path
 import unittest
@@ -128,7 +128,7 @@ class GameState:
         return g
 
     def state(self):
-        return (tuple(self.occupied))
+        return (tuple(self.occupied.items()))
 
     def search(self):
         if len(self.start) == 0 and len(self.moved) == 0:
@@ -300,12 +300,13 @@ def test_part_1a() -> None:
 def thing2(filename: Path) -> int:
     g = read(filename, 4)
     (best_total, best_record) = g.search()
-    assert best_total > 14768
-    assert best_total < 41293
     return best_total
 
 def test_part_2() -> None:
     return thing2(Path("test2")) == 44169
+
+def test_part_2a() -> None:
+    return thing2(Path(INPUT2)) == 41284
 
 def main() -> None:
     if not INPUT.exists():
