@@ -1,6 +1,6 @@
 YEAR = 2021
-DAY = 21
-PART = 1
+DAY = 23
+PART = 3
  
 from pathlib import Path
 import unittest
@@ -122,8 +122,7 @@ class GameState:
         return g
 
     def state(self):
-        return (tuple(self.moved.items()), tuple(self.done.items()),
-                    self.energy)
+        return (tuple(self.moved.items()), tuple(self.done.items()))
 
     def search(self):
         if len(self.start) == 0 and len(self.moved) == 0:
@@ -132,19 +131,24 @@ class GameState:
        
         s = self.state()
         if s in self.memo:
-            return self.memo[s]
+            (best_total, best_record) = self.memo[s]
+            return (self.energy + best_total,
+                    self.record + best_record)
 
         best_total = IMPOSSIBLE
         best_record = []
         for (key, x2) in self.what_can_move():
             g = self.do_move(key, x2)
             (total, record) = g.search()
+            total -= self.energy
+            record = record[len(self.record):]
             if total < best_total:
                 best_total = total
                 best_record = record
 
         self.memo[s] = (best_total, best_record)
-        return (best_total, best_record)
+        return (self.energy + best_total,
+                self.record + best_record)
 
     def check_path(self, pos1, pos2, key):
         (x1, y1) = pos1
