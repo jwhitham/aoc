@@ -56,7 +56,7 @@ class Vertex:
         return max_dist
 
 
-def main() -> int:
+def main() -> None:
     find_vertex: typing.Dict[str, Vertex] = {}
     edges: typing.List[Edge] = []
 

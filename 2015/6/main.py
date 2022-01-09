@@ -24,7 +24,7 @@ def subdivide(todo, offset):
     return sorted(division)
 
 
-def main(filename: Path = INPUT) -> int:
+def main(filename: Path = INPUT) -> None:
     todo = []
     for line in open(filename, "rt"):
         ints = [int(x) for x in re.findall(r"\d+", line)]
@@ -39,8 +39,8 @@ def main(filename: Path = INPUT) -> int:
 
     dimensionx = subdivide(todo, 0)
     dimensiony = subdivide(todo, 1)
-    cell_on = set()
-    brightness = collections.defaultdict(lambda: 0)
+    cell_on: typing.Set[typing.Tuple[int, int]] = set()
+    brightness: typing.Dict[typing.Tuple[int, int], int] = collections.defaultdict(lambda: 0)
 
     for (action, c1, c2) in todo:
         xi1 = bisect.bisect_left(dimensionx, c1[0])

@@ -51,7 +51,7 @@ class Op(Base):
             assert False, self.op
 
 
-def calc(file_name, root_name) -> None:
+def calc(file_name, root_name) -> int:
     definition = {}
     for line in open(file_name):
         fields = line.split()
@@ -67,9 +67,8 @@ def calc(file_name, root_name) -> None:
             assert len(fields) == 3
             definition[target] = Op(fields[0], fields[1], fields[2])
 
-    todo = list(definition.values())
-    for target in todo:
-        target.resolve_strings(definition)
+    for op in definition.values():
+        op.resolve_strings(definition)
 
     root = definition[root_name]
     root.calc()
