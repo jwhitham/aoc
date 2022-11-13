@@ -37,6 +37,7 @@
 
 
 import typing
+import collections
 
 Atom = str
 AtomList = typing.List[Atom] 
@@ -59,66 +60,74 @@ def atomise(molecule: Molecule) -> AtomList:
     return atoms
 
 
-rules: typing.List[typing.Tuple[Atom, AtomList]] = []
-initial_value: AtomList = []
+class Rule:
+    def __init__(self) -> None:
+        self.number = 0
 
-for line in open("input", "rt"):
-    fields = line.split()
-    if len(fields) == 3:
-        assert fields[1] == "=>"
-        atoms_in = atomise(fields[0])
-        assert len(atoms_in) == 1
-        rules.append((atoms_in[0], atomise(fields[2])))
-    elif len(fields) == 1:
-        initial_value = atomise(fields[0])
+    def __str__(self) -> str:
+        return "Rule{}".format(self.number)
 
-rules.sort()
-tokens: typing.Set[Atom] = set()
+class ProductionRule(Rule):
+    def __init__(self) -> None:
+        Rule.__init__(self)
+        self.productions: typing.List[typing.List[Rule]] = []
 
-for (atom_in, atoms_out) in rules:
-    tokens.add(atom_in)
-    for atom_out in atoms_out:
-        tokens.add(atom_out)
+    def __str__(self) -> str:
+        out: typing.List[str] = []
+        out.append(Rule.__str__(self))
+        for production in self.productions:
+            if len(out) == 1:
+                out.append(" =")
+            else:
+                out.append("\n    |")
+            for rule in production:
+                out.append(" ")
+                out.append(Rule.__str__(rule))
 
-out: typing.List[str] = []
-out.append("""
-grammar;
-""")
+        return "".join(out)
 
-out.append("""
-pub Root: u32 = {
-    <x:Rule_e> => x,
-}
-""")
+class TerminalRule(Rule):
+    def __init__(self, atom: Atom) -> None:
+        Rule.__init__(self)
+        self.terminal = atom
 
-group: typing.Dict[Atom, typing.List[AtomList]] = dict()
+    def __str__(self) -> str:
+        return "{} = terminal('{}')".format(Rule.__str__(self), self.terminal)
 
-for atom in tokens:
-    group[atom] = []
+def read_input() -> None:
+    production_rules: typing.Dict[Atom, ProductionRule] = collections.defaultdict(lambda: ProductionRule())
+    initial_value: AtomList = []
 
-for (atom_in, atoms_out) in rules:
-    group[atom_in].append(atoms_out)
+    for line in open("input", "rt"):
+        fields = line.split()
+        if len(fields) == 3:
+            assert fields[1] == "=>"
+            atoms_in = atomise(fields[0])
+            assert len(atoms_in) == 1
+            atoms_out = atomise(fields[2])
 
-for atom_in in sorted(group):
-    out.append(f"""
-Rule_{atom_in.lower()}: u32 = """)
-    out.append(r"{" + "\n")
-    for atoms_out in sorted(group[atom_in]):
-        out.append('   ')
-        for (num, atom_out) in enumerate(atoms_out):
-            out.append(f' <x{num}:Rule_{atom_out.lower()}>')
-        out.append(f' => 1')
-        for (num, _) in enumerate(atoms_out):
-            out.append(f' + x{num}')
-        out.append(',\n')
-    out.append(f"""
-    TOKEN_{atom_in.upper()},
-""")
-    out.append(r'}' + "\n")
+            atom_in = atoms_in[0]
+            production_rules[atom_in].productions.append([
+                    production_rules[atom_out] for atom_out in atoms_out])
 
-for atom in sorted(tokens):
-    out.append('TOKEN_{}: u32 = <s:r"{}"> => 0;\n'.format(
-                atom.upper(), atom.upper()))
+        elif len(fields) == 1:        
+            initial_value = atomise(fields[0])
 
-subspace = dict(globals())
-open("calculator1.lalrpop", "wt").write(''.join(out))
+    terminal_rules: typing.Dict[Atom, TerminalRule] = dict()
+    all_rules: typing.List[Rule] = []
+    for atom_in in production_rules:
+        pr = production_rules[atom_in]
+        tr = TerminalRule(atom_in)
+        pr.productions.append([tr])
+        terminal_rules[atom_in] = tr
+        all_rules.append(pr)
+        all_rules.append(tr)
+
+    for (i, rule) in enumerate(all_rules):
+        rule.number = i
+
+    for rule in all_rules:
+        print(str(rule))
+
+read_input()
+
