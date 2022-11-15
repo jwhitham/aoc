@@ -94,9 +94,10 @@ class TerminalRule(Rule):
     def __str__(self) -> str:
         return "{} = terminal('{}')".format(Rule.__str__(self), self.terminal)
 
-def read_input() -> None:
+def read_input() -> typing.Tuple[ProductionRule, AtomList, typing.List[Rule]]:
     production_rules: typing.Dict[Atom, ProductionRule] = collections.defaultdict(lambda: ProductionRule())
-    initial_value: AtomList = []
+    target_terminals: AtomList = []
+    source_rule: typing.Optional[ProductionRule] = None
 
     for line in open("input", "rt"):
         fields = line.split()
@@ -110,8 +111,12 @@ def read_input() -> None:
             production_rules[atom_in].productions.append([
                     production_rules[atom_out] for atom_out in atoms_out])
 
-        elif len(fields) == 1:        
-            initial_value = atomise(fields[0])
+        elif len(fields) == 1:
+            assert len(target_terminals) == 0
+            target_terminals = [""] + atomise(fields[0])
+
+        else:
+            assert len(fields) == 0
 
     terminal_rules: typing.Dict[Atom, TerminalRule] = dict()
     all_rules: typing.List[Rule] = []
@@ -121,13 +126,115 @@ def read_input() -> None:
         pr.productions.append([tr])
         terminal_rules[atom_in] = tr
         all_rules.append(pr)
+        if atom_in == "e":
+            assert source_rule is None
+            source_rule = pr
         all_rules.append(tr)
 
     for (i, rule) in enumerate(all_rules):
         rule.number = i
 
+    assert len(target_terminals) != 0
+    assert source_rule is not None
+
     for rule in all_rules:
         print(str(rule))
 
-read_input()
+    return (source_rule, target_terminals, all_rules)
+
+class State:
+    def __init__(self, rule: Rule, production: typing.List[Rule],
+                       dot_position: int, input_position: int) -> None:
+        self.rule = rule
+        self.production = production
+        self.dot_position = dot_position
+        self.input_position = input_position
+
+    def get_next(self) -> typing.Optional[Rule]:
+        if self.dot_position >= len(self.production):
+            return None
+        else:
+            return self.production[self.dot_position]
+
+    def __eq__(self, other: object) -> bool:
+        return (isinstance(other, State)
+                and (self.rule == other.rule)
+                and (self.production == other.production)
+                and (self.dot_position == other.dot_position)
+                and (self.input_position == other.input_position))
+
+    def __str__(self) -> str:
+        return ("State(" + ','.join([
+                        Rule.__str__(self.rule),
+                        "[" + ','.join([Rule.__str__(r) for r in self.production]) + ']',
+                        str(self.dot_position), str(self.input_position)]) + ")")
+
+
+class States(list):
+    def __init__(self) -> None:
+        list.__init__(self)
+
+    def add(self, item: State) -> None:
+        if item in self:
+            return
+        self.append(item)
+
+def earley_parser() -> None:
+    (source_rule, target_terminals, all_rules) = read_input()
+    print("")
+
+    states = [States() for i in range(len(target_terminals))]
+    for production in source_rule.productions:
+        states[0].add(State(rule=source_rule, production=production, dot_position=0, input_position=0))
+
+    for k in range(len(target_terminals)):
+        i = 0
+        while i < len(states[k]):
+            state = states[k][i]
+            rule = state.get_next()
+            if rule is not None:
+                print(k, i, Rule.__str__(rule))
+            else:
+                print(k, i, None)
+            i += 1
+            if rule is not None:
+                if isinstance(rule, ProductionRule):
+                    print("predictor")
+                    for production in rule.productions:
+                        s = State(rule=rule, production=production,
+                                  dot_position=0, input_position=k)
+                        print("  " + str(s))
+                        states[k].add(s)
+                else:
+                    print("scanner")
+                    assert isinstance(rule, TerminalRule)
+                    if ((k + 1) < len(target_terminals)) and (rule.terminal == target_terminals[k + 1]):
+                        s = State(rule=state.rule,
+                                  production=state.production,
+                                  dot_position=state.dot_position + 1,
+                                  input_position=state.input_position)
+                        print("  " + str(s))
+                        states[k + 1].add(s)
+            else:
+                print("complete")
+                for state2 in states[state.input_position]:
+                    rule = state2.get_next()
+                    if isinstance(rule, ProductionRule) and rule == state.rule:
+                        s = State(rule=state2.rule,
+                                  production=state2.production,
+                                  dot_position=state2.dot_position + 1,
+                                  input_position=state2.input_position)
+                        print("  " + str(s))
+                        states[state2.input_position].add(s)
+    for state in states[-1]:
+        if state.rule == source_rule:
+            rule = state.get_next()
+            if rule is None:
+                print("accepted")
+
+    print("?")
+
+earley_parser()
+
+
 
