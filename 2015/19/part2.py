@@ -113,7 +113,7 @@ def read_input() -> typing.Tuple[ProductionRule, AtomList, typing.List[Rule]]:
 
         elif len(fields) == 1:
             assert len(target_terminals) == 0
-            target_terminals = [""] + atomise(fields[0])
+            target_terminals = atomise(fields[0])
 
         else:
             assert len(fields) == 0
@@ -183,11 +183,11 @@ def earley_parser() -> None:
     (source_rule, target_terminals, all_rules) = read_input()
     print("")
 
-    states = [States() for i in range(len(target_terminals))]
+    states = [States() for i in range(len(target_terminals) + 1)]
     for production in source_rule.productions:
         states[0].add(State(rule=source_rule, production=production, dot_position=0, input_position=0))
 
-    for k in range(len(target_terminals)):
+    for k in range(len(target_terminals) + 1):
         i = 0
         while i < len(states[k]):
             state = states[k][i]
@@ -208,7 +208,7 @@ def earley_parser() -> None:
                 else:
                     print("scanner")
                     assert isinstance(rule, TerminalRule)
-                    if ((k + 1) < len(target_terminals)) and (rule.terminal == target_terminals[k + 1]):
+                    if (k < len(target_terminals)) and (rule.terminal == target_terminals[k]):
                         s = State(rule=state.rule,
                                   production=state.production,
                                   dot_position=state.dot_position + 1,
@@ -224,13 +224,14 @@ def earley_parser() -> None:
                                   production=state2.production,
                                   dot_position=state2.dot_position + 1,
                                   input_position=state2.input_position)
-                        print("  " + str(s))
-                        states[state2.input_position].add(s)
+                        print("  {} -> {}".format(s, k))
+                        states[k].add(s)
     for state in states[-1]:
         if state.rule == source_rule:
             rule = state.get_next()
             if rule is None:
                 print("accepted")
+                print(str(state))
 
     print("?")
 
