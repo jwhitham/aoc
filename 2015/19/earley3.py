@@ -80,20 +80,20 @@ class Column(object):
             return True
         return False
     def print_(self, completedOnly = False):
-        print "[%s] %r" % (self.index, self.token)
-        print "=" * 35
+        print("[%s] %r" % (self.index, self.token))
+        print("=" * 35)
         for s in self.states:
             if completedOnly and not s.completed():
                 continue
-            print repr(s)
-        print
+            print(repr(s))
+        print()
 
 class Node(object):
     def __init__(self, value, children):
         self.value = value
         self.children = children
     def print_(self, level = 0):
-        print "  " * level + str(self.value)
+        print("  " * level + str(self.value))
         for child in self.children:
             child.print_(level + 1)
 
@@ -177,7 +177,7 @@ for i in range(1,9):
     text = " + ".join(["a"] * i)
     q0 = parse(EXPR, text)
     forest = build_trees(q0)
-    print len(forest), text
+    print(len(forest), text)
 
 
 N = Rule("N", Production("time"), Production("flight"), Production("banana"), 
@@ -197,11 +197,11 @@ VP.add(Production(VP, PP))
 S = Rule("S", Production(NP, VP), Production(VP))
 
 for tree in build_trees(parse(S, "book the flight through houston")):
-    print "--------------------------"
+    print("--------------------------")
     tree.print_()
 
 for tree in build_trees(parse(S, "john saw the boy with the telescope")):
-    print "--------------------------"
+    print("--------------------------")
     tree.print_()
 
 
