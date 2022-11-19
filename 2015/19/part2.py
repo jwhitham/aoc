@@ -144,11 +144,15 @@ def read_input() -> typing.Tuple[ProductionRule, AtomList, typing.List[Rule]]:
 
 class State:
     def __init__(self, rule: Rule, production: typing.List[Rule],
-                       dot_position: int, input_position: int) -> None:
+                       dot_position: int, input_position: int,
+                       previous: "typing.Optional[State]") -> None:
         self.rule = rule
         self.production = production
         self.dot_position = dot_position
         self.input_position = input_position
+        self.previous = previous
+        self.parse: "typing.List[typing.List[State]]" = [[] for _ in production]
+
 
     def get_next(self) -> typing.Optional[Rule]:
         if self.dot_position >= len(self.production):
@@ -164,11 +168,39 @@ class State:
                 and (self.input_position == other.input_position))
 
     def __str__(self) -> str:
-        return ("State(" + ','.join([
-                        Rule.__str__(self.rule),
-                        "[" + ','.join([Rule.__str__(r) for r in self.production]) + ']',
-                        str(self.dot_position), str(self.input_position)]) + ")")
+        #return ("State(" + ','.join([
+        #                Rule.__str__(self.rule),
+        #                "[" + ','.join([Rule.__str__(r) for r in self.production]) + ']',
+        #                str(self.dot_position), str(self.input_position)]) + ")")
+        out = "<" + Rule.__str__(self.rule) + ","
+        for i in range(len(self.production)):
+            if self.dot_position == i:
+                out += " ."
+            out += " " + Rule.__str__(self.production[i])
+        if self.dot_position == len(self.production):
+            out += " . "
+        out += ", " + str(self.input_position) + ">"
+        return out
 
+    def assign_id(self, seen: "typing.Dict[int, int]") -> None:
+        if id(self) not in seen:
+            seen[id(self)] = len(seen)
+
+    def show_parse(self, seen: "typing.Dict[int, int]") -> str:
+        out = ""
+        self.assign_id(seen)
+        for i in range(len(self.production)):
+            if len(self.parse[i]) == 0:
+                continue
+            if len(out) == 0:
+                out = "{} {}\n".format(seen[id(self)], str(self))
+
+            out += " " + Rule.__str__(self.production[i]) + " :"
+            for state in self.parse[i]:
+                state.assign_id(seen)
+                out += " {}".format(seen[id(state)])
+            out += "\n"
+        return out
 
 class States(list):
     def __init__(self) -> None:
@@ -185,7 +217,8 @@ def earley_parser() -> None:
 
     states = [States() for i in range(len(target_terminals) + 1)]
     for production in source_rule.productions:
-        states[0].add(State(rule=source_rule, production=production, dot_position=0, input_position=0))
+        states[0].add(State(rule=source_rule, production=production,
+                            dot_position=0, input_position=0, previous=None))
 
     for k in range(len(target_terminals) + 1):
         i = 0
@@ -202,7 +235,8 @@ def earley_parser() -> None:
                     print("predictor")
                     for production in rule.productions:
                         s = State(rule=rule, production=production,
-                                  dot_position=0, input_position=k)
+                                  dot_position=0, input_position=k,
+                                  previous=state)
                         print("  " + str(s))
                         states[k].add(s)
                 else:
@@ -212,7 +246,8 @@ def earley_parser() -> None:
                         s = State(rule=state.rule,
                                   production=state.production,
                                   dot_position=state.dot_position + 1,
-                                  input_position=state.input_position)
+                                  input_position=state.input_position,
+                                  previous=state)
                         print("  " + str(s))
                         states[k + 1].add(s)
             else:
@@ -223,17 +258,56 @@ def earley_parser() -> None:
                         s = State(rule=state2.rule,
                                   production=state2.production,
                                   dot_position=state2.dot_position + 1,
-                                  input_position=state2.input_position)
+                                  input_position=state2.input_position,
+                                  previous=state)
                         print("  {} -> {}".format(s, k))
                         states[k].add(s)
+                        state2.parse[state2.dot_position].append(state)
+
+    print("\n" * 10)
     for state in states[-1]:
-        if state.rule == source_rule:
-            rule = state.get_next()
-            if rule is None:
-                print("accepted")
+        rule = state.get_next()
+        if rule is None:
+            if state.rule == source_rule:
                 print(str(state))
+                print(str(state.production))
+
+    print("\n" * 10)
+    seen = dict()
+    for k in range(len(target_terminals) + 1):
+        print(f"For {k} {target_terminals[k - 1]}:")
+        for state in states[k]:
+            print(state.show_parse(seen))
+        print("")
+
+    print("\n" * 10)
 
     print("?")
+
+def build_trees(state):
+    return build_trees_helper([], state, len(state.productions) - 1, state.end_column)
+
+def build_trees_helper(children, state, rule_index, end_column):
+    if rule_index < 0:
+        return [Node(state, children)]
+    elif rule_index == 0:
+        start_column = state.start_column
+    else:
+        start_column = None
+    
+    rule = state.productions[rule_index]
+    outputs = []
+    for st in end_column:
+        if st is state:
+            break
+        if st is state or not st.completed() or st.name != rule.name:
+            continue
+        if start_column is not None and st.start_column != start_column:
+            continue
+        for sub_tree in build_trees(st):
+            for node in build_trees_helper([sub_tree] + children, state, rule_index - 1, st.start_column):
+                outputs.append(node)
+    return outputs
 
 earley_parser()
 
