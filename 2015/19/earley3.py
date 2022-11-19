@@ -1,6 +1,13 @@
 import typing
 
-Term = typing.Union[str, "Rule"]
+class Term(object):
+    def __init__(self, name: str) -> None:
+        self.name = name
+    def __str__(self) -> str:
+        return self.name
+    def __repr__(self) -> str:
+        return self.name
+
 class Production(object):
     def __init__(self, *terms: Term) -> None:
         self.terms = terms
@@ -21,19 +28,18 @@ class Production(object):
     def __hash__(self) -> int:
         return hash(self.terms)
 
-class Rule(object):
+class Rule(Term):
     def __init__(self, name: str, *productions: Production) -> None:
-        self.name = name
+        Term.__init__(self, name)
         self.productions = list(productions)
-    def __str__(self) -> str:
-        return self.name
     def __repr__(self) -> str:
         return "%s -> %s" % (self.name, " | ".join(repr(p) for p in self.productions))
     def add(self, *productions) -> None:
         self.productions.extend(productions)
 
 class State(object):
-    def __init__(self, name, production, dot_index, start_column) -> None:
+    def __init__(self, name: str, production: Production, dot_index: int,
+                    start_column: "Column") -> None:
         self.name = name
         self.production = production
         self.start_column = start_column
@@ -44,10 +50,12 @@ class State(object):
         terms = [str(p) for p in self.production]
         terms.insert(self.dot_index, u"$")
         return "%-5s -> %-16s [%s-%s]" % (self.name, " ".join(terms), self.start_column, self.end_column)
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, State):
+            return False
         return (self.name, self.production, self.dot_index, self.start_column) == \
             (other.name, other.production, other.dot_index, other.start_column)
-    def __ne__(self, other) -> bool:
+    def __ne__(self, other: object) -> bool:
         return not (self == other)
     def __hash__(self) -> int:
         return hash((self.name, self.production))
@@ -100,16 +108,17 @@ class Node(object):
         for child in self.children:
             child.print_(level + 1)
 
-def predict(col, rule) -> None:
+def predict(col: Column, rule: Rule) -> None:
     for prod in rule.productions:
         col.add(State(rule.name, prod, 0, col))
 
-def scan(col, state, token) -> None:
+def scan(col: Column, state: State, term: Term) -> None:
+    token = term.name
     if token != col.token:
         return
     col.add(State(state.name, state.production, state.dot_index + 1, state.start_column))
 
-def complete(col, state) -> None:
+def complete(col: Column, state: State) -> None:
     if not state.completed():
         return
     for st in state.start_column:
@@ -119,7 +128,7 @@ def complete(col, state) -> None:
         if term.name == state.name:
             col.add(State(st.name, st.production, st.dot_index + 1, st.start_column))
 
-GAMMA_RULE = u"GAMMA"
+GAMMA_RULE = "GAMMA"
 
 def parse(rule, text) -> State:
     table = [Column(i, tok) for i, tok in enumerate([None] + text.lower().split())]
@@ -134,6 +143,7 @@ def parse(rule, text) -> State:
                 if isinstance(term, Rule):
                     predict(col, term)
                 elif i + 1 < len(table):
+                    assert term is not None
                     scan(table[i+1], state, term)
         
         #col.print_(completedOnly = True)
@@ -171,8 +181,8 @@ def build_trees_helper(children, state, rule_index, end_column):
     return outputs
 
 
-SYM = Rule("SYM", Production("a"))
-OP = Rule("OP", Production("+"))
+SYM = Rule("SYM", Production(Term("a")))
+OP = Rule("OP", Production(Term("+")))
 EXPR = Rule("EXPR", Production(SYM))
 EXPR.add(Production(EXPR, OP, EXPR))
 
@@ -183,15 +193,15 @@ for i in range(1,9):
     print(len(forest), text)
 
 
-N = Rule("N", Production("time"), Production("flight"), Production("banana"), 
-    Production("flies"), Production("boy"), Production("telescope"))
-D = Rule("D", Production("the"), Production("a"), Production("an"))
-V = Rule("V", Production("book"), Production("eat"), Production("sleep"), Production("saw"))
-P = Rule("P", Production("with"), Production("in"), Production("on"), Production("at"),
-    Production("through"))
+N = Rule("N", Production(Term("time")), Production(Term("flight")), Production(Term("banana")), 
+    Production(Term("flies")), Production(Term("boy")), Production(Term("telescope")))
+D = Rule("D", Production(Term("the")), Production(Term("a")), Production(Term("an")))
+V = Rule("V", Production(Term("book")), Production(Term("eat")), Production(Term("sleep")), Production(Term("saw")))
+P = Rule("P", Production(Term("with")), Production(Term("in")), Production(Term("on")), Production(Term("at")),
+    Production(Term("through")))
 
 PP = Rule("PP")
-NP = Rule("NP", Production(D, N), Production("john"), Production("houston"))
+NP = Rule("NP", Production(D, N), Production(Term("john")), Production(Term("houston")))
 NP.add(Production(NP, PP))
 PP.add(Production(P, NP))
 
