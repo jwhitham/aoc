@@ -1,85 +1,88 @@
+import typing
+
+Term = typing.Union[str, "Rule"]
 class Production(object):
-    def __init__(self, *terms):
+    def __init__(self, *terms: Term) -> None:
         self.terms = terms
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.terms)
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> Term:
         return self.terms[index]
-    def __iter__(self):
+    def __iter__(self) -> typing.Iterator[Term]:
         return iter(self.terms)
-    def __repr__(self):
+    def __repr__(self) -> str:
         return " ".join(str(t) for t in self.terms)
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if not isinstance(other, Production):
             return False
         return self.terms == other.terms
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         return not (self == other)
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.terms)
 
 class Rule(object):
-    def __init__(self, name, *productions):
+    def __init__(self, name: str, *productions: Production) -> None:
         self.name = name
         self.productions = list(productions)
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "%s -> %s" % (self.name, " | ".join(repr(p) for p in self.productions))
-    def add(self, *productions):
+    def add(self, *productions) -> None:
         self.productions.extend(productions)
 
 class State(object):
-    def __init__(self, name, production, dot_index, start_column):
+    def __init__(self, name, production, dot_index, start_column) -> None:
         self.name = name
         self.production = production
         self.start_column = start_column
         self.end_column = None
         self.dot_index = dot_index
         self.rules = [t for t in production if isinstance(t, Rule)]
-    def __repr__(self):
+    def __repr__(self) -> str:
         terms = [str(p) for p in self.production]
         terms.insert(self.dot_index, u"$")
         return "%-5s -> %-16s [%s-%s]" % (self.name, " ".join(terms), self.start_column, self.end_column)
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return (self.name, self.production, self.dot_index, self.start_column) == \
             (other.name, other.production, other.dot_index, other.start_column)
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         return not (self == other)
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.name, self.production))
-    def completed(self):
+    def completed(self) -> bool:
         return self.dot_index >= len(self.production)
-    def next_term(self):
+    def next_term(self) -> typing.Optional[Term]:
         if self.completed():
             return None
         return self.production[self.dot_index]
 
 class Column(object):
-    def __init__(self, index, token):
+    def __init__(self, index, token) -> None:
         self.index = index
         self.token = token
-        self.states = []
-        self._unique = set()
-    def __str__(self):
+        self.states: typing.List[State] = []
+        self._unique: typing.Set[State] = set()
+    def __str__(self) -> str:
         return str(self.index)
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.states)
-    def __iter__(self):
+    def __iter__(self) -> typing.Iterator[State]:
         return iter(self.states)
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> State:
         return self.states[index]
-    def enumfrom(self, index):
+    def enumfrom(self, index) -> typing.Generator[typing.Tuple[int, State], None, None]:
         for i in range(index, len(self.states)):
             yield i, self.states[i]
-    def add(self, state):
+    def add(self, state) -> bool:
         if state not in self._unique:
             self._unique.add(state)
             state.end_column = self
             self.states.append(state)
             return True
         return False
-    def print_(self, completedOnly = False):
+    def print_(self, completedOnly = False) -> None:
         print("[%s] %r" % (self.index, self.token))
         print("=" * 35)
         for s in self.states:
@@ -89,24 +92,24 @@ class Column(object):
         print()
 
 class Node(object):
-    def __init__(self, value, children):
+    def __init__(self, value, children) -> None:
         self.value = value
         self.children = children
-    def print_(self, level = 0):
+    def print_(self, level = 0) -> None:
         print("  " * level + str(self.value))
         for child in self.children:
             child.print_(level + 1)
 
-def predict(col, rule):
+def predict(col, rule) -> None:
     for prod in rule.productions:
         col.add(State(rule.name, prod, 0, col))
 
-def scan(col, state, token):
+def scan(col, state, token) -> None:
     if token != col.token:
         return
     col.add(State(state.name, state.production, state.dot_index + 1, state.start_column))
 
-def complete(col, state):
+def complete(col, state) -> None:
     if not state.completed():
         return
     for st in state.start_column:
@@ -118,7 +121,7 @@ def complete(col, state):
 
 GAMMA_RULE = u"GAMMA"
 
-def parse(rule, text):
+def parse(rule, text) -> State:
     table = [Column(i, tok) for i, tok in enumerate([None] + text.lower().split())]
     table[0].add(State(GAMMA_RULE, Production(rule), 0, table[0]))
 
