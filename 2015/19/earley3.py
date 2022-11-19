@@ -8,6 +8,17 @@ class Term(object):
     def __repr__(self) -> str:
         return self.name
 
+class Token(Term):
+    def __init__(self, token: str) -> None:
+        Term.__init__(self, token)
+        self.token = token
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Token):
+            return False
+        return self.token == other.token
+    def __hash__(self) -> int:
+        return hash(self.token)
+
 class Production(object):
     def __init__(self, *terms: Term) -> None:
         self.terms = terms
@@ -43,7 +54,7 @@ class State(object):
         self.name = name
         self.production = production
         self.start_column = start_column
-        self.end_column = None
+        self.end_column: typing.Optional[Column] = None
         self.dot_index = dot_index
         self.rules = [t for t in production if isinstance(t, Rule)]
     def __repr__(self) -> str:
@@ -67,7 +78,7 @@ class State(object):
         return self.production[self.dot_index]
 
 class Column(object):
-    def __init__(self, index, token) -> None:
+    def __init__(self, index: int, token: Token) -> None:
         self.index = index
         self.token = token
         self.states: typing.List[State] = []
@@ -83,7 +94,7 @@ class Column(object):
     def enumfrom(self, index) -> typing.Generator[typing.Tuple[int, State], None, None]:
         for i in range(index, len(self.states)):
             yield i, self.states[i]
-    def add(self, state) -> bool:
+    def add(self, state: State) -> bool:
         if state not in self._unique:
             self._unique.add(state)
             state.end_column = self
@@ -112,8 +123,7 @@ def predict(col: Column, rule: Rule) -> None:
     for prod in rule.productions:
         col.add(State(rule.name, prod, 0, col))
 
-def scan(col: Column, state: State, term: Term) -> None:
-    token = term.name
+def scan(col: Column, state: State, token: Token) -> None:
     if token != col.token:
         return
     col.add(State(state.name, state.production, state.dot_index + 1, state.start_column))
@@ -131,7 +141,7 @@ def complete(col: Column, state: State) -> None:
 GAMMA_RULE = "GAMMA"
 
 def parse(rule, text) -> State:
-    table = [Column(i, tok) for i, tok in enumerate([None] + text.lower().split())]
+    table = [Column(i, Token(tok)) for i, tok in enumerate([None] + text.lower().split())]
     table[0].add(State(GAMMA_RULE, Production(rule), 0, table[0]))
 
     for i, col in enumerate(table):
@@ -143,7 +153,7 @@ def parse(rule, text) -> State:
                 if isinstance(term, Rule):
                     predict(col, term)
                 elif i + 1 < len(table):
-                    assert term is not None
+                    assert isinstance(term, Token)
                     scan(table[i+1], state, term)
         
         #col.print_(completedOnly = True)
@@ -181,8 +191,8 @@ def build_trees_helper(children, state, rule_index, end_column):
     return outputs
 
 
-SYM = Rule("SYM", Production(Term("a")))
-OP = Rule("OP", Production(Term("+")))
+SYM = Rule("SYM", Production(Token("a")))
+OP = Rule("OP", Production(Token("+")))
 EXPR = Rule("EXPR", Production(SYM))
 EXPR.add(Production(EXPR, OP, EXPR))
 
@@ -193,15 +203,15 @@ for i in range(1,9):
     print(len(forest), text)
 
 
-N = Rule("N", Production(Term("time")), Production(Term("flight")), Production(Term("banana")), 
-    Production(Term("flies")), Production(Term("boy")), Production(Term("telescope")))
-D = Rule("D", Production(Term("the")), Production(Term("a")), Production(Term("an")))
-V = Rule("V", Production(Term("book")), Production(Term("eat")), Production(Term("sleep")), Production(Term("saw")))
-P = Rule("P", Production(Term("with")), Production(Term("in")), Production(Term("on")), Production(Term("at")),
-    Production(Term("through")))
+N = Rule("N", Production(Token("time")), Production(Token("flight")), Production(Token("banana")), 
+    Production(Token("flies")), Production(Token("boy")), Production(Token("telescope")))
+D = Rule("D", Production(Token("the")), Production(Token("a")), Production(Token("an")))
+V = Rule("V", Production(Token("book")), Production(Token("eat")), Production(Token("sleep")), Production(Token("saw")))
+P = Rule("P", Production(Token("with")), Production(Token("in")), Production(Token("on")), Production(Token("at")),
+    Production(Token("through")))
 
 PP = Rule("PP")
-NP = Rule("NP", Production(D, N), Production(Term("john")), Production(Term("houston")))
+NP = Rule("NP", Production(D, N), Production(Token("john")), Production(Token("houston")))
 NP.add(Production(NP, PP))
 PP.add(Production(P, NP))
 
