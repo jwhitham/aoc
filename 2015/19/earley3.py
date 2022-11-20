@@ -76,6 +76,9 @@ class State(object):
         if self.completed():
             return None
         return self.production[self.dot_index]
+    def collect(self) -> str:
+        terms = [str(p) for p in self.production]
+        return "%s -> %s at %s" % (self.name, " ".join(terms), self.start_column)
 
 class Column(object):
     def __init__(self, index: int, token: Token) -> None:
@@ -118,6 +121,11 @@ class Node(object):
         print("  " * level + str(self.value))
         for child in self.children:
             child.print_(level + 1)
+    def collect(self) -> typing.List[str]:
+        c = [self.value.collect()]
+        for child in self.children:
+            c.extend(child.collect())
+        return c
 
 def predict(col: Column, rule: Rule) -> None:
     for prod in rule.productions:
@@ -193,16 +201,17 @@ def build_trees_helper(children: typing.List[Node], state: State,
     return outputs
 
 
-RO = Rule("O => HH | 'O'", Production(Token("o")))
-RH = Rule("H => HO | OH | 'H'", Production(Token("h")))
+RO = Rule("O", Production(Token("o")))
+RH = Rule("H", Production(Token("h")))
 RO.add(Production(RH, RH))
 RH.add(Production(RH, RO), Production(RO, RH))
-Re = Rule("e => H | O", Production(RH), Production(RO))
+Re = Rule("e", Production(RH), Production(RO))
 
 q0 = parse(Re, "h o h o h o")
 forest = build_trees(q0)
 for tree in forest:
     print("--------------------------")
     tree.print_()
+    print("\n".join(tree.collect()))
 
 
