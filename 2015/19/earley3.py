@@ -191,49 +191,16 @@ def build_trees_helper(children, state, rule_index, end_column):
     return outputs
 
 
-SYM = Rule("SYM", Production(Token("a")))
-OP = Rule("OP", Production(Token("+")))
-EXPR = Rule("EXPR", Production(SYM))
-EXPR.add(Production(EXPR, OP, EXPR))
+RO = Rule("O => HH | 'O'", Production(Token("o")))
+RH = Rule("H => HO | OH | 'H'", Production(Token("h")))
+RO.add(Production(RH, RH))
+RH.add(Production(RH, RO), Production(RO, RH))
+Re = Rule("e => H | O", Production(RH), Production(RO))
 
-for i in range(1,9):
-    text = " + ".join(["a"] * i)
-    q0 = parse(EXPR, text)
-    forest = build_trees(q0)
-    print(len(forest), text)
-
-
-N = Rule("N", Production(Token("time")), Production(Token("flight")), Production(Token("banana")), 
-    Production(Token("flies")), Production(Token("boy")), Production(Token("telescope")))
-D = Rule("D", Production(Token("the")), Production(Token("a")), Production(Token("an")))
-V = Rule("V", Production(Token("book")), Production(Token("eat")), Production(Token("sleep")), Production(Token("saw")))
-P = Rule("P", Production(Token("with")), Production(Token("in")), Production(Token("on")), Production(Token("at")),
-    Production(Token("through")))
-
-PP = Rule("PP")
-NP = Rule("NP", Production(D, N), Production(Token("john")), Production(Token("houston")))
-NP.add(Production(NP, PP))
-PP.add(Production(P, NP))
-
-VP = Rule("VP", Production(V, NP))
-VP.add(Production(VP, PP))
-S = Rule("S", Production(NP, VP), Production(VP))
-
-for tree in build_trees(parse(S, "book the flight through houston")):
+q0 = parse(Re, "h o h o h o")
+forest = build_trees(q0)
+for tree in forest:
     print("--------------------------")
     tree.print_()
-
-for tree in build_trees(parse(S, "john saw the boy with the telescope")):
-    print("--------------------------")
-    tree.print_()
-
-
-
-
-
-
-
-
-
 
 
