@@ -1,17 +1,51 @@
 import typing
 
-GAMMA_RULE = "GAMMA"
+
+class Atom:
+    def __init__(self, symbol) -> None:
+        self.symbol = symbol
+    def __str__(self) -> str:
+        return self.symbol
+    def __repr__(self) -> str:
+        return self.symbol
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Atom):
+            return False
+        return self.symbol == other.symbol
+    def __hash__(self) -> int:
+        return hash(self.symbol)
+
+GAMMA_RULE = Atom("GAMMA")
+NO_ATOM = Atom("")
+AtomList = typing.List[Atom] 
+
+def atomise(molecule: str) -> AtomList:
+    atoms: AtomList = []
+    while len(molecule) > 1:
+        assert molecule[0].isupper()
+        if molecule[1].isupper():
+            # Single letter atom
+            atoms.append(Atom(molecule[:1]))
+            molecule = molecule[1:]
+        else:
+            # Double letter atom
+            atoms.append(Atom(molecule[:2]))
+            molecule = molecule[2:]
+    if len(molecule) == 1:
+        atoms.append(Atom(molecule))
+    return atoms
+
 
 class Term(object):
-    def __init__(self, name: str) -> None:
-        self.name = name
+    def __init__(self, atom: Atom) -> None:
+        self.atom = atom
     def __str__(self) -> str:
-        return self.name
+        return str(self.atom)
     def __repr__(self) -> str:
-        return self.name
+        return repr(self.atom)
 
 class Token(Term):
-    def __init__(self, token: str) -> None:
+    def __init__(self, token: Atom) -> None:
         Term.__init__(self, token)
         self.token = token
     def __eq__(self, other: object) -> bool:
@@ -42,16 +76,16 @@ class Production(object):
         return hash(self.terms)
 
 class Rule(Term):
-    def __init__(self, name: str, *productions: Production) -> None:
-        Term.__init__(self, name)
+    def __init__(self, atom: Atom, *productions: Production) -> None:
+        Term.__init__(self, atom)
         self.productions = list(productions)
     def __repr__(self) -> str:
-        return "%s -> %s" % (self.name, " | ".join(repr(p) for p in self.productions))
+        return "%s -> %s" % (self.atom, " | ".join(repr(p) for p in self.productions))
     def add(self, *productions) -> None:
         self.productions.extend(productions)
 
 class Action(object):
-    def __init__(self, replace_this: str, replacement: str, where: int) -> None:
+    def __init__(self, replace_this: AtomList, replacement: AtomList, where: int) -> None:
         self.replace_this = replace_this
         self.replacement = replacement
         self.where = where
@@ -59,16 +93,16 @@ class Action(object):
         return "%s -> %s at %s" % (self.replace_this, self.replacement, self.where)
     def __repr__(self) -> str:
         return str(self)
-    def apply(self, text: str) -> str:
-        assert text[self.where:self.where + len(self.replace_this)].lower() == self.replace_this.lower(), (
+    def apply(self, text: AtomList) -> AtomList:
+        assert text[self.where:self.where + len(self.replace_this)] == self.replace_this, (
             text[self.where:self.where + len(self.replace_this)], self.replace_this)
 
         return text[:self.where] + self.replacement + text[self.where + len(self.replace_this):]
 
 class State(object):
-    def __init__(self, name: str, production: Production, dot_index: int,
+    def __init__(self, atom: Atom, production: Production, dot_index: int,
                     start_column: "Column") -> None:
-        self.name = name
+        self.atom = atom
         self.production = production
         self.start_column = start_column
         self.end_column: typing.Optional[Column] = None
@@ -77,16 +111,16 @@ class State(object):
     def __repr__(self) -> str:
         terms = [str(p) for p in self.production]
         terms.insert(self.dot_index, u"$")
-        return "%-5s -> %-16s [%s-%s]" % (self.name, " ".join(terms), self.start_column, self.end_column)
+        return "%-5s -> %-16s [%s-%s]" % (self.atom, " ".join(terms), self.start_column, self.end_column)
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, State):
             return False
-        return (self.name, self.production, self.dot_index, self.start_column) == \
-            (other.name, other.production, other.dot_index, other.start_column)
+        return (self.atom, self.production, self.dot_index, self.start_column) == \
+            (other.atom, other.production, other.dot_index, other.start_column)
     def __ne__(self, other: object) -> bool:
         return not (self == other)
     def __hash__(self) -> int:
-        return hash((self.name, self.production))
+        return hash((self.atom, self.production))
     def completed(self) -> bool:
         return self.dot_index >= len(self.production)
     def next_term(self) -> typing.Optional[Term]:
@@ -97,12 +131,12 @@ class State(object):
         if len(self.rules) == 0:
             # Terminal only
             return None
-        elif self.name == GAMMA_RULE:
+        elif self.atom == GAMMA_RULE:
             # Initialisation only
             return None
         else:
-            terms = [str(p) for p in self.production]
-            return Action(self.name, "".join(terms), self.start_column.index)
+            terms = [p.atom for p in self.production]
+            return Action([self.atom], terms, self.start_column.index)
 
 class Column(object):
     def __init__(self, index: int, token: Token) -> None:
@@ -153,12 +187,12 @@ class Node(object):
 
 def predict(col: Column, rule: Rule) -> None:
     for prod in rule.productions:
-        col.add(State(rule.name, prod, 0, col))
+        col.add(State(rule.atom, prod, 0, col))
 
 def scan(col: Column, state: State, token: Token) -> None:
     if token != col.token:
         return
-    col.add(State(state.name, state.production, state.dot_index + 1, state.start_column))
+    col.add(State(state.atom, state.production, state.dot_index + 1, state.start_column))
 
 def complete(col: Column, state: State) -> None:
     if not state.completed():
@@ -167,11 +201,11 @@ def complete(col: Column, state: State) -> None:
         term = st.next_term()
         if not isinstance(term, Rule):
             continue
-        if term.name == state.name:
-            col.add(State(st.name, st.production, st.dot_index + 1, st.start_column))
+        if term.atom == state.atom:
+            col.add(State(st.atom, st.production, st.dot_index + 1, st.start_column))
 
-def parse(rule: Rule, text: str) -> State:
-    table = [Column(i, Token(tok)) for i, tok in enumerate([""] + text.lower().split())]
+def parse(rule: Rule, text: AtomList) -> State:
+    table = [Column(i, Token(tok)) for i, tok in enumerate([NO_ATOM] + text)]
     table[0].add(State(GAMMA_RULE, Production(rule), 0, table[0]))
 
     for i, col in enumerate(table):
@@ -190,17 +224,17 @@ def parse(rule: Rule, text: str) -> State:
 
     # find gamma rule in last table column (otherwise fail)
     for st in table[-1]:
-        if st.name == GAMMA_RULE and st.completed():
+        if st.atom == GAMMA_RULE and st.completed():
             return st
     else:
         raise ValueError("parsing failed")
 
-def build_trees(state: State) -> typing.List[Node]:
+def build_trees(state: State, depth: int) -> typing.List[Node]:
     assert state.end_column is not None
-    return build_trees_helper([], state, len(state.rules) - 1, state.end_column)
+    return build_trees_helper([], state, len(state.rules) - 1, state.end_column, depth)
 
 def build_trees_helper(children: typing.List[Node], state: State,
-                       rule_index: int, end_column: Column) -> typing.List[Node]:
+                       rule_index: int, end_column: Column, depth: int) -> typing.List[Node]:
     if rule_index < 0:
         return [Node(state, children)]
     elif rule_index == 0:
@@ -213,37 +247,20 @@ def build_trees_helper(children: typing.List[Node], state: State,
     for st in end_column:
         if st is state:
             break
-        if st is state or not st.completed() or st.name != rule.name:
+        if not st.completed() or st.atom != rule.atom:
             continue
         if start_column is not None and st.start_column != start_column:
             continue
-        for sub_tree in build_trees(st):
-            for node in build_trees_helper([sub_tree] + children, state, rule_index - 1, st.start_column):
+        for sub_tree in build_trees(st, depth + 1):
+            for node in build_trees_helper([sub_tree] + children, state,
+                                           rule_index - 1, st.start_column, depth + 1):
                 outputs.append(node)
+                return outputs
     return outputs
-
-Atom = str
-AtomList = typing.List[Atom] 
-Molecule = str
-def atomise(molecule: Molecule) -> AtomList:
-    atoms: AtomList = []
-    while len(molecule) > 1:
-        assert molecule[0].isupper()
-        if molecule[1].isupper():
-            # Single letter atom
-            atoms.append(molecule[:1])
-            molecule = molecule[1:]
-        else:
-            # Double letter atom
-            atoms.append(molecule[:2])
-            molecule = molecule[2:]
-    if len(molecule) == 1:
-        atoms.append(molecule)
-    return atoms
 
 def main() -> None:
     known_atoms: typing.Dict[Atom, Rule] = dict()
-    text: str = ""
+    target: AtomList = []
 
     for line in open("input", "rt"):
         fields = line.split()
@@ -255,36 +272,45 @@ def main() -> None:
 
             for atom in atoms_in + atoms_out:
                 if atom not in known_atoms:
-                    known_atoms[atom] = Rule(atom.upper(), Production(Token(atom.lower())))
+                    known_atoms[atom] = Rule(atom, Production(Token(atom)))
 
             atom_in = atoms_in[0]
             p = [known_atoms[atom_out] for atom_out in atoms_out]
             known_atoms[atom_in].add(Production(*p))
 
         elif len(fields) == 1:
-            assert text == ""
-            text = " ".join([atom.lower() for atom in atomise(fields[0])])
+            assert len(target) == 0
+            target = atomise(fields[0])
 
         else:
             assert len(fields) == 0
 
-    assert text != ""
-    root = known_atoms["e"]
-    q0 = parse(root, text)
-    forest = build_trees(q0)
-    best_actions: typing.Optional[typing.List[Action]] = None
+    assert len(target) != 0
+    root = known_atoms[Atom("e")]
+    q0 = parse(root, target)
+    forest = build_trees(q0, 0)
+    print(len(forest))
+    best_states: typing.Optional[typing.List[State]] = None
     for tree in forest:
-        actions = tree.collect()
-        if (best_actions is None) or (len(actions) < len(best_actions)):
-            best_actions = actions
+        states = tree.collect()
+        print("", len(states))
+        if (best_states is None) or (len(states) < len(best_states)):
+            best_states = states
 
-    #tree.print_()
-    text = "e"
-    for state in actions:
+            tree.print_()
+
+    current: AtomList = [Atom("e")]
+    count = 0
+    for state in states:
         a = state.action()
         if a is not None:
-            text = a.apply(text)
-            print("{:20s} {}".format(str(a), text))
+            print("{:20s} ".format(str(a)), flush=True, end="")
+            current = a.apply(current)
+            print(''.join([str(x) for x in current]))
+            count += 1
+
+    print(count)
+    assert current == target
 
 if __name__ == "__main__":
     main()
