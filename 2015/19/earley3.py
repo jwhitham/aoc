@@ -1,5 +1,7 @@
 import typing
 
+GAMMA_RULE = "GAMMA"
+
 class Term(object):
     def __init__(self, name: str) -> None:
         self.name = name
@@ -48,6 +50,19 @@ class Rule(Term):
     def add(self, *productions) -> None:
         self.productions.extend(productions)
 
+class Action(object):
+    def __init__(self, replace_this: str, replacement: str, where: int) -> None:
+        self.replace_this = replace_this
+        self.replacement = replacement
+        self.where = where
+    def __str__(self) -> str:
+        return "%s -> %s at %s" % (self.replace_this, self.replacement, self.where)
+    def __repr__(self) -> str:
+        return str(self)
+    def apply(self, text: str) -> str:
+        assert text[self.where:self.where + len(self.replace_this)] == self.replace_this
+        return text[:self.where] + self.replacement + text[self.where + len(self.replace_this):]
+
 class State(object):
     def __init__(self, name: str, production: Production, dot_index: int,
                     start_column: "Column") -> None:
@@ -76,9 +91,16 @@ class State(object):
         if self.completed():
             return None
         return self.production[self.dot_index]
-    def collect(self) -> str:
-        terms = [str(p) for p in self.production]
-        return "%s -> %s at %s" % (self.name, " ".join(terms), self.start_column)
+    def action(self) -> typing.Optional[Action]:
+        if len(self.rules) == 0:
+            # Terminal only
+            return None
+        elif self.name == GAMMA_RULE:
+            # Initialisation only
+            return None
+        else:
+            terms = [str(p) for p in self.production]
+            return Action(self.name, "".join(terms), self.start_column.index)
 
 class Column(object):
     def __init__(self, index: int, token: Token) -> None:
@@ -121,8 +143,8 @@ class Node(object):
         print("  " * level + str(self.value))
         for child in self.children:
             child.print_(level + 1)
-    def collect(self) -> typing.List[str]:
-        c = [self.value.collect()]
+    def collect(self) -> typing.List[State]:
+        c = [self.value]
         for child in self.children:
             c.extend(child.collect())
         return c
@@ -145,8 +167,6 @@ def complete(col: Column, state: State) -> None:
             continue
         if term.name == state.name:
             col.add(State(st.name, st.production, st.dot_index + 1, st.start_column))
-
-GAMMA_RULE = "GAMMA"
 
 def parse(rule: Rule, text: str) -> State:
     table = [Column(i, Token(tok)) for i, tok in enumerate([""] + text.lower().split())]
@@ -209,9 +229,18 @@ Re = Rule("e", Production(RH), Production(RO))
 
 q0 = parse(Re, "h o h o h o")
 forest = build_trees(q0)
+best_actions: typing.Optional[typing.List[Action]] = None
 for tree in forest:
-    print("--------------------------")
-    tree.print_()
-    print("\n".join(tree.collect()))
+    actions = tree.collect()
+    if (best_actions is None) or (len(actions) < len(best_actions)):
+        best_actions = actions
+
+    #tree.print_()
+text = "e"
+for state in actions:
+    a = state.action()
+    if a is not None:
+        text = a.apply(text)
+        print("{:20s} {}".format(str(a), text))
 
 
