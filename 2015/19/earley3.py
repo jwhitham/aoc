@@ -111,7 +111,7 @@ class Column(object):
         print()
 
 class Node(object):
-    def __init__(self, value, children) -> None:
+    def __init__(self, value: State, children: typing.List["Node"]) -> None:
         self.value = value
         self.children = children
     def print_(self, level = 0) -> None:
@@ -140,8 +140,8 @@ def complete(col: Column, state: State) -> None:
 
 GAMMA_RULE = "GAMMA"
 
-def parse(rule, text) -> State:
-    table = [Column(i, Token(tok)) for i, tok in enumerate([None] + text.lower().split())]
+def parse(rule: Rule, text: str) -> State:
+    table = [Column(i, Token(tok)) for i, tok in enumerate([""] + text.lower().split())]
     table[0].add(State(GAMMA_RULE, Production(rule), 0, table[0]))
 
     for i, col in enumerate(table):
@@ -165,14 +165,16 @@ def parse(rule, text) -> State:
     else:
         raise ValueError("parsing failed")
 
-def build_trees(state):
+def build_trees(state: State) -> typing.List[Node]:
+    assert state.end_column is not None
     return build_trees_helper([], state, len(state.rules) - 1, state.end_column)
 
-def build_trees_helper(children, state, rule_index, end_column):
+def build_trees_helper(children: typing.List[Node], state: State,
+                       rule_index: int, end_column: Column) -> typing.List[Node]:
     if rule_index < 0:
         return [Node(state, children)]
     elif rule_index == 0:
-        start_column = state.start_column
+        start_column: typing.Optional[Column] = state.start_column
     else:
         start_column = None
     
