@@ -60,7 +60,9 @@ class Action(object):
     def __repr__(self) -> str:
         return str(self)
     def apply(self, text: str) -> str:
-        assert text[self.where:self.where + len(self.replace_this)] == self.replace_this
+        assert text[self.where:self.where + len(self.replace_this)].lower() == self.replace_this.lower(), (
+            text[self.where:self.where + len(self.replace_this)], self.replace_this)
+
         return text[:self.where] + self.replacement + text[self.where + len(self.replace_this):]
 
 class State(object):
@@ -220,27 +222,69 @@ def build_trees_helper(children: typing.List[Node], state: State,
                 outputs.append(node)
     return outputs
 
+Atom = str
+AtomList = typing.List[Atom] 
+Molecule = str
+def atomise(molecule: Molecule) -> AtomList:
+    atoms: AtomList = []
+    while len(molecule) > 1:
+        assert molecule[0].isupper()
+        if molecule[1].isupper():
+            # Single letter atom
+            atoms.append(molecule[:1])
+            molecule = molecule[1:]
+        else:
+            # Double letter atom
+            atoms.append(molecule[:2])
+            molecule = molecule[2:]
+    if len(molecule) == 1:
+        atoms.append(molecule)
+    return atoms
 
-RO = Rule("O", Production(Token("o")))
-RH = Rule("H", Production(Token("h")))
-RO.add(Production(RH, RH))
-RH.add(Production(RH, RO), Production(RO, RH))
-Re = Rule("e", Production(RH), Production(RO))
+def main() -> None:
+    known_atoms: typing.Dict[Atom, Rule] = dict()
+    text: str = ""
 
-q0 = parse(Re, "h o h o h o")
-forest = build_trees(q0)
-best_actions: typing.Optional[typing.List[Action]] = None
-for tree in forest:
-    actions = tree.collect()
-    if (best_actions is None) or (len(actions) < len(best_actions)):
-        best_actions = actions
+    for line in open("input", "rt"):
+        fields = line.split()
+        if len(fields) == 3:
+            assert fields[1] == "=>"
+            atoms_in = atomise(fields[0])
+            assert len(atoms_in) == 1
+            atoms_out = atomise(fields[2])
+
+            for atom in atoms_in + atoms_out:
+                if atom not in known_atoms:
+                    known_atoms[atom] = Rule(atom.upper(), Production(Token(atom.lower())))
+
+            atom_in = atoms_in[0]
+            p = [known_atoms[atom_out] for atom_out in atoms_out]
+            known_atoms[atom_in].add(Production(*p))
+
+        elif len(fields) == 1:
+            assert text == ""
+            text = " ".join([atom.lower() for atom in atomise(fields[0])])
+
+        else:
+            assert len(fields) == 0
+
+    assert text != ""
+    root = known_atoms["e"]
+    q0 = parse(root, text)
+    forest = build_trees(q0)
+    best_actions: typing.Optional[typing.List[Action]] = None
+    for tree in forest:
+        actions = tree.collect()
+        if (best_actions is None) or (len(actions) < len(best_actions)):
+            best_actions = actions
 
     #tree.print_()
-text = "e"
-for state in actions:
-    a = state.action()
-    if a is not None:
-        text = a.apply(text)
-        print("{:20s} {}".format(str(a), text))
+    text = "e"
+    for state in actions:
+        a = state.action()
+        if a is not None:
+            text = a.apply(text)
+            print("{:20s} {}".format(str(a), text))
 
-
+if __name__ == "__main__":
+    main()
