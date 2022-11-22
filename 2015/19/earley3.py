@@ -175,6 +175,9 @@ class Node(object):
     def __init__(self, value: State, children: typing.List["Node"]) -> None:
         self.value = value
         self.children = children
+    def __str__(self) -> str:
+        return "Node({})".format(self.value)
+
     def print_(self, level = 0) -> None:
         print("  " * level + str(self.value))
         for child in self.children:
@@ -236,24 +239,60 @@ def build_trees(state: State, depth: int) -> typing.List[Node]:
 def build_trees_helper(children: typing.List[Node], state: State,
                        rule_index: int, end_column: Column, depth: int) -> typing.List[Node]:
     if rule_index < 0:
+        # beginning of the production
         return [Node(state, children)]
     elif rule_index == 0:
+        # first rule in the production
         start_column: typing.Optional[Column] = state.start_column
     else:
         start_column = None
-    
+   
+    # at the root, state is the gamma rule, and rule is e
     rule = state.rules[rule_index]
+    D = 2
+    if depth <= D:
+        print("begin", depth)
+        print("state =", state)
     outputs = []
     for st in end_column:
+        # st must appear in the column before state:
         if st is state:
             break
+        # skip anything incomplete
+        # skip anything that belongs to some other rule
         if not st.completed() or st.atom != rule.atom:
             continue
+        # if we're looking for the first rule in the production, match the column
         if start_column is not None and st.start_column != start_column:
             continue
-        for sub_tree in build_trees(st, depth + 1):
-            for node in build_trees_helper([sub_tree] + children, state,
-                                           rule_index - 1, st.start_column, depth + 1):
+
+        # st is a completed state
+        # where st.atom == rule.atom
+        # and st.end_column == end_column
+        assert st.end_column == end_column
+
+        if depth <= D:
+            print("st =", state)
+
+        # match the earlier rule in the production (if any)
+        for sub_tree in build_trees_helper(
+                    children=[],
+                    state=st,
+                    rule_index=len(st.rules) - 1,
+                    end_column=end_column,
+                    depth=depth + 1):
+           
+            if depth <= D:
+                print("sub_tree =", sub_tree)
+            for node in build_trees_helper(
+                        children=[sub_tree] + children,
+                        state=state,
+                        rule_index=rule_index - 1,
+                        end_column=st.start_column,
+                        depth=depth + 1):
+                if depth <= D:
+                    print("node =", node)
+                    print("end", depth)
                 outputs.append(node)
                 return outputs
     return outputs
