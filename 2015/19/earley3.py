@@ -207,7 +207,8 @@ def complete(col: Column, state: State) -> None:
         if term.atom == state.atom:
             col.add(State(st.atom, st.production, st.dot_index + 1, st.start_column))
 
-def parse(rule: Rule, text: AtomList) -> State:
+def parse(rule: Rule, text: AtomList) -> typing.Tuple[
+                State, typing.List[Column]]:
     table = [Column(i, Token(tok)) for i, tok in enumerate([NO_ATOM] + text)]
     table[0].add(State(GAMMA_RULE, Production(rule), 0, table[0]))
 
@@ -228,7 +229,7 @@ def parse(rule: Rule, text: AtomList) -> State:
     # find gamma rule in last table column (otherwise fail)
     for st in table[-1]:
         if st.atom == GAMMA_RULE and st.completed():
-            return st
+            return (st, table)
     else:
         raise ValueError("parsing failed")
 
@@ -326,30 +327,52 @@ def main() -> None:
 
     assert len(target) != 0
     root = known_atoms[Atom("e")]
-    q0 = parse(root, target)
-    forest = build_trees(q0, 0)
-    print(len(forest))
-    best_states: typing.Optional[typing.List[State]] = None
-    for tree in forest:
-        states = tree.collect()
-        print("", len(states))
-        if (best_states is None) or (len(states) < len(best_states)):
-            best_states = states
+    (q0, table) = parse(root, target)
 
-            tree.print_()
+    for i in range(len(table)):
+        col = table[i]
+        print(f"column {i} token {col.token}")
+        for j in range(len(col)):
+            state = col[j]
+            if state.completed():
+                print(f"  row {j} state {state}")
+        print("")
 
-    current: AtomList = [Atom("e")]
-    count = 0
-    for state in states:
-        a = state.action()
-        if a is not None:
-            print("{:20s} ".format(str(a)), flush=True, end="")
-            current = a.apply(current)
-            print(''.join([str(x) for x in current]))
-            count += 1
+    def a_pox_on_this(left_index: int,
+                      right_index: int, atom: Atom, level: int) -> bool:
 
-    print(count)
-    assert current == target
+        left_col = table[left_index]
+        right_col = table[right_index]
+        for j in range(len(right_col)):
+            state = right_col[j]
+            if ((state.atom == atom)
+            and (state.start_column == left_col)
+            and state.completed()):
+                # found... step down
+                print(f"{level}: found {state}")
+                sub_right_index = right_index
+                sub_left_index = right_index
+                for term in reversed(state.production.terms):
+                    assert sub_left_index >= left_index
+                    assert sub_left_index <= sub_right_index
+                    assert sub_right_index <= right_index
+
+                    if isinstance(term, Token):
+                        print(f"{level}: match for terminal {term.atom} at {sub_left_index} .. {sub_right_index}")
+                    else:
+                        while not a_pox_on_this(sub_left_index, sub_right_index, term.atom, level + 1):
+                            print(f"{level}: no match for {term.atom} in {sub_left_index} .. {sub_right_index}")
+                            sub_left_index -= 1
+                            assert sub_left_index >= left_index
+                        print(f"{level}: match for rule {term.atom} in {sub_left_index} .. {sub_right_index}")
+
+                    sub_right_index = sub_left_index
+
+                return True
+
+        return False
+    
+    a_pox_on_this(0, len(table) - 1, GAMMA_RULE, 0)
 
 if __name__ == "__main__":
     main()
