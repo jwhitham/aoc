@@ -1,5 +1,6 @@
 import typing
 
+# based on https://github.com/tomerfiliba/tau/blob/ebf92cd99f9abf1903927e1c91f9e37fcd522bc7/earley3.py
 
 class Atom:
     def __init__(self, symbol) -> None:
@@ -289,24 +290,24 @@ def main() -> None:
     root = known_atoms[Atom("e")]
     q0 = parse(root, target)
     forest = build_trees(q0, 0)
-    print(len(forest))
+    #print(len(forest))
     best_states: typing.Optional[typing.List[State]] = None
     for tree in forest:
         states = tree.collect()
-        print("", len(states))
+        #print("", len(states))
         if (best_states is None) or (len(states) < len(best_states)):
             best_states = states
 
-            tree.print_()
+            #tree.print_()
 
     current: AtomList = [Atom("e")]
     count = 0
     for state in states:
         a = state.action()
         if a is not None:
-            print("{:20s} ".format(str(a)), flush=True, end="")
+            #print("{:20s} ".format(str(a)), flush=True, end="")
             current = a.apply(current)
-            print(''.join([str(x) for x in current]))
+            #print(''.join([str(x) for x in current]))
             count += 1
 
     print(count)
