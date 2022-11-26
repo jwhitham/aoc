@@ -1,103 +1,266 @@
-
-# Ah, it's the annual question on context-free grammars.
-# TBH I hoped that part 1 was going somewhere else with this...
-# I'll just make sure I can actually solve it, before attempting this in Rust.
-#
-# .. yes, as in, the answer is accepted by the AOC website.
-# But there are shift/reduce conflicts in the grammar, so it's
-# not LALR(1). "ply" only supports LALR(1) and SLR. The default
-# behaviour of "ply" is to shift, and that seems to lead to the expected
-# answer in this case, but not all - for example, "HOHOHO" can't be solved
-# by this. The shift/reduce conflicts block moving to the "plex"
-# crate in Rust because that requires a grammar with no
-# conflicts. However, I can also try the "lalrpop" crate, this
-# seems to offer choices beyond LALR(1).
-#
-# lalrpop is easier to use than plex. In lalrpop the grammar is written
-# in a DSL that is partly Rust, and the parser code is generated from that.
-# This integrates nicely with "cargo build", which includes the ability to
-# run "build scripts" (Rust programs) during the build - this is great
-# for supporting parser generators. In contrast, plex uses Rust macros
-# to define the grammar, which is very clever but can result in errors that
-# are hard to understand, and it requires a nightly build of Rust because
-# the relevant features did not become part of the stable version at any
-# point between 2017 and 2022. It took ages to figure out how to
-# express a grammar in a form that plex could understand, whereas
-# lalrpop made this easy. The only wonkiness with lalrpop was that its
-# tutorial has an unstated assumption that source files are in a "src"
-# subdirectory, this led to a difficult-to-debug build error when the parser
-# file was generated in an unexpected place.
-#
-# Unfortunately lalrpop can't be used to solve the problem either,
-# even with its LR(1) parser, as the grammar is ambiguous. 
-#
-# A simpler method must be intended, though I did already try various
-# obvious simple tricks in the hope of having to avoid dealing with
-# parsers. 
-
-
 import typing
-import collections
 
-Atom = str
+
+class Atom:
+    def __init__(self, symbol) -> None:
+        self.symbol = symbol
+    def __str__(self) -> str:
+        return self.symbol
+    def __repr__(self) -> str:
+        return self.symbol
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Atom):
+            return False
+        return self.symbol == other.symbol
+    def __hash__(self) -> int:
+        return hash(self.symbol)
+
+GAMMA_RULE = Atom("GAMMA")
+NO_ATOM = Atom("")
 AtomList = typing.List[Atom] 
-Molecule = str
 
-def atomise(molecule: Molecule) -> AtomList:
+def atomise(molecule: str) -> AtomList:
     atoms: AtomList = []
     while len(molecule) > 1:
         assert molecule[0].isupper()
         if molecule[1].isupper():
             # Single letter atom
-            atoms.append(molecule[:1])
+            atoms.append(Atom(molecule[:1]))
             molecule = molecule[1:]
         else:
             # Double letter atom
-            atoms.append(molecule[:2])
+            atoms.append(Atom(molecule[:2]))
             molecule = molecule[2:]
     if len(molecule) == 1:
-        atoms.append(molecule)
+        atoms.append(Atom(molecule))
     return atoms
 
 
-class Rule:
-    def __init__(self) -> None:
-        self.number = 0
-
-    def __str__(self) -> str:
-        return "Rule{}".format(self.number)
-
-class ProductionRule(Rule):
-    def __init__(self) -> None:
-        Rule.__init__(self)
-        self.productions: typing.List[typing.List[Rule]] = []
-
-    def __str__(self) -> str:
-        out: typing.List[str] = []
-        out.append(Rule.__str__(self))
-        for production in self.productions:
-            if len(out) == 1:
-                out.append(" =")
-            else:
-                out.append("\n    |")
-            for rule in production:
-                out.append(" ")
-                out.append(Rule.__str__(rule))
-
-        return "".join(out)
-
-class TerminalRule(Rule):
+class Term(object):
     def __init__(self, atom: Atom) -> None:
-        Rule.__init__(self)
-        self.terminal = atom
-
+        self.atom = atom
     def __str__(self) -> str:
-        return "{} = terminal('{}')".format(Rule.__str__(self), self.terminal)
+        return str(self.atom)
+    def __repr__(self) -> str:
+        return repr(self.atom)
 
-def read_input() -> typing.Tuple[ProductionRule, AtomList, typing.List[Rule]]:
-    production_rules: typing.Dict[Atom, ProductionRule] = collections.defaultdict(lambda: ProductionRule())
-    target_terminals: AtomList = []
-    source_rule: typing.Optional[ProductionRule] = None
+class Token(Term):
+    def __init__(self, token: Atom) -> None:
+        Term.__init__(self, token)
+        self.token = token
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Token):
+            return False
+        return self.token == other.token
+    def __hash__(self) -> int:
+        return hash(self.token)
+
+class Production(object):
+    def __init__(self, *terms: Term) -> None:
+        self.terms = terms
+    def __len__(self) -> int:
+        return len(self.terms)
+    def __getitem__(self, index) -> Term:
+        return self.terms[index]
+    def __iter__(self) -> typing.Iterator[Term]:
+        return iter(self.terms)
+    def __repr__(self) -> str:
+        return " ".join(str(t) for t in self.terms)
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Production):
+            return False
+        return self.terms == other.terms
+    def __ne__(self, other) -> bool:
+        return not (self == other)
+    def __hash__(self) -> int:
+        return hash(self.terms)
+
+class Rule(Term):
+    def __init__(self, atom: Atom, *productions: Production) -> None:
+        Term.__init__(self, atom)
+        self.productions = list(productions)
+    def __repr__(self) -> str:
+        return "%s -> %s" % (self.atom, " | ".join(repr(p) for p in self.productions))
+    def add(self, *productions) -> None:
+        self.productions.extend(productions)
+
+class Action(object):
+    def __init__(self, replace_this: AtomList, replacement: AtomList, where: int) -> None:
+        self.replace_this = replace_this
+        self.replacement = replacement
+        self.where = where
+    def __str__(self) -> str:
+        return "%s -> %s at %s" % (self.replace_this, self.replacement, self.where)
+    def __repr__(self) -> str:
+        return str(self)
+    def apply(self, text: AtomList) -> AtomList:
+        assert text[self.where:self.where + len(self.replace_this)] == self.replace_this, (
+            text[self.where:self.where + len(self.replace_this)], self.replace_this)
+
+        return text[:self.where] + self.replacement + text[self.where + len(self.replace_this):]
+
+class State(object):
+    def __init__(self, atom: Atom, production: Production, dot_index: int,
+                    start_column: "Column") -> None:
+        self.atom = atom
+        self.production = production
+        self.start_column = start_column
+        self.end_column: typing.Optional[Column] = None
+        self.dot_index = dot_index
+        self.rules = [t for t in production if isinstance(t, Rule)]
+    def __repr__(self) -> str:
+        terms = [str(p) for p in self.production]
+        terms.insert(self.dot_index, u"$")
+        return "%-5s -> %-16s [%s-%s]" % (self.atom, " ".join(terms), self.start_column, self.end_column)
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, State):
+            return False
+        return (self.atom, self.production, self.dot_index, self.start_column) == \
+            (other.atom, other.production, other.dot_index, other.start_column)
+    def __ne__(self, other: object) -> bool:
+        return not (self == other)
+    def __hash__(self) -> int:
+        return hash((self.atom, self.production))
+    def completed(self) -> bool:
+        return self.dot_index >= len(self.production)
+    def next_term(self) -> typing.Optional[Term]:
+        if self.completed():
+            return None
+        return self.production[self.dot_index]
+    def action(self) -> typing.Optional[Action]:
+        if len(self.rules) == 0:
+            # Terminal only
+            return None
+        elif self.atom == GAMMA_RULE:
+            # Initialisation only
+            return None
+        else:
+            terms = [p.atom for p in self.production]
+            return Action([self.atom], terms, self.start_column.index)
+
+class Column(object):
+    def __init__(self, index: int, token: Token) -> None:
+        self.index = index
+        self.token = token
+        self.states: typing.List[State] = []
+        self._unique: typing.Set[State] = set()
+    def __str__(self) -> str:
+        return str(self.index)
+    def __len__(self) -> int:
+        return len(self.states)
+    def __iter__(self) -> typing.Iterator[State]:
+        return iter(self.states)
+    def __getitem__(self, index) -> State:
+        return self.states[index]
+    def enumfrom(self, index) -> typing.Generator[typing.Tuple[int, State], None, None]:
+        for i in range(index, len(self.states)):
+            yield i, self.states[i]
+    def add(self, state: State) -> bool:
+        if state not in self._unique:
+            self._unique.add(state)
+            state.end_column = self
+            self.states.append(state)
+            return True
+        return False
+    def print_(self, completedOnly = False) -> None:
+        print("[%s] %r" % (self.index, self.token))
+        print("=" * 35)
+        for s in self.states:
+            if completedOnly and not s.completed():
+                continue
+            print(repr(s))
+        print()
+
+class Node(object):
+    def __init__(self, value: State, children: typing.List["Node"]) -> None:
+        self.value = value
+        self.children = children
+    def print_(self, level = 0) -> None:
+        print("  " * level + str(self.value))
+        for child in self.children:
+            child.print_(level + 1)
+    def collect(self) -> typing.List[State]:
+        c = [self.value]
+        for child in self.children:
+            c.extend(child.collect())
+        return c
+
+def predict(col: Column, rule: Rule) -> None:
+    for prod in rule.productions:
+        col.add(State(rule.atom, prod, 0, col))
+
+def scan(col: Column, state: State, token: Token) -> None:
+    if token != col.token:
+        return
+    col.add(State(state.atom, state.production, state.dot_index + 1, state.start_column))
+
+def complete(col: Column, state: State) -> None:
+    if not state.completed():
+        return
+    for st in state.start_column:
+        term = st.next_term()
+        if not isinstance(term, Rule):
+            continue
+        if term.atom == state.atom:
+            col.add(State(st.atom, st.production, st.dot_index + 1, st.start_column))
+
+def parse(rule: Rule, text: AtomList) -> State:
+    table = [Column(i, Token(tok)) for i, tok in enumerate([NO_ATOM] + text)]
+    table[0].add(State(GAMMA_RULE, Production(rule), 0, table[0]))
+
+    for i, col in enumerate(table):
+        for state in col:
+            if state.completed():
+                complete(col, state)
+            else:
+                term = state.next_term()
+                if isinstance(term, Rule):
+                    predict(col, term)
+                elif i + 1 < len(table):
+                    assert isinstance(term, Token)
+                    scan(table[i+1], state, term)
+        
+        #col.print_(completedOnly = True)
+
+    # find gamma rule in last table column (otherwise fail)
+    for st in table[-1]:
+        if st.atom == GAMMA_RULE and st.completed():
+            return st
+    else:
+        raise ValueError("parsing failed")
+
+def build_trees(state: State, depth: int) -> typing.List[Node]:
+    assert state.end_column is not None
+    return build_trees_helper([], state, len(state.rules) - 1, state.end_column, depth)
+
+def build_trees_helper(children: typing.List[Node], state: State,
+                       rule_index: int, end_column: Column, depth: int) -> typing.List[Node]:
+    if rule_index < 0:
+        return [Node(state, children)]
+    elif rule_index == 0:
+        start_column: typing.Optional[Column] = state.start_column
+    else:
+        start_column = None
+    
+    rule = state.rules[rule_index]
+    outputs = []
+    for st in end_column:
+        if st is state:
+            break
+        if not st.completed() or st.atom != rule.atom:
+            continue
+        if start_column is not None and st.start_column != start_column:
+            continue
+        for sub_tree in build_trees(st, depth + 1):
+            for node in build_trees_helper([sub_tree] + children, state,
+                                           rule_index - 1, st.start_column, depth + 1):
+                outputs.append(node)
+                return outputs
+    return outputs
+
+def main() -> None:
+    known_atoms: typing.Dict[Atom, Rule] = dict()
+    target: AtomList = []
 
     for line in open("input", "rt"):
         fields = line.split()
@@ -107,209 +270,47 @@ def read_input() -> typing.Tuple[ProductionRule, AtomList, typing.List[Rule]]:
             assert len(atoms_in) == 1
             atoms_out = atomise(fields[2])
 
+            for atom in atoms_in + atoms_out:
+                if atom not in known_atoms:
+                    known_atoms[atom] = Rule(atom, Production(Token(atom)))
+
             atom_in = atoms_in[0]
-            production_rules[atom_in].productions.append([
-                    production_rules[atom_out] for atom_out in atoms_out])
+            p = [known_atoms[atom_out] for atom_out in atoms_out]
+            known_atoms[atom_in].add(Production(*p))
 
         elif len(fields) == 1:
-            assert len(target_terminals) == 0
-            target_terminals = atomise(fields[0])
+            assert len(target) == 0
+            target = atomise(fields[0])
 
         else:
             assert len(fields) == 0
 
-    terminal_rules: typing.Dict[Atom, TerminalRule] = dict()
-    all_rules: typing.List[Rule] = []
-    for atom_in in production_rules:
-        pr = production_rules[atom_in]
-        tr = TerminalRule(atom_in)
-        pr.productions.append([tr])
-        terminal_rules[atom_in] = tr
-        all_rules.append(pr)
-        if atom_in == "e":
-            assert source_rule is None
-            source_rule = pr
-        all_rules.append(tr)
+    assert len(target) != 0
+    root = known_atoms[Atom("e")]
+    q0 = parse(root, target)
+    forest = build_trees(q0, 0)
+    print(len(forest))
+    best_states: typing.Optional[typing.List[State]] = None
+    for tree in forest:
+        states = tree.collect()
+        print("", len(states))
+        if (best_states is None) or (len(states) < len(best_states)):
+            best_states = states
 
-    for (i, rule) in enumerate(all_rules):
-        rule.number = i
+            tree.print_()
 
-    assert len(target_terminals) != 0
-    assert source_rule is not None
+    current: AtomList = [Atom("e")]
+    count = 0
+    for state in states:
+        a = state.action()
+        if a is not None:
+            print("{:20s} ".format(str(a)), flush=True, end="")
+            current = a.apply(current)
+            print(''.join([str(x) for x in current]))
+            count += 1
 
-    for rule in all_rules:
-        print(str(rule))
+    print(count)
+    assert current == target
 
-    return (source_rule, target_terminals, all_rules)
-
-class State:
-    def __init__(self, rule: Rule, production: typing.List[Rule],
-                       dot_position: int, input_position: int,
-                       previous: "typing.Optional[State]") -> None:
-        self.rule = rule
-        self.production = production
-        self.dot_position = dot_position
-        self.input_position = input_position
-        self.previous = previous
-        self.parse: "typing.List[typing.List[State]]" = [[] for _ in production]
-
-
-    def get_next(self) -> typing.Optional[Rule]:
-        if self.dot_position >= len(self.production):
-            return None
-        else:
-            return self.production[self.dot_position]
-
-    def __eq__(self, other: object) -> bool:
-        return (isinstance(other, State)
-                and (self.rule == other.rule)
-                and (self.production == other.production)
-                and (self.dot_position == other.dot_position)
-                and (self.input_position == other.input_position))
-
-    def __str__(self) -> str:
-        #return ("State(" + ','.join([
-        #                Rule.__str__(self.rule),
-        #                "[" + ','.join([Rule.__str__(r) for r in self.production]) + ']',
-        #                str(self.dot_position), str(self.input_position)]) + ")")
-        out = "<" + Rule.__str__(self.rule) + ","
-        for i in range(len(self.production)):
-            if self.dot_position == i:
-                out += " ."
-            out += " " + Rule.__str__(self.production[i])
-        if self.dot_position == len(self.production):
-            out += " . "
-        out += ", " + str(self.input_position) + ">"
-        return out
-
-    def assign_id(self, seen: "typing.Dict[int, int]") -> None:
-        if id(self) not in seen:
-            seen[id(self)] = len(seen)
-
-    def show_parse(self, seen: "typing.Dict[int, int]") -> str:
-        out = ""
-        self.assign_id(seen)
-        for i in range(len(self.production)):
-            if len(self.parse[i]) == 0:
-                continue
-            if len(out) == 0:
-                out = "{} {}\n".format(seen[id(self)], str(self))
-
-            out += " " + Rule.__str__(self.production[i]) + " :"
-            for state in self.parse[i]:
-                state.assign_id(seen)
-                out += " {}".format(seen[id(state)])
-            out += "\n"
-        return out
-
-class States(list):
-    def __init__(self) -> None:
-        list.__init__(self)
-
-    def add(self, item: State) -> None:
-        if item in self:
-            return
-        self.append(item)
-
-def earley_parser() -> None:
-    (source_rule, target_terminals, all_rules) = read_input()
-    print("")
-
-    states = [States() for i in range(len(target_terminals) + 1)]
-    for production in source_rule.productions:
-        states[0].add(State(rule=source_rule, production=production,
-                            dot_position=0, input_position=0, previous=None))
-
-    for k in range(len(target_terminals) + 1):
-        i = 0
-        while i < len(states[k]):
-            state = states[k][i]
-            rule = state.get_next()
-            if rule is not None:
-                print(k, i, Rule.__str__(rule))
-            else:
-                print(k, i, None)
-            i += 1
-            if rule is not None:
-                if isinstance(rule, ProductionRule):
-                    print("predictor")
-                    for production in rule.productions:
-                        s = State(rule=rule, production=production,
-                                  dot_position=0, input_position=k,
-                                  previous=state)
-                        print("  " + str(s))
-                        states[k].add(s)
-                else:
-                    print("scanner")
-                    assert isinstance(rule, TerminalRule)
-                    if (k < len(target_terminals)) and (rule.terminal == target_terminals[k]):
-                        s = State(rule=state.rule,
-                                  production=state.production,
-                                  dot_position=state.dot_position + 1,
-                                  input_position=state.input_position,
-                                  previous=state)
-                        print("  " + str(s))
-                        states[k + 1].add(s)
-            else:
-                print("complete")
-                for state2 in states[state.input_position]:
-                    rule = state2.get_next()
-                    if isinstance(rule, ProductionRule) and rule == state.rule:
-                        s = State(rule=state2.rule,
-                                  production=state2.production,
-                                  dot_position=state2.dot_position + 1,
-                                  input_position=state2.input_position,
-                                  previous=state)
-                        print("  {} -> {}".format(s, k))
-                        states[k].add(s)
-                        state2.parse[state2.dot_position].append(state)
-
-    print("\n" * 10)
-    for state in states[-1]:
-        rule = state.get_next()
-        if rule is None:
-            if state.rule == source_rule:
-                print(str(state))
-                print(str(state.production))
-
-    print("\n" * 10)
-    seen = dict()
-    for k in range(len(target_terminals) + 1):
-        print(f"For {k} {target_terminals[k - 1]}:")
-        for state in states[k]:
-            print(state.show_parse(seen))
-        print("")
-
-    print("\n" * 10)
-
-    print("?")
-
-def build_trees(state):
-    return build_trees_helper([], state, len(state.productions) - 1, state.end_column)
-
-def build_trees_helper(children, state, rule_index, end_column):
-    if rule_index < 0:
-        return [Node(state, children)]
-    elif rule_index == 0:
-        start_column = state.start_column
-    else:
-        start_column = None
-    
-    rule = state.productions[rule_index]
-    outputs = []
-    for st in end_column:
-        if st is state:
-            break
-        if st is state or not st.completed() or st.name != rule.name:
-            continue
-        if start_column is not None and st.start_column != start_column:
-            continue
-        for sub_tree in build_trees(st):
-            for node in build_trees_helper([sub_tree] + children, state, rule_index - 1, st.start_column):
-                outputs.append(node)
-    return outputs
-
-earley_parser()
-
-
-
+if __name__ == "__main__":
+    main()
