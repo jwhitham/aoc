@@ -1,6 +1,5 @@
 import typing
 
-
 class Atom:
     def __init__(self, symbol) -> None:
         self.symbol = symbol
@@ -338,10 +337,13 @@ def main() -> None:
                 print(f"  row {j} state {state}")
         print("")
 
-    if a_pox_on_this(table, 0, len(table) - 1, GAMMA_RULE, 0):
-        print("matched")
-    else:
-        print("not matched")
+    try:
+        if a_pox_on_this(table, 0, len(table) - 1, GAMMA_RULE, 0):
+            print("matched")
+        else:
+            print("not matched")
+    except Exception as e:
+        print("crash", e)
 
 def look_left(table: Table,
               stop_left_index: int,
@@ -350,8 +352,10 @@ def look_left(table: Table,
               term_index: int, level: int) -> bool:
 
     if term_index < 0:
+        print(f"{level}: accept")
         return True
     if left_index < stop_left_index:
+        print(f"{level}: reject")
         return False
 
     assert right_index >= left_index
