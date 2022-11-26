@@ -13,6 +13,9 @@ struct HeapItem {
     deliveries_to_do: u64,
 }
 
+// The heap must be a "min heap" with the smallest value
+// being the one which will be popped next. Rust's heap is
+// actually a "max heap" so we flip the direction of the comparison.
 impl Ord for HeapItem {
     fn cmp(self: &Self, other: &Self) -> Ordering {
         return other.next_house.cmp(&self.next_house);
@@ -31,24 +34,28 @@ fn solver(delivery_limit: u64, deliveries_per_house: u64) -> u64 {
     let mut house_number = 1;
 
     loop {
+        // add new elf
         heap.push(HeapItem {
             elf_number: house_number,
             next_house: house_number,
             deliveries_to_do: delivery_limit,
         });
 
-        let mut presents_div_10: u64 = 0;
+        // count the number of presents being delivered here
+        let mut sum_of_elf_numbers: u64 = 0;
         while heap.peek().unwrap().next_house <= house_number {
             let mut item = heap.pop().unwrap();
             assert_eq!(item.next_house, house_number);
-            presents_div_10 += item.elf_number;
+            sum_of_elf_numbers += item.elf_number;
             item.next_house += item.elf_number;
             item.deliveries_to_do -= 1;
             if item.deliveries_to_do != 0 {
                 heap.push(item);
             }
         }
-        if (presents_div_10 * deliveries_per_house) >= INPUT {
+
+        // stop when the input number is reached
+        if (sum_of_elf_numbers * deliveries_per_house) >= INPUT {
             return house_number;
         }
         house_number += 1;
@@ -56,6 +63,8 @@ fn solver(delivery_limit: u64, deliveries_per_house: u64) -> u64 {
 }
 
 fn main() {
+    // part 1: infinite deliveries per elf, and 10 presents per house
     println!("{}", solver(u64::MAX, 10));
+    // part 2: 50 deliveries per elf, and 11 presents per house
     println!("{}", solver(50, 11));
 }
