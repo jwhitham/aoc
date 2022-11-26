@@ -18,6 +18,7 @@ class Atom:
 GAMMA_RULE = Atom("GAMMA")
 NO_ATOM = Atom("")
 AtomList = typing.List[Atom] 
+Table = typing.List["Column"]
 
 def atomise(molecule: str) -> AtomList:
     atoms: AtomList = []
@@ -207,8 +208,7 @@ def complete(col: Column, state: State) -> None:
         if term.atom == state.atom:
             col.add(State(st.atom, st.production, st.dot_index + 1, st.start_column))
 
-def parse(rule: Rule, text: AtomList) -> typing.Tuple[
-                State, typing.List[Column]]:
+def parse(rule: Rule, text: AtomList) -> typing.Tuple[State, Table]:
     table = [Column(i, Token(tok)) for i, tok in enumerate([NO_ATOM] + text)]
     table[0].add(State(GAMMA_RULE, Production(rule), 0, table[0]))
 
@@ -338,41 +338,53 @@ def main() -> None:
                 print(f"  row {j} state {state}")
         print("")
 
-    def a_pox_on_this(left_index: int,
-                      right_index: int, atom: Atom, level: int) -> bool:
+    if a_pox_on_this(table, 0, len(table) - 1, GAMMA_RULE, 0):
+        print("matched")
+    else:
+        print("not matched")
 
-        left_col = table[left_index]
-        right_col = table[right_index]
-        for j in range(len(right_col)):
-            state = right_col[j]
-            if ((state.atom == atom)
-            and (state.start_column == left_col)
-            and state.completed()):
-                # found... step down
-                print(f"{level}: found {state}")
-                sub_right_index = right_index
-                sub_left_index = right_index
-                for term in reversed(state.production.terms):
-                    assert sub_left_index >= left_index
-                    assert sub_left_index <= sub_right_index
-                    assert sub_right_index <= right_index
+def look_left(table: Table,
+              stop_left_index: int,
+              left_index: int,
+              right_index: int, state: State,
+              term_index: int, level: int) -> bool:
 
-                    if isinstance(term, Token):
-                        print(f"{level}: match for terminal {term.atom} at {sub_left_index} .. {sub_right_index}")
-                    else:
-                        while not a_pox_on_this(sub_left_index, sub_right_index, term.atom, level + 1):
-                            print(f"{level}: no match for {term.atom} in {sub_left_index} .. {sub_right_index}")
-                            sub_left_index -= 1
-                            assert sub_left_index >= left_index
-                        print(f"{level}: match for rule {term.atom} in {sub_left_index} .. {sub_right_index}")
+    if term_index < 0:
+        return True
+    if left_index < stop_left_index:
+        return False
 
-                    sub_right_index = sub_left_index
+    assert right_index >= left_index
+    term = state.production.terms[term_index]
 
+    if isinstance(term, Token):
+        print(f"{level}: match for terminal {term.atom} at {left_index} .. {right_index}")
+        return look_left(table, stop_left_index, left_index, right_index - 1, state, term_index - 1, level + 1)
+    else:
+        if a_pox_on_this(table, left_index, right_index, term.atom, level + 1):
+            print(f"{level}: match for rule {term.atom} in {left_index} .. {right_index}")
+            return look_left(table, stop_left_index, left_index, right_index - 1, state, term_index - 1, level + 1)
+        else:
+            print(f"{level}: no match for {term.atom} in {left_index} .. {right_index}")
+            return look_left(table, stop_left_index, left_index - 1, right_index, state, term_index, level + 1)
+
+
+def a_pox_on_this(table: Table, left_index: int,
+                  right_index: int, atom: Atom, level: int) -> bool:
+
+    left_col = table[left_index]
+    right_col = table[right_index]
+    for j in range(len(right_col) - 1, -1, -1):
+        state = right_col[j]
+        if ((state.atom == atom)
+        and (state.start_column == left_col)
+        and state.completed()):
+            # found... step down
+            print(f"{level}: found {state}")
+            if look_left(table, left_index, right_index, right_index, state, len(state.production.terms) - 1, level + 1):
                 return True
 
-        return False
-    
-    a_pox_on_this(0, len(table) - 1, GAMMA_RULE, 0)
+    return False
 
 if __name__ == "__main__":
     main()
