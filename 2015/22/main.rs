@@ -117,34 +117,11 @@ fn take_a_turn(action: &Action, initial_state: State) -> State {
     return state;
 }
 
-fn least_mana_spent(initial_state: State) -> i32 {
-    if initial_state.win {
-        return initial_state.spent_mana;
-    } else if initial_state.lose {
-        return i32::MAX;
-    }
-
-    let mut least_spent = i32::MAX;
-    // This version of Rust lacks a way to iterate through all enum values
-    // (though it can be done by importing some third-party crates) which
-    // seems to come from the way that enums are actually more like "variant
-    // records" (Ada) or union types (C) and so iterating through all values
-    // would also require initialising some arbitrary structure in the general case.
-    // Makes sense (but is annoying).
-    for a in [
-            Action::CastPoison,
-            Action::CastMagicMissile,
-            Action::CastDrain,
-            Action::CastShield,
-            Action::CastRecharge].iter() {
-        let new_state = take_a_turn(a, initial_state);
-        least_spent = i32::min(least_mana_spent(new_state), least_spent);
-    }
-    return least_spent;
-}
-
 fn part1(boss_hp: i32, boss_damage: i32, player_hp: i32, player_mana: i32) -> i32 {
-    let initial_state = State {
+    let mut states: Vec<State> = Vec::new();
+    let mut least_spent = i32::MAX;
+
+    states.push(State {
         player_hp: player_hp,
         boss_hp: boss_hp,
         boss_damage: boss_damage,
@@ -155,8 +132,40 @@ fn part1(boss_hp: i32, boss_damage: i32, player_hp: i32, player_mana: i32) -> i3
         spent_mana: 0,
         win: false,
         lose: false,
-    };
-    return least_mana_spent(initial_state);
+    });
+
+    while let Some(cur_state) = states.pop() {
+        // skip states where the game is lost
+        if cur_state.lose {
+            continue;
+        }
+        // if the game is won, record the least mana and skip
+        if cur_state.win {
+            least_spent = i32::min(cur_state.spent_mana, least_spent);
+            continue;
+        }
+        // if the state exceeds the least mana known so far, skip
+        if cur_state.spent_mana >= least_spent {
+            continue;
+        }
+
+        // This version of Rust lacks a way to iterate through all enum values
+        // (though it can be done by importing some third-party crates) which
+        // seems to come from the way that enums are actually more like "variant
+        // records" (Ada) or union types (C) and so iterating through all values
+        // would also require initialising some arbitrary structure in the general case.
+        // Makes sense (but is annoying).
+        for a in [
+                Action::CastPoison,
+                Action::CastMagicMissile,
+                Action::CastDrain,
+                Action::CastShield,
+                Action::CastRecharge].iter() {
+            let new_state = take_a_turn(a, cur_state);
+            states.push(new_state);
+        }
+    }
+    return least_spent;
 }
 
 #[test]
