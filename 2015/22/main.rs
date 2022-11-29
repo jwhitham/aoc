@@ -19,6 +19,7 @@ struct State {
     spent_mana: i32,
     win: bool,
     lose: bool,
+    hard_mode: bool,
 }
 
 enum Action {
@@ -46,6 +47,13 @@ fn tick_dots(state: &mut State) {
 fn take_a_turn(action: &Action, initial_state: State) -> State {
     let mut state = initial_state;
     // Player
+    if state.hard_mode {
+        state.player_hp -= 1;
+        if state.player_hp <= 0 {
+            state.lose = true;
+            return state;
+        }
+    }
     tick_dots(&mut state);
     if state.boss_hp <= 0 {
         state.win = true;
@@ -117,7 +125,9 @@ fn take_a_turn(action: &Action, initial_state: State) -> State {
     return state;
 }
 
-fn part1(boss_hp: i32, boss_damage: i32, player_hp: i32, player_mana: i32) -> i32 {
+fn search(boss_hp: i32, boss_damage: i32,
+          player_hp: i32, player_mana: i32,
+          hard_mode: bool) -> i32 {
     let mut states: Vec<State> = Vec::new();
     let mut least_spent = i32::MAX;
 
@@ -132,6 +142,7 @@ fn part1(boss_hp: i32, boss_damage: i32, player_hp: i32, player_mana: i32) -> i3
         spent_mana: 0,
         win: false,
         lose: false,
+        hard_mode: hard_mode,
     });
 
     while let Some(cur_state) = states.pop() {
@@ -171,7 +182,6 @@ fn part1(boss_hp: i32, boss_damage: i32, player_hp: i32, player_mana: i32) -> i3
 #[test]
 fn test_part1_scenarios() {
     // The first example scenario
-    // The first example scenario
     let initial_state = State {
         player_hp: 10,
         boss_hp: 13,
@@ -183,6 +193,7 @@ fn test_part1_scenarios() {
         spent_mana: 0,
         win: false,
         lose: false,
+        hard_mode: false,
     };
     let mut state = initial_state;
     state = take_a_turn(&Action::CastPoison, state);
@@ -232,13 +243,17 @@ fn test_part1_scenarios() {
 
 #[test]
 fn test_part1_search() {
-    assert_eq!(part1(13, 8, 10, 250), MAGIC_MISSILE_COST + POISON_COST);
-    assert_eq!(part1(14, 8, 10, 250), RECHARGE_COST + SHIELD_COST + DRAIN_COST +
+    assert_eq!(search(13, 8, 10, 250, false), MAGIC_MISSILE_COST + POISON_COST);
+    assert_eq!(search(14, 8, 10, 250, false), RECHARGE_COST + SHIELD_COST + DRAIN_COST +
                                     POISON_COST + MAGIC_MISSILE_COST);
 }
 
 fn main() {
-    let least_spent = part1(51, 9, 50, 500);
+    let mut least_spent = search(51, 9, 50, 500, false);
+    assert!(least_spent < i32::MAX);
+    println!("{}", least_spent);
+
+    least_spent = search(51, 9, 50, 500, true);
     assert!(least_spent < i32::MAX);
     println!("{}", least_spent);
 }
