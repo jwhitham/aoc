@@ -1,8 +1,8 @@
 
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::iter::FromIterator;
-use std::convert::TryInto;
+
+const MAX_COMPARTMENTS: usize = 4;
 
 struct Best {
     compartment_1_size: usize,
@@ -11,14 +11,12 @@ struct Best {
 
 struct State {
     todo: Vec<usize>,
-    selected_for_1: Vec<usize>,
-    selected_for_2: Vec<usize>,
-    selected_for_3: Vec<usize>,
-    not_selected_for_1: Vec<usize>,
-    not_selected_for_2: Vec<usize>,
-    compartment_1_weight: usize,
-    compartment_2_weight: usize,
-    compartment_1_qe: f64,
+    selected_for: [Vec<usize>; MAX_COMPARTMENTS + 1],
+    not_selected_for: [Vec<usize>; MAX_COMPARTMENTS + 1],
+    compartment_weight: [usize; MAX_COMPARTMENTS + 1],
+    compartment_qe: [f64; MAX_COMPARTMENTS + 1],
+    compartment_number: usize,
+    num_compartments: usize,
     best: Best,
 }
 
@@ -32,102 +30,91 @@ fn compute_qe(selected: &Vec<usize>) -> f64 {
     return total;
 }
 
-// Select for the first compartment
-fn do_select_for_first(state: &mut State) {
-    // finished selecting for first?
-    if state.selected_for_1.len() > state.best.compartment_1_size {
-        // too many items here
-        return;
-    }
-    if state.compartment_1_qe > state.best.compartment_1_qe {
-        // too much QE here
-        return;
-    }
-    if state.compartment_1_weight == 0 {
-        // can't add more items here now - go to second compartment
-        // unselected items from compartment 1 re-enter the todo list
-        let transfer_len = state.not_selected_for_1.len();
-        for _ in 0 .. transfer_len {
-            state.todo.push(state.not_selected_for_1.pop().unwrap());
+// Select for compartment [1 .. num_compartments - 1]
+fn do_select(state: &mut State) {
+
+    let number = state.compartment_number;
+    if number == 1 {
+        // Compartment 1 special case
+        if state.selected_for[number].len() > state.best.compartment_1_size {
+            // too many items here
+            return;
         }
-        do_select_for_second(state);
-        for _ in 0 .. transfer_len {
-            state.not_selected_for_1.push(state.todo.pop().unwrap());
+        if state.compartment_qe[number] > state.best.compartment_1_qe {
+            // too much QE here
+            return;
+        }
+    }
+
+    if state.compartment_weight[number] == 0 {
+        // can't add more items here now - go to next compartment
+        if (state.compartment_qe[number] <= state.compartment_qe[1]) && (number > 1) {
+            // QE of compartment 1 would be too large with this solution
+            return;
+        }
+        if number == (state.num_compartments - 1) {
+            // All compartments apart from the last one are now full - solution found
+            state.compartment_qe[number + 1] = compute_qe(&state.not_selected_for[number]);
+            if state.compartment_qe[number + 1] <= state.compartment_qe[1] {
+                // QE of compartment 1 would be too large with this solution
+                return;
+            }
+            // otherwise the solution should be valid - check
+            for i in 1 .. state.num_compartments {
+                assert_eq!(state.compartment_qe[i], compute_qe(&state.selected_for[i]));
+            }
+            for i in 2 .. (state.num_compartments + 1) {
+                assert!(state.compartment_qe[i] > state.compartment_qe[1]);
+            }
+            assert!(state.best.compartment_1_size >= state.selected_for[1].len());
+            state.best.compartment_1_size = state.selected_for[1].len();
+            state.best.compartment_1_qe = f64::min(state.compartment_qe[1],
+                                                   state.best.compartment_1_qe);
+        } else {
+            // unselected items from this compartment re-enter the todo list
+            let saved_len = state.todo.len();
+            for weight in state.not_selected_for[number].iter() {
+                state.todo.push(*weight);
+            }
+            state.compartment_number += 1;
+            do_select(state);
+            state.compartment_number -= 1;
+            state.todo.truncate(saved_len);
         }
         return;
     }
 
-    // nothing for compartment 2 or 3?
     if state.todo.len() == 0 {
+        // We should never have selected the final item as all compartments
+        // must contain at least 1 item
         return;
     }
 
     // get next item for selection
     let weight = state.todo.pop().unwrap();
 
-    if weight <= state.compartment_1_weight {
+    if weight <= state.compartment_weight[number] {
         // did select
-        let saved_qe = state.compartment_1_qe;
-        state.compartment_1_weight -= weight;
-        state.compartment_1_qe *= weight as f64;
-        state.selected_for_1.push(weight);
-        do_select_for_first(state);
-        state.selected_for_1.pop();
-        state.compartment_1_qe = saved_qe;
-        state.compartment_1_weight += weight;
+        let saved_qe = state.compartment_qe[number];
+        state.compartment_weight[number] -= weight;
+        state.compartment_qe[number] *= weight as f64;
+        state.selected_for[number].push(weight);
+        do_select(state);
+        state.selected_for[number].pop();
+        state.compartment_qe[number] = saved_qe;
+        state.compartment_weight[number] += weight;
     }
     // did not select
-    state.not_selected_for_1.push(weight);
-    do_select_for_first(state);
-    state.not_selected_for_1.pop();
-
-    // restore todo list
-    state.todo.push(weight);
-}
-
-// Select for the second compartment
-fn do_select_for_second(state: &mut State) {
-    // finished selecting for second?
-    if state.compartment_2_weight == 0 {
-        state.best.compartment_1_size = state.selected_for_1.len();
-        let qe_1 = compute_qe(&state.selected_for_1);
-        let qe_2 = compute_qe(&state.selected_for_2);
-        let qe_3 = compute_qe(&state.selected_for_3);
-        assert_eq!(qe_1, state.compartment_1_qe);
-        if (qe_1 < qe_2) && (qe_1 < qe_3) {
-            // solution is acceptable
-            state.best.compartment_1_qe = f64::min(qe_1, state.best.compartment_1_qe);
-        }
-        return;
-    }
-
-    // nothing for compartment 3?
-    if state.todo.len() == 0 {
-        return;
-    }
-
-    // get next item for selection
-    let weight = state.todo.pop().unwrap();
-
-    if weight <= state.compartment_2_weight {
-        // did select
-        state.compartment_2_weight -= weight;
-        state.selected_for_2.push(weight);
-        do_select_for_second(state);
-        state.selected_for_2.pop();
-        state.compartment_2_weight += weight;
-    }
-    // did not select
-    state.selected_for_3.push(weight);
-    do_select_for_second(state);
-    state.selected_for_3.pop();
+    state.not_selected_for[number].push(weight);
+    do_select(state);
+    state.not_selected_for[number].pop();
 
     // restore todo list
     state.todo.push(weight);
 }
 
 
-fn main() {
+fn solver(num_compartments: usize) {
     // read input
     let file = File::open("input").unwrap();
     let lines = io::BufReader::new(file).lines();
@@ -137,32 +124,36 @@ fn main() {
             weight.push(line_string.trim().parse().unwrap());
         }
     }
-    
-    // each compartment should have a specific weight, a third of the total
+   
+    // each compartment should have a specific weight, a proportion of the total
     let mut total: usize = 0;
     for w in &weight {
         total += w;
     }
     assert!((total % 3) == 0);
-    let third = total / 3;
+    assert!(num_compartments <= MAX_COMPARTMENTS);
+    assert!(num_compartments >= 3);
 
     // begin solving
     let mut state = State {
         todo: weight,
-        selected_for_1: Vec::new(),
-        selected_for_2: Vec::new(),
-        selected_for_3: Vec::new(),
-        not_selected_for_1: Vec::new(),
-        not_selected_for_2: Vec::new(),
-        compartment_1_weight: third,
-        compartment_2_weight: third,
-        compartment_1_qe: 1.0,
+        selected_for: Default::default(),
+        not_selected_for: Default::default(),
+        compartment_weight: [total / num_compartments; MAX_COMPARTMENTS + 1],
+        compartment_qe: [1.0; MAX_COMPARTMENTS + 1],
         best: Best {
             compartment_1_size: usize::MAX,
             compartment_1_qe: f64::MAX,
-        }
+        },
+        num_compartments: num_compartments,
+        compartment_number: 1,
     };
-    do_select_for_first(&mut state);
+    do_select(&mut state);
 
     println!("{}", state.best.compartment_1_qe);
+}
+
+fn main() {
+    solver(3);
+    solver(4);
 }
