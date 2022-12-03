@@ -77,6 +77,36 @@ fn run(memory: &mut Memory, input: &mut InputOutput,
                 pc += 2;
                 output.push(a);
             },
+            5 => {
+                pc += 3;
+                if a != 0 {
+                    pc = b;
+                }
+            },
+            6 => {
+                pc += 3;
+                if a == 0 {
+                    pc = b;
+                }
+            },
+            7 => {
+                let r = load_memory(memory, pc + 3);
+                if a < b {
+                    memory.insert(r, 1);
+                } else {
+                    memory.insert(r, 0);
+                }
+                pc += 4;
+            },
+            8 => {
+                let r = load_memory(memory, pc + 3);
+                if a == b {
+                    memory.insert(r, 1);
+                } else {
+                    memory.insert(r, 0);
+                }
+                pc += 4;
+            },
             99 => {
                 return load_memory(memory, 0);
             },
@@ -125,9 +155,21 @@ fn part1() -> i32 {
     return output.pop().unwrap();
 }
 
+fn part2() -> i32 {
+    let mut memory = load_from_input();
+    let mut input: InputOutput = Vec::new();
+    let mut output: InputOutput = Vec::new();
+    input.push(5);
+    run(&mut memory, &mut input, &mut output);
+    assert!(!output.is_empty());
+    return output.pop().unwrap();
+}
+
 
 fn main() {
     let p1 = part1();
     println!("{}", p1);
+    let p2 = part2();
+    println!("{}", p2);
 }
 
