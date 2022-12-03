@@ -2,6 +2,7 @@
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::collections::HashSet;
+use std::collections::HashMap;
 
 
 fn priority(ch: char) -> u32 {
@@ -17,7 +18,7 @@ fn priority(ch: char) -> u32 {
     }
 }
 
-fn main() {
+fn part1() {
     let file = File::open("input").unwrap();
     let mut part1_total: u32 = 0;
     let mut repeat: HashSet<char> = HashSet::new();
@@ -41,4 +42,44 @@ fn main() {
     }
 
     println!("{}", part1_total);
+}
+
+fn part2() {
+    let file = File::open("input").unwrap();
+    let mut part2_total: u32 = 0;
+    let mut present: HashMap<char, u8> = HashMap::new();
+    let mut group_bit: u8 = 1;
+    const ELVES_PER_GROUP: u8 = 3;
+
+    for line in io::BufReader::new(file).lines() {
+        if let Ok(line_string) = line {
+            let trimmed = line_string.trim();
+            assert!((trimmed.len() % 2) == 0);
+
+            for ch in trimmed.chars() {
+                present.insert(ch, present.get(&ch).unwrap_or(&0)
+                                       | group_bit);
+            }
+            group_bit = group_bit << 1;
+            if group_bit >= (1 << ELVES_PER_GROUP) {
+                for (ch, bits) in present.drain() {
+                    if bits == (1 << ELVES_PER_GROUP) - 1 {
+                        // carried by all elves!
+                        part2_total += priority(ch);
+                    }
+                }
+
+                assert!(present.is_empty());
+                group_bit = 1;
+            }
+        }
+    }
+    assert!(group_bit == 1);
+
+    println!("{}", part2_total);
+}
+
+fn main() {
+    part1();
+    part2();
 }
