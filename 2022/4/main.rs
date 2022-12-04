@@ -5,10 +5,8 @@ use std::io::{self, BufRead};
 
 fn split_pair(text: &str) -> (u32, u32) {
     let mut parts = text.split('-');
-    let part1 = parts.next().unwrap();
-    let part2 = parts.next().unwrap();
-    let num1 = part1.parse().expect("num1");
-    let num2 = part2.parse().expect("num2");
+    let num1 = parts.next().unwrap().parse().expect("num1");
+    let num2 = parts.next().unwrap().parse().expect("num2");
     return (num1, num2);
 }
 
@@ -18,12 +16,9 @@ fn main() {
     let mut part2_total: u32 = 0;
     for line in io::BufReader::new(file).lines() {
         if let Ok(line_string) = line {
-            let trimmed = line_string.trim();
-            let mut pairs = trimmed.split(',');
-            let pair1 = pairs.next().unwrap();
-            let pair2 = pairs.next().unwrap();
-            let (a, b) = split_pair(pair1);
-            let (c, d) = split_pair(pair2);
+            let mut pairs = line_string.trim().split(',');
+            let (a, b) = split_pair(pairs.next().unwrap());
+            let (c, d) = split_pair(pairs.next().unwrap());
             if (a <= c) && (b >= d) {
                 // pair1 contains pair2
                 part1_total += 1;
