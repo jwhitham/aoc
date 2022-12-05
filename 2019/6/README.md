@@ -31,7 +31,7 @@ reference counting and was only slightly hard to write, but the cycles between t
 nodes (parent/child) would prevent the memory ever being freed. A poor solution.
 
 My second attempt used weak references for links in the tree. It works but the complexity
-is crazy. What a C programmer might write in one line, namely "while(a) { a=a.parent; count++; }"
+is crazy. What a C programmer might write in one line, namely `while(a) { a=a->parent; count++; }`
 had somehow exploded into a large subprogram filled with type declarations that would
 make typical Ada programs seem terse. Though Rust does have type inference, you may
 need explicit type declarations anyway, and when dealing with reference-counted
