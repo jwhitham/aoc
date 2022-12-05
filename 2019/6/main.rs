@@ -2,13 +2,14 @@
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::collections::HashMap;
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::rc::{Rc, Weak};
+use std::cell::{RefMut, RefCell};
+use std::borrow::Borrow;
 
 
 struct Object {
-    parent: Option<Rc<RefCell<Object>>>,
-    children: Vec<Rc<RefCell<Object>>>,
+    parent: Option<Weak<RefCell<Object>>>,
+    children: Vec<Weak<RefCell<Object>>>,
 }
 
 struct Space {
@@ -39,18 +40,25 @@ impl Space {
         
         let planet = self.get(planet_name);
         let satellite = self.get(satellite_name);
-        assert!(satellite.borrow().parent.is_none());
-        satellite.borrow_mut().parent = Some(planet.clone());
-        planet.borrow_mut().children.push(satellite.clone());
+        let mut planet_ref: RefMut<Object> = planet.borrow_mut();
+        let mut satellite_ref: RefMut<Object> = satellite.borrow_mut();
+        assert!(satellite_ref.parent.is_none());
+        satellite_ref.parent = Some(Rc::downgrade(&planet));
+        planet_ref.children.push(Rc::downgrade(&satellite));
     }
 
     fn count_transitive(self: &mut Self) -> u32 {
         let mut count = 0;
         for obj in self.object.values() {
-            let mut step = obj.borrow().parent.clone();
-            while step.is_some() {
+            let satellite: &Rc<RefCell<Object>> = obj;
+            let obj_ref: &RefCell<Object> = satellite.borrow();
+            let mut next_step = obj_ref.borrow().parent.clone();
+            while next_step.is_some() {
                 count += 1;
-                step = step.unwrap().borrow().parent.clone();
+                let step_weak_ref: Weak<RefCell<Object>> = next_step.unwrap();
+                let step_ref: Rc<RefCell<Object>> = step_weak_ref.upgrade().unwrap();
+                let step: &RefCell<Object> = step_ref.borrow();
+                next_step = step.borrow().parent.clone();
             }
         }
         return count;
