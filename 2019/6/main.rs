@@ -10,6 +10,7 @@ use std::borrow::Borrow;
 struct Object {
     parent: Option<Weak<RefCell<Object>>>,
     children: Vec<Weak<RefCell<Object>>>,
+    flag: bool,
 }
 
 struct Space {
@@ -30,6 +31,7 @@ impl Space {
         let new_obj = Rc::new(RefCell::new(Object {
             parent: None,
             children: Vec::new(),
+            flag: false,
         }));
         self.object.insert(name.to_string(), new_obj.clone());
         return new_obj;
@@ -63,6 +65,26 @@ impl Space {
         }
         return count;
     }
+
+    fn flip_flag(self: &mut Self, satellite_name: &str) -> u32 {
+        let mut count = 0;
+        let satellite = self.get(satellite_name);
+        let obj_ref: &RefCell<Object> = satellite.borrow();
+        let mut next_step = obj_ref.borrow().parent.clone();
+        while next_step.is_some() {
+            let step_weak_ref: Weak<RefCell<Object>> = next_step.unwrap();
+            let step_ref: Rc<RefCell<Object>> = step_weak_ref.upgrade().unwrap();
+            let step: &RefCell<Object> = step_ref.borrow();
+            if !step.borrow().flag {
+                count += 1;
+                step.borrow_mut().flag = true;
+            } else {
+                step.borrow_mut().flag = false;
+            }
+            next_step = step.borrow().parent.clone();
+        }
+        return count;
+    }
 }
 
 fn load_from_input() -> Space {
@@ -85,7 +107,18 @@ fn part1() {
     println!("{}", space.count_transitive());
 }
 
+fn part2() {
+    let mut space = load_from_input();
+    let you_to_root = space.flip_flag("YOU");
+    let santa_to_meeting = space.flip_flag("SAN");
+    let meeting_to_root = space.flip_flag("YOU");
+    let you_to_meeting = you_to_root - meeting_to_root;
+    let you_to_santa = you_to_meeting + santa_to_meeting;
+    println!("{}", you_to_santa);
+}
+
 fn main() {
     part1();
+    part2();
 }
 
