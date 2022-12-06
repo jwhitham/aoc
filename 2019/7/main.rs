@@ -181,26 +181,60 @@ fn part1() {
     println!("{}", state.max_thrust);
 }
 
-/*
 struct Part2State {
-    input: InputOutput,
-    output: InputOutput,
+    amps: Vec<AmpState>,
     initial_memory: Memory,
     phases_used: [bool; NUM_PHASE_SETTINGS],
-    phase_assignment: [i32; NUM_AMPLIFIERS],
+    phase_assignment: [i32; NUM_AMPLIFIERS as usize],
     max_thrust: i32,
     depth: u8,
 }
 
-fn part2_solve(state: &mut Part2State) {
-        assert!(state.output.is_empty());
-        assert!(state.input.is_empty());
-        state.input.push(state.carry);
-        state.input.push(i as i32);
+struct AmpState {
+    input: InputOutput,
+    output: InputOutput,
+    memory: Memory,
+    pc: i32,
+    number: usize,
+}
 
-        let mut memory = state.initial_memory.clone();
-        let rc = run(&mut memory, &mut state.input, &mut state.output);
-        assert!(rc.is_some());
+fn part2_solve(state: &mut Part2State) {
+    // start up each amplifier
+    // run to the point where input is expected
+    for amp in state.amps.iter_mut() {
+        assert!(amp.output.is_empty());
+        assert!(amp.input.is_empty());
+        amp.memory = state.initial_memory.clone();
+        amp.pc = 0;
+        amp.input.push(state.phase_assignment[amp.number]);
+        let rc = run(&mut amp.memory, &mut amp.input,
+                     &mut amp.output, &mut amp.pc);
+        assert!(rc.is_none());
+        assert!(amp.input.is_empty());
+        assert!(amp.output.is_empty());
+    }
+
+    let mut feedback: i32 = 0;
+    let mut terminated: bool = false;
+
+    while !terminated {
+        // iterate to the next amplifier state
+        for amp in state.amps.iter_mut() {
+            amp.input.push(feedback);
+            let rc = run(&mut amp.memory, &mut amp.input,
+                         &mut amp.output, &mut amp.pc);
+            if amp.number == 0 {
+                terminated = rc.is_some();
+            } else {
+                assert_eq!(terminated, rc.is_some());
+            }
+            assert!(amp.input.is_empty());
+            assert_eq!(amp.output.len(), 1);
+            feedback = amp.output.pop().unwrap();
+        }
+    }
+
+    state.max_thrust = i32::max(state.max_thrust, feedback);
 }
 
 fn part2_assign_phases(state: &mut Part2State) {
@@ -215,33 +249,39 @@ fn part2_assign_phases(state: &mut Part2State) {
             continue;
         }
         state.phases_used[i] = true;
-        state.phase_assignment[state.depth] = i as i32;
+        state.phase_assignment[state.depth as usize] = 5 + i as i32;
         state.depth += 1;
         part2_assign_phases(state);
         state.depth -= 1;
-        state.carry = saved;
-        state.phase_assignment[state.depth] = -1;
+        state.phase_assignment[state.depth as usize] = -1;
         state.phases_used[i] = false;
     }
 }
 
 fn part2() {
     let mut state = Part2State {
-        input: Vec::new(),
-        output: Vec::new(),
+        amps: Vec::new(),
         initial_memory: load_from_input(),
         max_thrust: -1,
         phases_used: [false; NUM_PHASE_SETTINGS],
-        phase_assignment: [-1; NUM_AMPLIFIERS],
+        phase_assignment: [-1; NUM_AMPLIFIERS as usize],
         depth: 0,
     };
+    for i in 0 .. NUM_AMPLIFIERS {
+        state.amps.push(AmpState {
+            input: Vec::new(),
+            output: Vec::new(),
+            memory: HashMap::new(),
+            pc: 0,
+            number: i as usize,
+        });
+    }
     part2_assign_phases(&mut state);
     println!("{}", state.max_thrust);
 }
-*/
 
 fn main() {
     part1();
-//    part2();
+    part2();
 }
 
