@@ -51,70 +51,69 @@ fn load_parameter(memory: &mut Memory, pc: i32, index: i32) -> i32 {
 }
 
 fn run(memory: &mut Memory, input: &mut InputOutput,
-       output: &mut InputOutput) -> Option<i32> {
-    let mut pc: i32 = 0;
+       output: &mut InputOutput, pc: &mut i32) -> Option<i32> {
     loop {
         let opcode = *memory.get(&pc).unwrap_or(&0);
-        let a = load_parameter(memory, pc, 1);
-        let b = load_parameter(memory, pc, 2);
+        let a = load_parameter(memory, *pc, 1);
+        let b = load_parameter(memory, *pc, 2);
         match opcode % 100 {
             1 => {
-                let r = load_memory(memory, pc + 3);
-                pc += 4;
+                let r = load_memory(memory, *pc + 3);
+                *pc += 4;
                 memory.insert(r, a + b);
             },
             2 => {
-                let r = load_memory(memory, pc + 3);
-                pc += 4;
+                let r = load_memory(memory, *pc + 3);
+                *pc += 4;
                 memory.insert(r, a * b);
             },
             3 => {
                 if input.is_empty() {
                     return None;
                 }
-                let r = load_memory(memory, pc + 1);
-                pc += 2;
+                let r = load_memory(memory, *pc + 1);
+                *pc += 2;
                 memory.insert(r, input.pop().unwrap_or(0));
             },
             4 => {
-                pc += 2;
+                *pc += 2;
                 output.push(a);
             },
             5 => {
-                pc += 3;
+                *pc += 3;
                 if a != 0 {
-                    pc = b;
+                    *pc = b;
                 }
             },
             6 => {
-                pc += 3;
+                *pc += 3;
                 if a == 0 {
-                    pc = b;
+                    *pc = b;
                 }
             },
             7 => {
-                let r = load_memory(memory, pc + 3);
+                let r = load_memory(memory, *pc + 3);
                 if a < b {
                     memory.insert(r, 1);
                 } else {
                     memory.insert(r, 0);
                 }
-                pc += 4;
+                *pc += 4;
             },
             8 => {
-                let r = load_memory(memory, pc + 3);
+                let r = load_memory(memory, *pc + 3);
                 if a == b {
                     memory.insert(r, 1);
                 } else {
                     memory.insert(r, 0);
                 }
-                pc += 4;
+                *pc += 4;
             },
             99 => {
                 return Some(load_memory(memory, 0));
             },
             _ => {
-                println!("illegal instruction {} at {}", opcode, pc);
+                println!("illegal instruction {} at {}", opcode, *pc);
                 panic!();
             }
         }
@@ -152,7 +151,9 @@ fn part1_solve(state: &mut Part1State) {
         state.input.push(i as i32);
 
         let mut memory = state.initial_memory.clone();
-        let rc = run(&mut memory, &mut state.input, &mut state.output);
+        let mut pc: i32 = 0;
+        let rc = run(&mut memory, &mut state.input,
+                     &mut state.output, &mut pc);
         assert!(rc.is_some());
 
         let saved = state.carry;
@@ -180,7 +181,67 @@ fn part1() {
     println!("{}", state.max_thrust);
 }
 
+/*
+struct Part2State {
+    input: InputOutput,
+    output: InputOutput,
+    initial_memory: Memory,
+    phases_used: [bool; NUM_PHASE_SETTINGS],
+    phase_assignment: [i32; NUM_AMPLIFIERS],
+    max_thrust: i32,
+    depth: u8,
+}
+
+fn part2_solve(state: &mut Part2State) {
+        assert!(state.output.is_empty());
+        assert!(state.input.is_empty());
+        state.input.push(state.carry);
+        state.input.push(i as i32);
+
+        let mut memory = state.initial_memory.clone();
+        let rc = run(&mut memory, &mut state.input, &mut state.output);
+        assert!(rc.is_some());
+}
+
+fn part2_assign_phases(state: &mut Part2State) {
+
+    if state.depth >= NUM_AMPLIFIERS {
+        part2_solve(state);
+        return;
+    }
+
+    for i in 0 .. NUM_PHASE_SETTINGS {
+        if state.phases_used[i] {
+            continue;
+        }
+        state.phases_used[i] = true;
+        state.phase_assignment[state.depth] = i as i32;
+        state.depth += 1;
+        part2_assign_phases(state);
+        state.depth -= 1;
+        state.carry = saved;
+        state.phase_assignment[state.depth] = -1;
+        state.phases_used[i] = false;
+    }
+}
+
+fn part2() {
+    let mut state = Part2State {
+        input: Vec::new(),
+        output: Vec::new(),
+        initial_memory: load_from_input(),
+        max_thrust: -1,
+        phases_used: [false; NUM_PHASE_SETTINGS],
+        phase_assignment: [-1; NUM_AMPLIFIERS],
+        depth: 0,
+    };
+    part2_assign_phases(&mut state);
+    println!("{}", state.max_thrust);
+}
+*/
+
 fn main() {
     part1();
+//    part2();
 }
 
