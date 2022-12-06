@@ -51,7 +51,7 @@ fn load_parameter(memory: &mut Memory, pc: i32, index: i32) -> i32 {
 }
 
 fn run(memory: &mut Memory, input: &mut InputOutput,
-       output: &mut InputOutput) -> i32 {
+       output: &mut InputOutput) -> Option<i32> {
     let mut pc: i32 = 0;
     loop {
         let opcode = *memory.get(&pc).unwrap_or(&0);
@@ -69,6 +69,9 @@ fn run(memory: &mut Memory, input: &mut InputOutput,
                 memory.insert(r, a * b);
             },
             3 => {
+                if input.is_empty() {
+                    return None;
+                }
                 let r = load_memory(memory, pc + 1);
                 pc += 2;
                 memory.insert(r, input.pop().unwrap_or(0));
@@ -108,7 +111,7 @@ fn run(memory: &mut Memory, input: &mut InputOutput,
                 pc += 4;
             },
             99 => {
-                return load_memory(memory, 0);
+                return Some(load_memory(memory, 0));
             },
             _ => {
                 println!("illegal instruction {} at {}", opcode, pc);
@@ -122,7 +125,7 @@ fn run(memory: &mut Memory, input: &mut InputOutput,
 const NUM_PHASE_SETTINGS: usize = 5;
 const NUM_AMPLIFIERS: u8 = 5;
 
-struct State {
+struct Part1State {
     input: InputOutput,
     output: InputOutput,
     initial_memory: Memory,
@@ -132,13 +135,12 @@ struct State {
     depth: u8,
 }
 
-fn part1_solve(state: &mut State) {
+fn part1_solve(state: &mut Part1State) {
 
     if state.depth >= NUM_AMPLIFIERS {
         state.max_thrust = i32::max(state.max_thrust, state.carry);
         return;
     }
-
 
     for i in 0 .. NUM_PHASE_SETTINGS {
         if state.phases_used[i] {
@@ -150,7 +152,8 @@ fn part1_solve(state: &mut State) {
         state.input.push(i as i32);
 
         let mut memory = state.initial_memory.clone();
-        run(&mut memory, &mut state.input, &mut state.output);
+        let rc = run(&mut memory, &mut state.input, &mut state.output);
+        assert!(rc.is_some());
 
         let saved = state.carry;
         state.phases_used[i] = true;
@@ -163,10 +166,8 @@ fn part1_solve(state: &mut State) {
     }
 }
 
-
-
 fn part1() {
-    let mut state = State {
+    let mut state = Part1State {
         input: Vec::new(),
         output: Vec::new(),
         initial_memory: load_from_input(),
