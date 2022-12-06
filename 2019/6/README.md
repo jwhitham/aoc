@@ -5,8 +5,9 @@
 Trees. These two problems are not difficult to solve in most languages,
 but they're rendered extraordinarily hard by trying to solve them in Rust.
 
-There's a famous book, [https://rust-unofficial.github.io/too-many-lists/](Learn
-Rust With Entirely Too Many Linked Lists). I didn't feel that I needed to start
+There's a famous book, 
+[Learn Rust With Entirely Too Many Linked Lists](https://rust-unofficial.github.io/too-many-lists/).
+I didn't feel that I needed to start
 learning Rust at the "implement a linked list" level, but my attitude soon changed
 when I realised just how difficult it actually is to use pointers in Rust. If
 you have trouble writing any data structure that involves pointers, the obvious
