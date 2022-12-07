@@ -18,7 +18,7 @@ fn add_to_tree_size(tree_size: &mut HashMap<String, usize>,
     }
 }
 
-fn part1() {
+fn main () {
     let file = File::open("input").unwrap();
     let mut path: Vec<String> = Vec::new();
     let mut tree_size: HashMap<String, usize> = HashMap::new();
@@ -53,15 +53,25 @@ fn part1() {
         }
     }
 
-    let mut total: usize = 0;
-    for (_, size) in &tree_size {
+    let mut part1_used: usize = 0;
+    for size in tree_size.values() {
         if *size <= 100000 {
-            total += *size;
+            part1_used += *size;
         }
     }
-    println!("{}", total);
-}
+    println!("{}", part1_used);
 
-fn main () {
-    part1();
+    let disk_size: usize = 70000000;
+    let free_space_required: usize = 30000000;
+    let total_used: usize = *tree_size.get("").unwrap(); // tree size at the root
+    let free_space_available: usize = disk_size - total_used;
+    let need_to_delete: usize = free_space_required - free_space_available;
+    let mut part2_choice: usize = usize::MAX;
+
+    for size in tree_size.values() {
+        if *size >= need_to_delete {
+            part2_choice = usize::min(part2_choice, *size);
+        }
+    }
+    println!("{}", part2_choice);
 }
