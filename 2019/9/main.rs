@@ -4,15 +4,16 @@ use std::io::{self, BufRead};
 use std::collections::HashMap;
 
 
-type Memory = HashMap<i64, i64>;
-type InputOutput = Vec<i64>;
+type Word = i64;
+type Memory = HashMap<Word, Word>;
+type InputOutput = Vec<Word>;
 
 struct MachineState {
     memory: Memory,
-    input: Vec<i64>,
-    output: Vec<i64>,
-    pc: i64,
-    relative_base: i64,
+    input: InputOutput,
+    output: InputOutput,
+    pc: Word,
+    relative_base: Word,
 }
 
 fn load_from_input() -> MachineState {
@@ -23,10 +24,10 @@ fn load_from_input() -> MachineState {
 
 fn load(line: &str) -> MachineState {
     let mut memory: Memory = HashMap::new();
-    let mut index: i64 = 0;
+    let mut index: Word = 0;
     for code in line.split(",") {
         let trimmed = code.trim();
-        let parsed: i64 = trimmed.parse().expect("number");
+        let parsed: Word = trimmed.parse().expect("number");
         memory.insert(index, parsed);
         index += 1;
     }
@@ -39,7 +40,7 @@ fn load(line: &str) -> MachineState {
     };
 }
 
-fn get_parameter_mode(opcode: i64, index: i64) -> i64 {
+fn get_parameter_mode(opcode: Word, index: Word) -> Word {
     assert!(index >= 1);
     let mut copy = opcode / 100;
     for _ in 1 .. index {
@@ -48,15 +49,15 @@ fn get_parameter_mode(opcode: i64, index: i64) -> i64 {
     return copy % 10;
 }
 
-fn load_memory(ms: &mut MachineState, address: i64) -> i64 {
+fn load_memory(ms: &mut MachineState, address: Word) -> Word {
     return *ms.memory.get(&address).unwrap_or(&0);
 }
 
-fn store_memory(ms: &mut MachineState, address: i64, value: i64) {
+fn store_memory(ms: &mut MachineState, address: Word, value: Word) {
     ms.memory.insert(address, value);
 }
 
-fn load_parameter(ms: &mut MachineState, index: i64) -> i64 {
+fn load_parameter(ms: &mut MachineState, index: Word) -> Word {
     assert!(index >= 1);
     let opcode = load_memory(ms, ms.pc);
     let parameter = load_memory(ms, ms.pc + index);
@@ -69,7 +70,7 @@ fn load_parameter(ms: &mut MachineState, index: i64) -> i64 {
     }
 }
 
-fn store_parameter(ms: &mut MachineState, index: i64, value: i64) {
+fn store_parameter(ms: &mut MachineState, index: Word, value: Word) {
     assert!(index >= 1);
     let opcode = load_memory(ms, ms.pc);
     let parameter = load_memory(ms, ms.pc + index);
@@ -82,7 +83,7 @@ fn store_parameter(ms: &mut MachineState, index: i64, value: i64) {
     }
 }
 
-fn run(ms: &mut MachineState) -> Option<i64> {
+fn run(ms: &mut MachineState) -> Option<Word> {
     loop {
         let opcode = load_memory(ms, ms.pc);
         let a = load_parameter(ms, 1);
@@ -151,9 +152,9 @@ fn run(ms: &mut MachineState) -> Option<i64> {
     }
 }
 
-fn part1() {
+fn part(cmd: Word) {
     let mut ms: MachineState = load_from_input();
-    ms.input.push(1);
+    ms.input.push(cmd);
     let rc = run(&mut ms);
     assert!(rc.is_some());
     for v in &ms.output {
@@ -164,6 +165,7 @@ fn part1() {
 
 
 fn main() {
-    part1();
+    part(1);
+    part(2);
 }
 
