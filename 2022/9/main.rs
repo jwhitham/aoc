@@ -105,9 +105,47 @@ fn test_part1() {
     assert_eq!(part1("test13"), 13);
 }
 
+fn part2(filename: &str) -> usize {
+    let locations = read_input(filename);
+
+    let start = *locations.get(0).unwrap();
+    let mut visited = Visited::new();
+    let mut rope: Path = Vec::new();
+
+    for _ in 0 .. 9 {
+        rope.push(start);
+    }
+
+    for head in locations {
+        let mut previous: Location = head;
+        for i in 0 .. rope.len() {
+            // move this part
+            let mut part = rope.get_mut(i).unwrap();
+            let dx = previous.x - part.x;
+            let dy = previous.y - part.y;
+            part.x += step(dx, dy);
+            part.y += step(dy, dx);
+            // At most 1 space away in each direction
+            assert!(Word::abs(previous.x - part.x) <= 1);
+            assert!(Word::abs(previous.y - part.y) <= 1);
+            // next part
+            previous = *part;
+        }
+        // new tail location
+        visited.insert(*rope.get(rope.len() - 1).unwrap());
+    }
+    return visited.len();
+}
+
+#[test]
+fn test_part2() {
+    assert_eq!(part2("test13"), 1);
+    assert_eq!(part2("test36"), 36);
+}
 
 fn main() {
     println!("{}", part1("input"));
+    println!("{}", part2("input"));
 }
 
 
