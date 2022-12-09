@@ -158,21 +158,24 @@ struct Location {
     y: Word,
 }
 
-fn part1(filename: &str) -> usize {
-    let mut ms: MachineState = load_from_input(filename);
-    let mut painted: HashMap<Location, Word> = HashMap::new();
+type Painting = HashMap<Location, Word>;
+
+fn paint(initial: Word) -> Painting {
+    let mut ms: MachineState = load_from_input("input");
+    let mut painting: Painting = HashMap::new();
     let mut loc = Location { x: 0, y: 0 };
     let mut dir = 0;
 
+    painting.insert(loc, initial);
     loop {
-        ms.input.push(*painted.get(&loc).unwrap_or(&0));
+        ms.input.push(*painting.get(&loc).unwrap_or(&0));
         let rc = run(&mut ms);
         let second_out = ms.output.pop(); 
         let first_out = ms.output.pop(); 
         assert!(!first_out.is_none());
         assert!(!second_out.is_none());
         assert!((first_out.unwrap() == 0) || (first_out.unwrap() == 1));
-        painted.insert(loc, first_out.unwrap());
+        painting.insert(loc, first_out.unwrap());
         match second_out.unwrap() {
             0 => { dir = (dir + 3) % 4; }, // left 90
             1 => { dir = (dir + 1) % 4; }, // right 90
@@ -191,11 +194,40 @@ fn part1(filename: &str) -> usize {
             break;
         }
     }
-    return painted.len();
+    return painting;
 }
 
+fn part1() {
+    println!("{}", paint(0).len());
+}
+
+fn part2() {
+    let painting = paint(1);
+    let mut x1 = Word::MAX;
+    let mut y1 = Word::MAX;
+    let mut x2 = Word::MIN;
+    let mut y2 = Word::MIN;
+    for loc in painting.keys() {
+        x1 = Word::min(x1, loc.x);
+        x2 = Word::max(x2, loc.x);
+        y1 = Word::min(y1, loc.y);
+        y2 = Word::max(y2, loc.y);
+    }
+    for y in y1 .. y2 + 1 {
+        for x in x1 .. x2 + 1 {
+            let loc = Location { x: x, y: y };
+            if *painting.get(&loc).unwrap_or(&0) == 1 {
+                print!("#");
+            } else {
+                print!(" ");
+            }
+        }
+        println!();
+    }
+}
 
 fn main() {
-    println!("{}", part1("input"));
+    part1();
+    part2();
 }
 
