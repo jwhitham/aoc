@@ -5,7 +5,9 @@ use std::iter::FromIterator;
 
 
 const NUM_DIMENSIONS: usize = 3;
-type Word = i32;
+const NUM_PLANETS: usize = 4;
+
+type Word = i16;
 type Time = u64;
 
 #[derive(Copy, Clone)]
@@ -14,12 +16,16 @@ struct Dimension {
     velocity: Word,
 }
 
-type Planet = [Dimension; 3];
-type System = Vec<Planet>;
+type Planet = [Dimension; NUM_DIMENSIONS];
+type System = [Planet; NUM_PLANETS];
 
 fn load_values(filename: &str) -> System {
     let file = File::open(filename).unwrap();
-    let mut system: System = Vec::new();
+    let mut system: System = [[Dimension {
+        position: 0,
+        velocity: 0,
+    }; NUM_DIMENSIONS]; NUM_PLANETS];
+    let mut p1: usize = 0;
 
     for line in io::BufReader::new(file).lines() {
         if let Ok(line_string) = line {
@@ -28,24 +34,35 @@ fn load_values(filename: &str) -> System {
                                      .replace(">", " ");
             let fields = Vec::from_iter(cleaned.split_ascii_whitespace());
             assert!(fields.len() >= 6);
-            let p = [
-                Dimension {
-                    position: fields.get(1).unwrap().parse().expect("x"),
-                    velocity: 0,
-                },
-                Dimension {
-                    position: fields.get(3).unwrap().parse().expect("y"),
-                    velocity: 0,
-                },
-                Dimension {
-                    position: fields.get(5).unwrap().parse().expect("z"),
-                    velocity: 0,
-                },
-            ];
-            system.push(p);
+            assert!(p1 < NUM_PLANETS);
+            for d in 0 .. NUM_DIMENSIONS {
+                system[p1][d].position =
+                    fields.get((d * 2) + 1).unwrap().parse().expect("x");
+            }
+            p1 += 1;
         }
     }
     return system;
+}
+
+fn simulate(system: &mut System, d: usize) {
+    // Gravity
+    for p1 in 0 .. NUM_PLANETS {
+        let pos1 = system[p1][d].position;
+        for p2 in 0 .. NUM_PLANETS {
+            let pos2 = system[p2][d].position;
+            if pos1 < pos2 {
+                system[p1][d].velocity += 1;
+            } else if pos1 > pos2 {
+                system[p1][d].velocity -= 1;
+            }
+        }
+    }
+    // Position
+    for p1 in 0 .. NUM_PLANETS {
+        system[p1][d].position +=
+            system[p1][d].velocity;
+    }
 }
 
 fn part1(filename: &str, num_steps: Time) -> Word {
@@ -55,33 +72,17 @@ fn part1(filename: &str, num_steps: Time) -> Word {
     for _ in 0 .. num_steps {
         // For each dimension
         for d in 0 .. NUM_DIMENSIONS {
-            // Gravity
-            for p1 in 0 .. system.len() {
-                let pos1 = system.get(p1).unwrap()[d].position;
-                for p2 in 0 .. system.len() {
-                    let pos2 = system.get(p2).unwrap()[d].position;
-                    if pos1 < pos2 {
-                        system.get_mut(p1).unwrap()[d].velocity += 1;
-                    } else if pos1 > pos2 {
-                        system.get_mut(p1).unwrap()[d].velocity -= 1;
-                    }
-                }
-            }
-            // Position
-            for p1 in 0 .. system.len() {
-                system.get_mut(p1).unwrap()[d].position +=
-                    system.get(p1).unwrap()[d].velocity;
-            }
+            simulate(&mut system, d);
         }
     }
     // total energy
     let mut total: Word = 0;
-    for p1 in 0 .. system.len() {
+    for p1 in 0 .. NUM_PLANETS {
         let mut energy1: Word = 0;
         let mut energy2: Word = 0;
         for d in 0 .. NUM_DIMENSIONS {
-            energy1 += Word::abs(system.get(p1).unwrap()[d].position);
-            energy2 += Word::abs(system.get(p1).unwrap()[d].velocity);
+            energy1 += Word::abs(system[p1][d].position);
+            energy2 += Word::abs(system[p1][d].velocity);
         }
         total += energy1 * energy2;
     }
@@ -102,30 +103,14 @@ fn get_period(initial: &System, d: usize) -> Time {
     let mut num_steps: Time = 0;
     let mut accept: bool = false;
     while !accept {
-        // Gravity
-        for p1 in 0 .. system.len() {
-            let pos1 = system.get(p1).unwrap()[d].position;
-            for p2 in 0 .. system.len() {
-                let pos2 = system.get(p2).unwrap()[d].position;
-                if pos1 < pos2 {
-                    system.get_mut(p1).unwrap()[d].velocity += 1;
-                } else if pos1 > pos2 {
-                    system.get_mut(p1).unwrap()[d].velocity -= 1;
-                }
-            }
-        }
-        // Position
-        for p1 in 0 .. system.len() {
-            system.get_mut(p1).unwrap()[d].position +=
-                system.get(p1).unwrap()[d].velocity;
-        }
+        // Simulate this dimension only
+        simulate(&mut system, d);
+
         // Returned to initial state?
         accept = true;
-        for p1 in 0 .. system.len() {
-            if (system.get_mut(p1).unwrap()[d].position !=
-                    initial.get(p1).unwrap()[d].position)
-            || (system.get_mut(p1).unwrap()[d].velocity !=
-                    initial.get(p1).unwrap()[d].velocity) {
+        for p1 in 0 .. NUM_PLANETS {
+            if (system[p1][d].position != initial[p1][d].position)
+            || (system[p1][d].velocity != initial[p1][d].velocity) {
                 accept = false;
                 break;
             }
@@ -157,6 +142,7 @@ fn least_common_multiple(a: Time, b: Time) -> Time {
 fn part2(filename: &str) -> Time {
     let system = load_values(filename);
 
+    // Calculate period for each dimension individually
     let px = get_period(&system, 0);
     let py = get_period(&system, 1);
     let pz = get_period(&system, 2);
