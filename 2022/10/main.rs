@@ -7,7 +7,7 @@ use std::iter::FromIterator;
 type Word = i64;
 type TraceX = Vec<Word>;
 
-fn part1(filename: &str) -> Word {
+fn load_trace(filename: &str) -> TraceX{
     let file = File::open(filename).unwrap();
     let mut trace: TraceX = Vec::new();
     let mut x_register: Word = 1;
@@ -36,6 +36,11 @@ fn part1(filename: &str) -> Word {
             }
         }
     }
+    return trace;
+}
+
+fn part1(filename: &str) -> Word {
+    let trace = load_trace(filename);
     let mut examine: usize = 20;
     let mut total: Word = 0;
     while examine < trace.len() {
@@ -50,8 +55,26 @@ fn test_part1() {
     assert_eq!(part1("test13140"), 13140);
 }
 
+fn part2(filename: &str) {
+    let trace = load_trace(filename);
+    let mut examine: usize = 1;
+    for _ in 0 .. 6 {
+        for x in 0 .. 40 {
+            let value = trace.get(examine).unwrap();
+            if Word::abs(x - value) <= 1 {
+                print!("#");
+            } else {
+                print!(" ");
+            }
+            examine += 1;
+        }
+        println!();
+    }
+}
+
 fn main() {
     println!("{}", part1("input"));
+    part2("input");
 }
 
 
