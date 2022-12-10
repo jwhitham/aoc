@@ -7,6 +7,7 @@ use std::iter::FromIterator;
 const NUM_DIMENSIONS: usize = 3;
 type Word = i32;
 
+#[derive(Copy, Clone)]
 struct Dimension {
     position: Word,
     velocity: Word,
@@ -51,22 +52,6 @@ fn part1(filename: &str, num_steps: usize) -> Word {
 
     // For each time step
     for _ in 0 .. num_steps {
-        /*
-        println!("After {} steps", step);
-        for p1 in 0 .. system.len() {
-            print!("pos=<");
-            for d in 0 .. NUM_DIMENSIONS {
-                print!(" {} ", system.get(p1).unwrap()[d].position);
-            }
-            print!("> vel=<");
-            for d in 0 .. NUM_DIMENSIONS {
-                print!(" {} ", system.get(p1).unwrap()[d].velocity);
-            }
-            println!(">");
-        }
-        println!();
-        */
-
         // For each dimension
         for d in 0 .. NUM_DIMENSIONS {
             // Gravity
@@ -108,8 +93,84 @@ fn test_part1() {
     assert_eq!(part1("test2", 100), 1940);
 }
 
+fn get_period(initial: &System, d: usize) -> usize {
+    // copy of initial state
+    let mut system: System = initial.clone();
+
+    // For each time step
+    let mut num_steps: usize = 0;
+    let mut accept: bool = false;
+    while !accept {
+        // Gravity
+        for p1 in 0 .. system.len() {
+            let pos1 = system.get(p1).unwrap()[d].position;
+            for p2 in 0 .. system.len() {
+                let pos2 = system.get(p2).unwrap()[d].position;
+                if pos1 < pos2 {
+                    system.get_mut(p1).unwrap()[d].velocity += 1;
+                } else if pos1 > pos2 {
+                    system.get_mut(p1).unwrap()[d].velocity -= 1;
+                }
+            }
+        }
+        // Position
+        for p1 in 0 .. system.len() {
+            system.get_mut(p1).unwrap()[d].position +=
+                system.get(p1).unwrap()[d].velocity;
+        }
+        // Returned to initial state?
+        accept = true;
+        for p1 in 0 .. system.len() {
+            if (system.get_mut(p1).unwrap()[d].position !=
+                    initial.get(p1).unwrap()[d].position)
+            || (system.get_mut(p1).unwrap()[d].velocity !=
+                    initial.get(p1).unwrap()[d].velocity) {
+                accept = false;
+                break;
+            }
+        }
+        num_steps += 1;
+    }
+    return num_steps;
+}
+
+fn greatest_common_divisor(a: usize, b: usize) -> usize {
+    let mut copy_a = a;
+    let mut copy_b = b;
+    loop {
+        copy_a %= copy_b;
+        if copy_a == 0 {
+            return copy_b;
+        }
+        copy_b %= copy_a;
+        if copy_b == 0 {
+            return copy_a;
+        }
+    }
+}
+
+fn least_common_multiple(a: usize, b: usize) -> usize {
+    return (a * b) / greatest_common_divisor(a, b);
+}
+
+fn part2(filename: &str) -> usize {
+    let system = load_values(filename);
+
+    let px = get_period(&system, 0);
+    let py = get_period(&system, 1);
+    let pz = get_period(&system, 2);
+    return least_common_multiple(px, least_common_multiple(py, pz));
+}
+
+#[test]
+fn test_part2() {
+    assert_eq!(part2("test"), 2772);
+    assert_eq!(part2("test2"), 4686774924);
+}
+
 fn main() {
     println!("{}", part1("input", 1000));
+    println!("{}", part2("input"));
 }
 
 
