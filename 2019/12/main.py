@@ -173,28 +173,28 @@ def test_part_2() -> None:
     assert u.how_long() == 4686774924
 
 def main() -> None:
-    if not INPUT.exists():
-        subprocess.check_call(["aoc", "-y", str(YEAR), "-d", str(DAY), "download"])
-        return
+    #if not INPUT.exists():
+    #    subprocess.check_call(["aoc", "-y", str(YEAR), "-d", str(DAY), "download"])
+    #    return
 
-    subprocess.check_call([sys.executable, "-m", "mypy", sys.argv[0]])
-    subprocess.check_call([sys.executable, "-m", "pytest", sys.argv[0]])
+    #subprocess.check_call([sys.executable, "-m", "mypy", sys.argv[0]])
+    #subprocess.check_call([sys.executable, "-m", "pytest", sys.argv[0]])
 
     answer = thing1(INPUT)
     print("part 1:", answer)
 
-    if PART == 1:
-        subprocess.check_call(["aoc", "-y", str(YEAR), "-d", str(DAY),
-                               "submit", "1", str(answer)])
-        return
+    #if PART == 1:
+    #    subprocess.check_call(["aoc", "-y", str(YEAR), "-d", str(DAY),
+    #                           "submit", "1", str(answer)])
+    #    return
 
     answer = thing2(INPUT)
     print("part 2:", answer)
 
-    if PART == 2:
-        subprocess.check_call(["aoc", "-y", str(YEAR), "-d", str(DAY),
-                               "submit", "2", str(answer)])
-        return
+    #if PART == 2:
+    #    subprocess.check_call(["aoc", "-y", str(YEAR), "-d", str(DAY),
+    #                           "submit", "2", str(answer)])
+    #    return
 
 
 if __name__ == "__main__":
