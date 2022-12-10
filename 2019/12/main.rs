@@ -6,6 +6,7 @@ use std::iter::FromIterator;
 
 const NUM_DIMENSIONS: usize = 3;
 type Word = i32;
+type Time = u64;
 
 #[derive(Copy, Clone)]
 struct Dimension {
@@ -47,7 +48,7 @@ fn load_values(filename: &str) -> System {
     return system;
 }
 
-fn part1(filename: &str, num_steps: usize) -> Word {
+fn part1(filename: &str, num_steps: Time) -> Word {
     let mut system = load_values(filename);
 
     // For each time step
@@ -93,12 +94,12 @@ fn test_part1() {
     assert_eq!(part1("test2", 100), 1940);
 }
 
-fn get_period(initial: &System, d: usize) -> usize {
+fn get_period(initial: &System, d: usize) -> Time {
     // copy of initial state
     let mut system: System = initial.clone();
 
     // For each time step
-    let mut num_steps: usize = 0;
+    let mut num_steps: Time = 0;
     let mut accept: bool = false;
     while !accept {
         // Gravity
@@ -134,7 +135,7 @@ fn get_period(initial: &System, d: usize) -> usize {
     return num_steps;
 }
 
-fn greatest_common_divisor(a: usize, b: usize) -> usize {
+fn greatest_common_divisor(a: Time, b: Time) -> Time {
     let mut copy_a = a;
     let mut copy_b = b;
     loop {
@@ -149,11 +150,11 @@ fn greatest_common_divisor(a: usize, b: usize) -> usize {
     }
 }
 
-fn least_common_multiple(a: usize, b: usize) -> usize {
+fn least_common_multiple(a: Time, b: Time) -> Time {
     return (a * b) / greatest_common_divisor(a, b);
 }
 
-fn part2(filename: &str) -> usize {
+fn part2(filename: &str) -> Time {
     let system = load_values(filename);
 
     let px = get_period(&system, 0);
