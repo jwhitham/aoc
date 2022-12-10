@@ -3,8 +3,9 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::collections::HashMap;
 
+const DEBUG: bool = false;
 
-type Word = i64;
+type Word = i32;
 type Memory = HashMap<Word, Word>;
 type InputOutput = Vec<Word>;
 
@@ -160,6 +161,13 @@ struct Location {
 
 type Screen = HashMap<Location, Word>;
 
+const EMPTY: Word = 0;
+const WALL: Word = 1;
+const BLOCK: Word = 2;
+const PADDLE: Word = 3;
+const BALL: Word = 4;
+
+
 fn print_screen(screen: &Screen) {
     let mut right: Word = 0;
     let mut bottom: Word = 0;
@@ -172,26 +180,19 @@ fn print_screen(screen: &Screen) {
             let loc = Location { x: x, y: y };
             let v = *screen.get(&loc).unwrap_or(&0);
             match v {
-                0 => { print!(" "); },
-                1 => { print!("W"); },
-                2 => { print!("b"); },
-                3 => { print!("p"); },
-                4 => { print!("0"); },
-                _ => { print!("?"); },
+                EMPTY =>  { print!(" "); },
+                WALL =>   { print!("W"); },
+                BLOCK =>  { print!("b"); },
+                PADDLE => { print!("p"); },
+                BALL =>   { print!("0"); },
+                _ =>      { print!("?"); },
             }
         }
         println!();
     }
 }
 
-fn part1() -> usize {
-    let mut ms: MachineState = load_from_input("input");
-
-    let rc = run(&mut ms);
-    assert!(rc.is_some());
-
-    let mut screen: Screen = HashMap::new();
-
+fn update_screen(screen: &mut Screen, ms: &mut MachineState) {
     assert_eq!(ms.output.len() % 3, 0);
     for i in 0 .. (ms.output.len() / 3) {
         let j = i * 3;
@@ -201,6 +202,17 @@ fn part1() -> usize {
         };
         screen.insert(loc, *ms.output.get(j + 2).unwrap());
     }
+    ms.output.clear();
+}
+
+fn part1() -> usize {
+    let mut ms: MachineState = load_from_input("input");
+
+    let rc = run(&mut ms);
+    assert!(rc.is_some());
+
+    let mut screen: Screen = HashMap::new();
+    update_screen(&mut screen, &mut ms);
 
     let mut count = 0;
     for v in screen.values() {
@@ -208,12 +220,61 @@ fn part1() -> usize {
             count += 1;
         }
     }
-    print_screen(&screen);
+    if DEBUG {
+        print_screen(&screen);
+    }
     return count;
+}
+
+fn find_item(screen: &Screen, item: Word) -> Location {
+    let mut found: Option<Location> = None;
+    for (loc, v) in screen {
+        if (*v == item) && (loc.x >= 0) && (loc.y >= 0) {
+            assert!(found.is_none());
+            found = Some(*loc);
+        }
+    }
+    assert!(found.is_some());
+    return found.unwrap();
+}
+
+fn part2() -> Word {
+    let mut ms: MachineState = load_from_input("input");
+    let mut screen: Screen = HashMap::new();
+
+    // free play:
+    ms.memory.insert(0, 2);
+
+    while run(&mut ms).is_none() {
+        assert!(ms.input.is_empty());
+        update_screen(&mut screen, &mut ms);
+
+        let ball = find_item(&screen, BALL);
+        let paddle = find_item(&screen, PADDLE);
+
+        if paddle.x > ball.x {
+            // move left
+            ms.input.push(-1);
+        } else if paddle.x < ball.x {
+            // move right
+            ms.input.push(1);
+        } else {
+            // don't move
+            ms.input.push(0);
+        }
+    }
+
+    // final update
+    update_screen(&mut screen, &mut ms);
+    if DEBUG {
+        print_screen(&screen);
+    }
+    return *screen.get(&Location { x: -1, y: 0 }).unwrap_or(&0);
 }
 
 
 fn main() {
     println!("{}", part1());
+    println!("{}", part2());
 }
 
