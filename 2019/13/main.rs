@@ -216,7 +216,7 @@ fn part1() -> usize {
 
     let mut count = 0;
     for v in screen.values() {
-        if *v == 2 {
+        if *v == BLOCK {
             count += 1;
         }
     }
