@@ -2,9 +2,12 @@
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::iter::FromIterator;
+use std::collections::VecDeque;
+use std::cmp::Ordering;
 
 
-type WorryLevel = u32;
+type WorryLevel = u64;
+type ActivityLevel = u32;
 type MonkeyNumber = usize;
 
 #[derive(Eq, PartialEq, Copy, Clone)]
@@ -16,12 +19,39 @@ enum Opcode {
 }
 
 struct Monkey {
-    items: Vec<WorryLevel>,
+    items: VecDeque<WorryLevel>,
     opcode: Opcode,
     operand: WorryLevel,
     divisor: WorryLevel,
     true_target: MonkeyNumber,
     false_target: MonkeyNumber,
+    activity: ActivityLevel,
+}
+
+impl Eq for Monkey {}
+
+impl PartialEq for Monkey {
+    fn eq(&self, other: &Self) -> bool {
+        return self.cmp(other) == Ordering::Equal;
+    }
+}
+
+impl PartialOrd for Monkey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        return Some(self.cmp(other));
+    }
+}
+
+impl Ord for Monkey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.activity < other.activity {
+            return Ordering::Less;
+        } else if self.activity > other.activity {
+            return Ordering::Greater;
+        } else {
+            return Ordering::Equal;
+        }
+    }
 }
 
 type Island = Vec<Monkey>;
@@ -41,19 +71,20 @@ fn load(filename: &str) -> Island {
                     let m: MonkeyNumber = fields.get(1).unwrap().parse().expect("number");
                     assert_eq!(m, island.len());
                     island.push(Monkey {
-                        items: Vec::new(),
+                        items: VecDeque::new(),
                         opcode: Opcode::Invalid,
                         operand: 0,
                         divisor: 1,
                         true_target: 0,
                         false_target: 0,
+                        activity: 0,
                     });
                 },
                 "Starting" => {
                     assert_eq!(*fields.get(1).unwrap(), "items");
                     for i in 2 .. fields.len() {
-                        let m: WorryLevel = fields.get(i).unwrap().parse().expect("number");
-                        island.last_mut().unwrap().items.push(m);
+                        let item: WorryLevel = fields.get(i).unwrap().parse().expect("number");
+                        island.last_mut().unwrap().items.push_back(item);
                     }
                 },
                 "Operation" => {
@@ -109,10 +140,56 @@ fn load(filename: &str) -> Island {
     return island;
 }
 
-fn part1(filename: &str) -> usize {
+fn part1(filename: &str) -> ActivityLevel {
     let mut island = load(filename);
 
-    return island.len();
+    // for each round
+    for _ in 0 .. 20 {
+        // for each monkey's turn
+        for m1 in 0 .. island.len() {
+            let initial_number_of_items = island.get(m1).unwrap().items.len();
+
+            // for each item
+            for _ in 0 .. initial_number_of_items {
+                // remove item
+                let mut item = island.get_mut(m1).unwrap().items.pop_front().unwrap();
+
+                // inspection!
+                match island.get(m1).unwrap().opcode {
+                    Opcode::AddConstant => {
+                        item += island.get(m1).unwrap().operand;
+                    },
+                    Opcode::MultiplyConstant => {
+                        item *= island.get(m1).unwrap().operand;
+                    },
+                    Opcode::Square => {
+                        item *= item;
+                    },
+                    Opcode::Invalid => {
+                        panic!();
+                    },
+                }
+                // count activity
+                island.get_mut(m1).unwrap().activity += 1;
+                // gets bored
+                item /= 3;
+                // where next?
+                let mut m2 = island.get(m1).unwrap().true_target;
+                if (item % island.get(m1).unwrap().divisor) != 0 {
+                    m2 = island.get(m1).unwrap().false_target;
+                }
+                // throw to new monkey (possibly the same monkey?)
+                island.get_mut(m2).unwrap().items.push_back(item);
+            }
+        }
+    }
+
+    // which monkeys are most active?
+    island.sort();
+
+    let most_active = island.pop().unwrap().activity;
+    let second_most_active = island.pop().unwrap().activity;
+    return most_active * second_most_active;
 }
 
 #[test]
