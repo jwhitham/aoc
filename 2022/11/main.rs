@@ -140,11 +140,11 @@ fn load(filename: &str) -> Island {
     return island;
 }
 
-fn part1(filename: &str) -> ActivityLevel {
+fn simulate(filename: &str, num_rounds: usize, divide: bool) -> ActivityLevel {
     let mut island = load(filename);
 
     // for each round
-    for _ in 0 .. 20 {
+    for _ in 0 .. num_rounds {
         // for each monkey's turn
         for m1 in 0 .. island.len() {
             let initial_number_of_items = island.get(m1).unwrap().items.len();
@@ -172,7 +172,9 @@ fn part1(filename: &str) -> ActivityLevel {
                 // count activity
                 island.get_mut(m1).unwrap().activity += 1;
                 // gets bored
-                item /= 3;
+                if divide {
+                    item /= 3;
+                }
                 // where next?
                 let mut m2 = island.get(m1).unwrap().true_target;
                 if (item % island.get(m1).unwrap().divisor) != 0 {
@@ -192,14 +194,28 @@ fn part1(filename: &str) -> ActivityLevel {
     return most_active * second_most_active;
 }
 
+fn part1(filename: &str) -> ActivityLevel {
+    return simulate(filename, 20, true);
+}
+
+fn part2(filename: &str) -> ActivityLevel {
+    return simulate(filename, 10000, false);
+}
+
 #[test]
 fn test_part1() {
     assert_eq!(part1("test10605"), 10605);
 }
 
+#[test]
+fn test_part2() {
+    assert_eq!(part2("test10605"), 2713310158);
+}
+
 
 fn main() {
     println!("{}", part1("input"));
+    println!("{}", part2("input"));
 }
 
 
