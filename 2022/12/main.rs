@@ -104,16 +104,14 @@ fn load(filename: &str) -> Problem {
     return p;
 }
 
-fn part1(filename: &str) -> usize{
-    let mut p = load(filename);
-
+fn shortest_path(p: &mut Problem) -> usize{
     let mut todo: BinaryHeap<HeapItem> = BinaryHeap::new();
     {
-        let start: &mut Cell = p.map.get_mut(p.start.y).unwrap()
-                                    .get_mut(p.start.x).unwrap();
+        let end: &mut Cell = p.map.get_mut(p.end.y).unwrap()
+                                  .get_mut(p.end.x).unwrap();
                                     
-        start.key.shortest = 0;
-        todo.push(start.key);
+        end.key.shortest = 0;
+        todo.push(end.key);
     }
 
     while !todo.is_empty() {
@@ -136,8 +134,8 @@ fn part1(filename: &str) -> usize{
                                      .get(sk.location.x).unwrap();
                 let tc: &Cell = p.map.get(ty as usize).unwrap()
                                      .get(tx as usize).unwrap();
-                if tc.height > (sc.height + 1) {
-                    // too much of a height increase
+                if tc.height < (sc.height - 1) {
+                    // too much of a height decreate
                     return;
                 }
                 assert!(sc.key.shortest < usize::MAX);
@@ -162,18 +160,30 @@ fn part1(filename: &str) -> usize{
         try_move(0, -1);
         try_move(0, 1);
     }
-    let end: &Cell = p.map.get(p.end.y).unwrap()
-                          .get(p.end.x).unwrap();
-    return end.key.shortest;
+    let start: &Cell = p.map.get(p.start.y).unwrap()
+                            .get(p.start.x).unwrap();
+    return start.key.shortest;
 }
 
 #[test]
 fn test_part1() {
-    assert_eq!(part1("test31"), 31);
+    assert_eq!(shortest_path(&mut load("test31")), 31);
 }
 
 fn main() {
-    println!("{}", part1("input"));
+    let mut p = load("input");
+    println!("{}", shortest_path(&mut p));
+
+    let mut sp = usize::MAX;
+    for y in 0 .. p.map.len() {
+        for x in 0 .. p.map.get(y).unwrap().len() {
+            let cell = p.map.get(y).unwrap().get(x).unwrap();
+            if cell.height == b'a' {
+                sp = usize::min(sp, cell.key.shortest);
+            }
+        }
+    }
+    println!("{}", sp);
 }
 
 
