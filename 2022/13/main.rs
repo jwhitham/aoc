@@ -173,6 +173,7 @@ fn print_item(item: &Item) {
     }
 }
 
+#[allow(dead_code)]
 fn print_problem(problem: &Problem) {
     for pair in problem {
         print_list(&pair.left);
@@ -183,10 +184,67 @@ fn print_problem(problem: &Problem) {
     }
 }
 
+fn part1(filename: &str) -> usize {
+    let problem = load(filename);
+    let mut index: usize = 0;
+    let mut total: usize = 0;
+    for pair in problem {
+        index += 1;
+        if pair.left < pair.right {
+            total += index;
+        }
+    }
+    return total;
+}
+
+#[test]
+fn test_part1() {
+    assert_eq!(part1("test13"), 13);
+}
+
+
+fn make_divider(value: usize) -> Item {
+    return Item::List(Box::new(vec![
+                      Item::List(Box::new(vec![Item::Integer(value)]))]));
+}
+
+fn part2(filename: &str) -> usize {
+    let mut problem = load(filename);
+    let mut problem2: Vec<Item> = Vec::new();
+    while !problem.is_empty() {
+        let pair = problem.pop().unwrap();
+        problem2.push(pair.left);
+        problem2.push(pair.right);
+    }
+    problem2.push(make_divider(2));
+    problem2.push(make_divider(6));
+    problem2.sort();
+
+    let div2 = make_divider(2);
+    let div6 = make_divider(6);
+    let mut index: usize = 0;
+    let mut index2: usize = 0;
+    let mut index6: usize = 0;
+    for item in problem2 {
+        index += 1;
+        if item == div2 {
+            index2 = index;
+        }
+        if item == div6 {
+            index6 = index;
+        }
+    }
+    return index2 * index6;
+}
+
+#[test]
+fn test_part2() {
+    assert_eq!(part2("test13"), 140);
+}
 
 fn main() {
-    let p = load("input");
-    print_problem(&p);
+    println!("{}", part1("input"));
+    println!("{}", part2("input"));
 }
 
 
