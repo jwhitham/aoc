@@ -18,17 +18,18 @@ struct Reaction {
     output: Molecule,
 }
 
-type Reactions = Vec<Reaction>;
+type ReactionsForOutputIdentifier = Vec<Reaction>;
+type Reactions = Vec<ReactionsForOutputIdentifier>;
 
 struct Problem {
-    reactions: Vec<Reaction>,
+    reactions: Reactions,
     ore_id: Identifier,
     fuel_id: Identifier,
 }
 
 fn load_values(filename: &str) -> Problem {
     let file = File::open(filename).unwrap();
-    let mut reactions: Vec<Reaction> = Vec::new();
+    let mut reactions: Reactions = Vec::new();
     let mut name_to_id: HashMap<String, Identifier> = HashMap::new();
     let mut get_id = |name: &str| -> Identifier {
         let id = name_to_id.get(name);
@@ -53,14 +54,23 @@ fn load_values(filename: &str) -> Problem {
                     id: get_id(fields.get((d * 2) + 1).unwrap()),
                 };
             };
+            let output = get_molecule(num_inputs);
+            let output_id = output.id;
+
+            // reactions.get(output_id) will represent all reactions producing this output
+            // need to extend the reactions vector accordingly
+            while reactions.len() <= (output_id as usize) {
+                reactions.push(Vec::new());
+            }
+
             let mut reaction = Reaction {
                 inputs: Vec::new(),
-                output: get_molecule(num_inputs),
+                output: output,
             };
             for d in 0 .. num_inputs {
                 reaction.inputs.push(get_molecule(d));
             }
-            reactions.push(reaction);
+            reactions.get_mut(output_id as usize).unwrap().push(reaction);
         }
     }
 
