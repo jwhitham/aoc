@@ -141,30 +141,36 @@ fn compute_shortest_paths(valves: &ValveMap, valve1_id: ValveId) -> PathTo {
     return useful_path_to;
 }
 
-fn compute_best_sequence(valves: &ValveMap,
+const PART1_TIME: Time = 30;
+
+fn compute_best_sequence1(valves: &ValveMap,
                          path_from_to: &PathFromTo,
                          visited: &mut Visited,
-                         valve1_id: ValveId, time_left: Time) -> FlowRate {
-    assert!(!visited.contains(&valve1_id));
+                         valve1_id: ValveId,
+                         time: Time) -> FlowRate {
+    
+    if time >= PART1_TIME {
+        return 0;
+    }
+
     visited.insert(valve1_id);
 
     // What do we get by turning off the valve here?
+    let time_left: Time = PART1_TIME - time;
     let self_flow_rate: FlowRate = valves.get(&valve1_id).unwrap().flow_rate * (time_left as FlowRate);
 
     // Where do we go next?
-    let mut sub_flow_rate = 0;
+    let mut best_sub_flow_rate = 0;
     for path in path_from_to.get(&valve1_id).unwrap().iter() {
         if !visited.contains(&path.id) {
-            let sub_time = path.time + 1;
-            if sub_time <= time_left {
-                sub_flow_rate = FlowRate::max(sub_flow_rate,
-                                   compute_best_sequence(valves, path_from_to,
-                                                         visited, path.id, time_left - sub_time));
-            }
+            let sub_time = path.time + 1 + time;
+            let sub_flow_rate = compute_best_sequence1(valves, path_from_to, visited,
+                                                       path.id, sub_time);
+            best_sub_flow_rate = FlowRate::max(best_sub_flow_rate, sub_flow_rate);
         }
     }
     visited.remove(&valve1_id);
-    return sub_flow_rate + self_flow_rate;
+    return best_sub_flow_rate + self_flow_rate;
 }
 
 fn part1(valves: &ValveMap) -> FlowRate {
@@ -177,16 +183,95 @@ fn part1(valves: &ValveMap) -> FlowRate {
     }
 
     // Solve the problem starting at AA
-    return compute_best_sequence(&valves, &path_from_to, &mut visited, get_valve_id("AA"), 30);
+    return compute_best_sequence1(&valves, &path_from_to, &mut visited, get_valve_id("AA"), 0);
+}
+
+const PART2_TIME: Time = 26;
+
+fn compute_best_sequence2(valves: &ValveMap,
+                         path_from_to: &PathFromTo,
+                         visited: &mut Visited,
+                         p1_valve1_id: ValveId,
+                         p1_ready_at: Time,
+                         p2_valve1_id: ValveId,
+                         p2_ready_at: Time) -> FlowRate {
+
+
+    // Use location and time for whoever moves first
+    // This does not seem to be a good solution.
+    // I think there must be a way to cut down the search space.
+    let move_ready_at: Time;
+    let move_valve1_id: ValveId;
+    let next_ready_at: Time;
+    let next_valve1_id: ValveId;
+    if p1_ready_at <= p2_ready_at {
+        move_ready_at = p1_ready_at;
+        move_valve1_id = p1_valve1_id;
+        next_ready_at = p2_ready_at;
+        next_valve1_id = p2_valve1_id;
+    } else {
+        move_ready_at = p2_ready_at;
+        move_valve1_id = p2_valve1_id;
+        next_ready_at = p1_ready_at;
+        next_valve1_id = p1_valve1_id;
+    }
+    assert!(move_ready_at < PART2_TIME);
+    assert!(next_ready_at < PART2_TIME);
+
+    let mut best_flow_rate = 0;
+    for path in path_from_to.get(&move_valve1_id).unwrap().iter() {
+        if !visited.contains(&path.id) {
+            assert!(!visited.contains(&path.id));
+            let sub_ready_at = path.time + 1 + move_ready_at;
+            if sub_ready_at < PART2_TIME {
+                visited.insert(path.id);
+
+                let time_left: Time = PART2_TIME - sub_ready_at;
+                let sub_flow_rate: FlowRate =
+                    (valves.get(&path.id).unwrap().flow_rate * (time_left as FlowRate)) +
+                    compute_best_sequence2(valves, path_from_to, visited,
+                                           path.id, sub_ready_at,
+                                           next_valve1_id, next_ready_at);
+                assert!(visited.contains(&path.id));
+                visited.remove(&path.id);
+
+                best_flow_rate = FlowRate::max(best_flow_rate, sub_flow_rate);
+            }
+        }
+    }
+
+    return best_flow_rate;
+}
+
+fn part2(valves: &ValveMap) -> FlowRate {
+    let mut path_from_to = PathFromTo::new();
+    let mut visited = Visited::new();
+
+    // Compute shortest paths betwen valves
+    for valve1_id in valves.keys() {
+        path_from_to.insert(*valve1_id, compute_shortest_paths(&valves, *valve1_id));
+    }
+
+    // Solve the problem starting at AA
+    return compute_best_sequence2(&valves, &path_from_to, &mut visited,
+                                  get_valve_id("AA"), 0,
+                                  get_valve_id("AA"), 0);
 }
 
 #[test]
 fn test_part1() {
     assert_eq!(part1(&load("test")), 1651);
+    assert_eq!(part1(&load("input")), 2056);
+}
+
+#[test]
+fn test_part2() {
+    assert_eq!(part2(&load("test")), 1707);
 }
 
 fn main() {
     println!("{}", part1(&load("input")));
+    println!("{}", part2(&load("input")));
 }
 
 
