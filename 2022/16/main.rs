@@ -10,7 +10,7 @@ use std::cmp::Ordering;
 
 
 type FlowRate = u32;
-type ValveId = String;
+type ValveId = u16;
 type Time = u8;
 
 #[derive(Clone)]
@@ -46,7 +46,7 @@ impl Ord for Path {
     }
 }
 
-type PathTo = HashMap<ValveId, Path>;
+type PathTo = Vec<Path>;
 type PathFromTo = HashMap<ValveId, PathTo>;
 type Visited = HashSet<ValveId>;
 type ValveMap = HashMap<ValveId, Valve>;
@@ -72,13 +72,13 @@ fn load(filename: &str) -> ValveMap {
             assert_eq!(*fields.get(2).unwrap(), "has");
             assert_eq!(*fields.get(8).unwrap(), "to");
 
-            let id = fields.get(1).unwrap().to_string();
+            let id = get_valve_id(fields.get(1).unwrap());
             let mut valve = Valve {
                 flow_rate: fields.get(5).unwrap().parse().expect("fr"),
                 tunnel_to: Vec::new(),
             };
             for i in 10 .. fields.len() {
-                valve.tunnel_to.push(fields.get(i).unwrap().to_string());
+                valve.tunnel_to.push(get_valve_id(fields.get(i).unwrap()));
             }
             v.insert(id, valve);
         }
@@ -86,12 +86,21 @@ fn load(filename: &str) -> ValveMap {
     return v;
 }
 
-fn compute_shortest_paths(valves: &ValveMap, valve1_id: &String) -> PathTo {
+fn get_valve_id(name: &str) -> ValveId {
+    let mut id: ValveId = 0;
+    for byte in name.bytes() {
+        id *= 256;
+        id |= byte as ValveId;
+    }
+    return id;
+}
+
+fn compute_shortest_paths(valves: &ValveMap, valve1_id: ValveId) -> PathTo {
     // Initialise best paths for this valve
-    let mut best_path_to: PathTo = HashMap::new();
+    let mut best_path_to: HashMap<ValveId, Path> = HashMap::new();
     for valve2_id in valves.keys() {
-        best_path_to.insert(valve2_id.clone(), Path {
-            id: valve2_id.clone(),
+        best_path_to.insert(*valve2_id, Path {
+            id: *valve2_id,
             time: Time::MAX,
         });
     }
@@ -99,7 +108,7 @@ fn compute_shortest_paths(valves: &ValveMap, valve1_id: &String) -> PathTo {
     // Solve shortest-path problem starting at valve 1
     let mut todo: BinaryHeap<Path> = BinaryHeap::new();
     todo.push(Path {
-        id: valve1_id.clone(),
+        id: valve1_id,
         time: 0,
     });
 
@@ -115,7 +124,7 @@ fn compute_shortest_paths(valves: &ValveMap, valve1_id: &String) -> PathTo {
             if best_path_to.get(valve3_id).unwrap().time == Time::MAX {
                 // Intermediate valve 3 not processed yet - possible path found
                 todo.push(Path {
-                    id: valve3_id.clone(),
+                    id: *valve3_id,
                     time: valve2_path.time + 1,
                 });
             }
@@ -123,10 +132,10 @@ fn compute_shortest_paths(valves: &ValveMap, valve1_id: &String) -> PathTo {
     }
 
     // Keep useful path information
-    let mut useful_path_to: PathTo = HashMap::new();
+    let mut useful_path_to: PathTo = PathTo::new();
     for (valve2_id, path) in best_path_to {
-        if (valves.get(&valve2_id).unwrap().flow_rate != 0) && (valve2_id != *valve1_id) {
-            useful_path_to.insert(valve2_id.clone(), path);
+        if (valves.get(&valve2_id).unwrap().flow_rate != 0) && (valve2_id != valve1_id) {
+            useful_path_to.push(path);
         }
     }
     return useful_path_to;
@@ -135,26 +144,26 @@ fn compute_shortest_paths(valves: &ValveMap, valve1_id: &String) -> PathTo {
 fn compute_best_sequence(valves: &ValveMap,
                          path_from_to: &PathFromTo,
                          visited: &mut Visited,
-                         valve1_id: &String, time_left: Time) -> FlowRate {
-    assert!(!visited.contains(valve1_id));
-    visited.insert(valve1_id.clone());
+                         valve1_id: ValveId, time_left: Time) -> FlowRate {
+    assert!(!visited.contains(&valve1_id));
+    visited.insert(valve1_id);
 
     // What do we get by turning off the valve here?
-    let self_flow_rate: FlowRate = valves.get(valve1_id).unwrap().flow_rate * (time_left as FlowRate);
+    let self_flow_rate: FlowRate = valves.get(&valve1_id).unwrap().flow_rate * (time_left as FlowRate);
 
     // Where do we go next?
     let mut sub_flow_rate = 0;
-    for (valve2_id, path) in path_from_to.get(valve1_id).unwrap().iter() {
-        if !visited.contains(valve2_id) {
+    for path in path_from_to.get(&valve1_id).unwrap().iter() {
+        if !visited.contains(&path.id) {
             let sub_time = path.time + 1;
             if sub_time <= time_left {
                 sub_flow_rate = FlowRate::max(sub_flow_rate,
                                    compute_best_sequence(valves, path_from_to,
-                                                         visited, valve2_id, time_left - sub_time));
+                                                         visited, path.id, time_left - sub_time));
             }
         }
     }
-    visited.remove(valve1_id);
+    visited.remove(&valve1_id);
     return sub_flow_rate + self_flow_rate;
 }
 
@@ -164,11 +173,11 @@ fn part1(valves: &ValveMap) -> FlowRate {
 
     // Compute shortest paths betwen valves
     for valve1_id in valves.keys() {
-        path_from_to.insert(valve1_id.clone(), compute_shortest_paths(&valves, valve1_id));
+        path_from_to.insert(*valve1_id, compute_shortest_paths(&valves, *valve1_id));
     }
 
     // Solve the problem starting at AA
-    return compute_best_sequence(&valves, &path_from_to, &mut visited, &"AA".to_string(), 30);
+    return compute_best_sequence(&valves, &path_from_to, &mut visited, get_valve_id("AA"), 30);
 }
 
 #[test]
