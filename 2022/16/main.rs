@@ -56,6 +56,15 @@ struct Valve {
     tunnel_to: Vec<ValveId>,
 }
 
+struct ProblemState {
+    visited: Visited,
+    upper_bound: FlowRate,
+    best_result: FlowRate,
+    lost_flow_per_minute: FlowRate,
+    total_flow: FlowRate,
+    time: Time,
+}
+
 // Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
 // 0     1  2   3    4    5  6       7    8  9      10...
 
@@ -144,46 +153,77 @@ fn compute_shortest_paths(valves: &ValveMap, valve1_id: ValveId) -> PathTo {
 const PART1_TIME: Time = 30;
 
 fn compute_best_sequence1(valves: &ValveMap,
-                         path_from_to: &PathFromTo,
-                         visited: &mut Visited,
-                         valve1_id: ValveId,
-                         time: Time) -> FlowRate {
-    
-    if time >= PART1_TIME {
-        return 0;
+                          path_from_to: &PathFromTo,
+                          part1: &mut ProblemState,
+                          valve1_id: ValveId,
+                          travel_time: Time) {
+    // Can we make it in time?
+    if (part1.time + travel_time) >= PART1_TIME {
+        return;
     }
 
-    visited.insert(valve1_id);
+    // Update the upper bound based on the lost flow per minute
+    part1.upper_bound -= part1.lost_flow_per_minute * (travel_time as FlowRate);
 
-    // What do we get by turning off the valve here?
-    let time_left: Time = PART1_TIME - time;
-    let self_flow_rate: FlowRate = valves.get(&valve1_id).unwrap().flow_rate * (time_left as FlowRate);
+    // Only visit this valve if the solution could be an improvement
+    if part1.upper_bound > part1.total_flow {
+        // Visit this valve - what do we get by turning off the valve here?
+        part1.visited.insert(valve1_id);
+        part1.time += travel_time;
+        let time_left: Time = PART1_TIME - part1.time;
+        let flow_rate: FlowRate = valves.get(&valve1_id).unwrap().flow_rate;
+        part1.total_flow += flow_rate * (time_left as FlowRate);
+        part1.lost_flow_per_minute -= flow_rate;
 
-    // Where do we go next?
-    let mut best_sub_flow_rate = 0;
-    for path in path_from_to.get(&valve1_id).unwrap().iter() {
-        if !visited.contains(&path.id) {
-            let sub_time = path.time + 1 + time;
-            let sub_flow_rate = compute_best_sequence1(valves, path_from_to, visited,
-                                                       path.id, sub_time);
-            best_sub_flow_rate = FlowRate::max(best_sub_flow_rate, sub_flow_rate);
+        // Where do we go next?
+        for path in path_from_to.get(&valve1_id).unwrap().iter() {
+            if !part1.visited.contains(&path.id) {
+                let travel_time = path.time + 1;
+                compute_best_sequence1(valves, path_from_to, part1, path.id, travel_time);
+            }
         }
+
+        // Record new result if any
+        if part1.total_flow > part1.best_result {
+            part1.best_result = part1.total_flow;
+        }
+
+        // Restore state
+        part1.lost_flow_per_minute += flow_rate;
+        part1.total_flow -= flow_rate * (time_left as FlowRate);
+        part1.time -= travel_time;
+        part1.visited.remove(&valve1_id);
     }
-    visited.remove(&valve1_id);
-    return best_sub_flow_rate + self_flow_rate;
+
+    // Restore upper bound
+    part1.upper_bound += part1.lost_flow_per_minute * (travel_time as FlowRate);
 }
 
 fn part1(valves: &ValveMap) -> FlowRate {
     let mut path_from_to = PathFromTo::new();
-    let mut visited = Visited::new();
+    let mut part1 = ProblemState {
+        visited: Visited::new(),
+        upper_bound: 0,
+        best_result: 0,
+        total_flow: 0,
+        lost_flow_per_minute: 0,
+        time: 0,
+    };
 
     // Compute shortest paths betwen valves
     for valve1_id in valves.keys() {
         path_from_to.insert(*valve1_id, compute_shortest_paths(&valves, *valve1_id));
     }
 
+    // Compute the best possible flow rate assuming all valves are turned on
+    for valve1 in valves.values() {
+        part1.lost_flow_per_minute += valve1.flow_rate;
+    }
+    part1.upper_bound = part1.lost_flow_per_minute * (PART1_TIME as FlowRate);
+
     // Solve the problem starting at AA
-    return compute_best_sequence1(&valves, &path_from_to, &mut visited, get_valve_id("AA"), 0);
+    compute_best_sequence1(&valves, &path_from_to, &mut part1, get_valve_id("AA"), 0);
+    return part1.best_result;
 }
 
 const PART2_TIME: Time = 26;
@@ -271,7 +311,7 @@ fn test_part2() {
 
 fn main() {
     println!("{}", part1(&load("input")));
-    println!("{}", part2(&load("input")));
+    //println!("{}", part2(&load("input")));
 }
 
 
