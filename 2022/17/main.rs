@@ -10,7 +10,6 @@ type Width = u8;
 
 const NUM_ROCK_TYPES: usize = 5;
 const NUM_PARTS: usize = 5;
-const ROCK_WIDTH: [Width; NUM_ROCK_TYPES] = [4, 3, 3, 1, 2];
 const COL_WIDTH: Width = 7;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
@@ -19,6 +18,7 @@ struct Location {
     x: Width,
 }
 
+const ROCK_WIDTH: [Width; NUM_ROCK_TYPES] = [4, 3, 3, 1, 2];
 const ROCK_PART: [[Location; NUM_PARTS]; NUM_ROCK_TYPES] = [
     [Location { x: 0, y: 0 }, Location { x: 1, y: 0 }, Location { x: 2, y: 0 },
      Location { x: 3, y: 0 }, Location { x: 3, y: 0 },],
@@ -66,37 +66,6 @@ fn collision_detect(occupied: &Occupied, rock_pos: &Location, rock_type: usize) 
         }
     }
     return false;
-}
-
-fn check_tower(occupied: &Occupied, top: Height) {
-    let mut top_is_ok = false;
-    if occupied.is_empty() {
-        assert!(top == 0);
-        top_is_ok = true;
-    }
-    for l in occupied.iter() {
-        assert!(l.x < COL_WIDTH);
-        assert!(l.y < top);
-        if l.y == (top - 1) {
-            top_is_ok = true;
-        }
-    }
-    assert!(top_is_ok);
-}
-
-fn print_tower(occupied: &Occupied, top: Height) {
-    for yr in 0 .. top {
-        let y = top - 1 - yr;
-        print!("|");
-        for x in 0 .. COL_WIDTH {
-            if occupied.contains(&Location { x: x, y: y }) {
-                print!("#");
-            } else {
-                print!(".");
-            }
-        }
-        println!("|");
-    }
 }
 
 fn part1(filename: &str) -> Height {
@@ -157,10 +126,7 @@ fn part1(filename: &str) -> Height {
             occupied.insert(l2);
             top = Height::max(top, rock_pos.y + l.y + 1);
         }
-
-        check_tower(&occupied, top);
     }
-    print_tower(&occupied, top);
     return top;
 }
 
@@ -168,6 +134,7 @@ fn part1(filename: &str) -> Height {
 #[test]
 fn test_part1() {
     assert_eq!(part1("test"), 3068);
+    assert_eq!(part1("input"), 3067);
 }
 
 fn main() {
