@@ -68,6 +68,60 @@ fn collision_detect(occupied: &Occupied, rock_pos: &Location, rock_type: usize) 
     return false;
 }
 
+fn simulate_rock(rock_type: usize,
+                 move_is_left: &MoveIsLeft, occupied: &mut Occupied,
+                 top: &mut Height, move_index: &mut usize) {
+    let mut rock_pos = Location { x: 2, y: *top + 3 };
+    let rock_width: Width = ROCK_WIDTH[rock_type];
+
+    // while rock is falling
+    let mut stop = false;
+    while !stop {
+        // move left or right
+        if *move_is_left.get(*move_index).unwrap() {
+            if rock_pos.x > 0 {
+                rock_pos.x -= 1;
+                if collision_detect(&occupied, &rock_pos, rock_type) {
+                    rock_pos.x += 1;
+                }
+            }
+        } else {
+            if (rock_pos.x + rock_width) < COL_WIDTH {
+                rock_pos.x += 1;
+                if collision_detect(&occupied, &rock_pos, rock_type) {
+                    rock_pos.x -= 1;
+                }
+            }
+        }
+        // loop through moves
+        *move_index += 1;
+        if *move_index >= move_is_left.len() {
+            *move_index = 0;
+        }
+        // try to move down
+        if rock_pos.y > 0 {
+            rock_pos.y -= 1;
+            if collision_detect(&occupied, &rock_pos, rock_type) {
+                rock_pos.y += 1;
+                stop = true;
+            }
+        } else {
+            stop = true;
+        }
+    }
+
+    // freeze in place
+    assert!(!collision_detect(&occupied, &rock_pos, rock_type));
+    for l in ROCK_PART[rock_type] {
+        let l2 = Location {
+            x: rock_pos.x + l.x,
+            y: rock_pos.y + l.y,
+        };
+        occupied.insert(l2);
+        *top = Height::max(*top, rock_pos.y + l.y + 1);
+    }
+}
+
 fn part1(filename: &str) -> Height {
     let move_is_left = load(filename);
     let mut occupied: Occupied = Occupied::new();
@@ -76,56 +130,8 @@ fn part1(filename: &str) -> Height {
 
     // for each rock
     for rock_number in 0 .. 2022 {
-        let mut rock_pos = Location { x: 2, y: top + 3 };
         let rock_type: usize = rock_number % NUM_ROCK_TYPES;
-        let rock_width: Width = ROCK_WIDTH[rock_type];
-
-        // while rock is falling
-        let mut stop = false;
-        while !stop {
-            // move left or right
-            if *move_is_left.get(move_index).unwrap() {
-                if rock_pos.x > 0 {
-                    rock_pos.x -= 1;
-                    if collision_detect(&occupied, &rock_pos, rock_type) {
-                        rock_pos.x += 1;
-                    }
-                }
-            } else {
-                if (rock_pos.x + rock_width) < COL_WIDTH {
-                    rock_pos.x += 1;
-                    if collision_detect(&occupied, &rock_pos, rock_type) {
-                        rock_pos.x -= 1;
-                    }
-                }
-            }
-            // loop through moves
-            move_index += 1;
-            if move_index >= move_is_left.len() {
-                move_index = 0;
-            }
-            // try to move down
-            if rock_pos.y > 0 {
-                rock_pos.y -= 1;
-                if collision_detect(&occupied, &rock_pos, rock_type) {
-                    rock_pos.y += 1;
-                    stop = true;
-                }
-            } else {
-                stop = true;
-            }
-        }
-
-        // freeze in place
-        assert!(!collision_detect(&occupied, &rock_pos, rock_type));
-        for l in ROCK_PART[rock_type] {
-            let l2 = Location {
-                x: rock_pos.x + l.x,
-                y: rock_pos.y + l.y,
-            };
-            occupied.insert(l2);
-            top = Height::max(top, rock_pos.y + l.y + 1);
-        }
+        simulate_rock(rock_type, &move_is_left, &mut occupied, &mut top, &mut move_index);
     }
     return top;
 }
