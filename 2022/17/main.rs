@@ -68,6 +68,37 @@ fn collision_detect(occupied: &Occupied, rock_pos: &Location, rock_type: usize) 
     return false;
 }
 
+fn check_tower(occupied: &Occupied, top: Height) {
+    let mut top_is_ok = false;
+    if occupied.is_empty() {
+        assert!(top == 0);
+        top_is_ok = true;
+    }
+    for l in occupied.iter() {
+        assert!(l.x < COL_WIDTH);
+        assert!(l.y < top);
+        if l.y == (top - 1) {
+            top_is_ok = true;
+        }
+    }
+    assert!(top_is_ok);
+}
+
+fn print_tower(occupied: &Occupied, top: Height) {
+    for yr in 0 .. top {
+        let y = top - 1 - yr;
+        print!("|");
+        for x in 0 .. COL_WIDTH {
+            if occupied.contains(&Location { x: x, y: y }) {
+                print!("#");
+            } else {
+                print!(".");
+            }
+        }
+        println!("|");
+    }
+}
+
 fn part1(filename: &str) -> Height {
     let move_is_left = load(filename);
     let mut occupied: Occupied = Occupied::new();
@@ -117,14 +148,19 @@ fn part1(filename: &str) -> Height {
         }
 
         // freeze in place
+        assert!(!collision_detect(&occupied, &rock_pos, rock_type));
         for l in ROCK_PART[rock_type] {
-            occupied.insert(Location {
+            let l2 = Location {
                 x: rock_pos.x + l.x,
                 y: rock_pos.y + l.y,
-            });
-            top = Height::max(top, rock_pos.y + l.y);
+            };
+            occupied.insert(l2);
+            top = Height::max(top, rock_pos.y + l.y + 1);
         }
+
+        check_tower(&occupied, top);
     }
+    print_tower(&occupied, top);
     return top;
 }
 
