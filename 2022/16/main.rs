@@ -41,7 +41,9 @@ impl Ord for Path {
         } else if self.time < other.time {
             return Ordering::Greater;
         } else {
-            return Ordering::Equal;
+            // The order doesn't matter, except so that we can have the same
+            // path through the algorithm every time (not dependent on hashing)
+            return self.id.cmp(&other.id);
         }
     }
 }
@@ -152,6 +154,10 @@ fn compute_shortest_paths(valves: &ValveMap, valve1_id: ValveId) -> PathTo {
             useful_path_to.push(path);
         }
     }
+
+    // It's best to process the shortest paths first
+    useful_path_to.sort();
+    useful_path_to.reverse();
     return useful_path_to;
 }
 
@@ -201,10 +207,14 @@ fn compute_best_sequence(valves: &ValveMap,
 
     // Where do we go next?
     for path in path_from_to.get(&valve_id).unwrap().iter() {
+        if ps.upper_bound <= ps.best_result {
+            // prune this part of the search space
+            break;
+        }
+
         let sub_travel_time = path.time + 1;
-        if (path.id != other_valve_id)
-        && (ps.time + sub_travel_time < ps.total_time)
-        && (ps.upper_bound > ps.best_result)
+        if (ps.time + sub_travel_time < ps.total_time)
+        && (path.id != other_valve_id)
         && !ps.plan_to_visit.contains(&path.id) {
             ps.plan_to_visit.insert(path.id);
             compute_best_sequence(valves, path_from_to, ps,
@@ -215,8 +225,8 @@ fn compute_best_sequence(valves: &ValveMap,
     }
 
     // Process the other direction by itself (necessary as a final move)
-    if ps.plan_to_visit.contains(&other_valve_id)
-    && (ps.upper_bound > ps.best_result) {
+    if (ps.upper_bound > ps.best_result)
+    && ps.plan_to_visit.contains(&other_valve_id) {
         compute_best_sequence(valves, path_from_to, ps,
                               other_valve_id, other_time,
                               0, ps.total_time);
