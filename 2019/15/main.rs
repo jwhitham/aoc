@@ -239,7 +239,7 @@ fn print_maze(maze: &Maze) {
     }
 }
 
-fn make_route(maze: &Maze, start: &Location, finish: &Location) -> Vec<Waypoint> {
+fn shortest_path(maze: &Maze, start: &Location, finish: Option<&Location>) -> HashMap<Location, Waypoint> {
     // Solve shortest-path problem from start to finish
     let mut todo: BinaryHeap<Waypoint> = BinaryHeap::new();
     todo.push(Waypoint {
@@ -250,8 +250,7 @@ fn make_route(maze: &Maze, start: &Location, finish: &Location) -> Vec<Waypoint>
     });
     let mut done: HashMap<Location, Waypoint> = HashMap::new();
 
-    loop {
-        assert!(!todo.is_empty());
+    while !todo.is_empty() {
         let way: Waypoint = todo.pop().unwrap();
 
         if done.contains_key(&way.to_loc) {
@@ -262,7 +261,7 @@ fn make_route(maze: &Maze, start: &Location, finish: &Location) -> Vec<Waypoint>
         // Shortest path found to this location
         done.insert(way.to_loc, way.clone());
 
-        if way.to_loc == *finish {
+        if finish.is_some() && (way.to_loc == *finish.unwrap()) {
             // Found the shortest path
             break;
         }
@@ -276,7 +275,7 @@ fn make_route(maze: &Maze, start: &Location, finish: &Location) -> Vec<Waypoint>
             match *maze.get(&to_loc).unwrap_or(&Here::Unexplored) {
                 Here::Wall | Here::Unexplored => {
                     // Can't go this way unless it's the end!
-                    if to_loc != *finish {
+                    if finish.is_none() || (to_loc != *finish.unwrap()) {
                         return;
                     }
                 },
@@ -294,6 +293,12 @@ fn make_route(maze: &Maze, start: &Location, finish: &Location) -> Vec<Waypoint>
         add_path(0, -1, Direction::North);
         add_path(0,  1, Direction::South);
     }
+    return done;
+}
+
+fn make_route(maze: &Maze, start: &Location, finish: &Location) -> Vec<Waypoint> {
+    // find shortest path to finish
+    let done = shortest_path(maze, start, Some(finish));
 
     // Reconstruct the route from start to finish
     let mut route: Vec<Waypoint> = Vec::new();
@@ -309,7 +314,7 @@ fn make_route(maze: &Maze, start: &Location, finish: &Location) -> Vec<Waypoint>
     return route;
 }
 
-fn part1() {
+fn main() {
     let mut ms: MachineState = load_from_input("input");
     let mut maze: Maze = Maze::new();
     let mut stack: Vec<Location> = Vec::new();
@@ -409,14 +414,19 @@ fn part1() {
         }
     }
     // Maze is now fully explored!
+    print_maze(&maze);
+
+    // Here is the result for part 1
     assert!(oxygen.is_some());
     let oxy_route = make_route(&maze, &Location { x: 0, y: 0 }, &oxygen.unwrap());
-    print_maze(&maze);
     println!("{}", oxy_route.len());
-}
 
-
-fn main() {
-    part1();
+    // Result for part 2 is the distance of the furthest point from the oxygen generator
+    let done = shortest_path(&maze, &oxygen.unwrap(), None);
+    let mut furthest: Word = 0;
+    for way in done.values() {
+        furthest = Word::max(furthest, way.distance);
+    }
+    println!("{}", furthest);
 }
 
