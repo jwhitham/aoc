@@ -4,7 +4,7 @@ use std::io::{self, BufRead};
 use std::iter::FromIterator;
 use std::collections::HashMap;
 
-type Quantity = i32;
+type Quantity = i64;
 type Identifier = u8;
 
 struct Molecule {
@@ -84,7 +84,9 @@ fn load_values(filename: &str) -> Problem {
     }
 }
 
-fn make_more(problem: &Problem, unused: &mut Vec<Quantity>, output_id: Identifier, output_qty: Quantity) -> Quantity {
+type Unused = Vec<Quantity>;
+
+fn make_more(problem: &Problem, unused: &mut Unused, output_id: Identifier, output_qty: Quantity) -> Quantity {
     assert!(output_qty > 0);
 
     // Generate ore as required
@@ -125,7 +127,7 @@ fn make_more(problem: &Problem, unused: &mut Vec<Quantity>, output_id: Identifie
 fn part1(filename: &str) -> Quantity {
 
     let problem = load_values(filename);
-    let mut unused = Vec::new();
+    let mut unused = Unused::new();
     while unused.len() < problem.reactions.len() {
         unused.push(0);
     }
@@ -152,8 +154,59 @@ fn test_part1c() {
     assert_eq!(part1("test2210736"), 2210736);
 }
 
+fn part2(filename: &str) -> Quantity {
+    let problem = load_values(filename);
+    let total_ore: Quantity = 1000000000000;
+    let mut lower_bound: Quantity = 0;
+    let mut upper_bound: Quantity = total_ore;
+
+    // Try to find upper and lower bound for fuel production from either side of the available ore
+    while (upper_bound - lower_bound) > 1 {
+        let try_fuel = (lower_bound + upper_bound + 1) / 2;
+        let mut unused = Unused::new();
+        while unused.len() < problem.reactions.len() {
+            unused.push(0);
+        }
+        let used = make_more(&problem, &mut unused, problem.fuel_id, try_fuel);
+        if used > total_ore {
+            upper_bound = try_fuel;
+        } else {
+            lower_bound = try_fuel;
+        }
+    }
+    // Choose the largest amount of fuel that can be created by the available ore
+    for try_fuel in lower_bound .. upper_bound + 1 {
+        let mut unused = Unused::new();
+        while unused.len() < problem.reactions.len() {
+            unused.push(0);
+        }
+        let used = make_more(&problem, &mut unused, problem.fuel_id, try_fuel);
+        if used > total_ore {
+            // That's one too many!
+            return try_fuel - 1;
+        }
+    }
+    panic!();
+}
+
+#[test]
+fn test_part2a() {
+    assert_eq!(part2("test13312"), 82892753);
+}
+
+#[test]
+fn test_part2b() {
+    assert_eq!(part2("test180697"), 5586022);
+}
+
+#[test]
+fn test_part2c() {
+    assert_eq!(part2("test2210736"), 460664);
+}
+
 fn main() {
     println!("{}", part1("input"));
+    println!("{}", part2("input"));
 }
 
 
