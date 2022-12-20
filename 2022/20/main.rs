@@ -1,6 +1,7 @@
 
 use std::fs::File;
 use std::io::{self, BufRead};
+use std::collections::VecDeque;
 
 #[derive(Copy, Clone)]
 struct Number {
@@ -8,7 +9,7 @@ struct Number {
     order: usize,
 }
 
-type Problem = Vec<Number>;
+type Problem = VecDeque<Number>;
 
 fn load(filename: &str) -> Problem {
     let file = File::open(filename).unwrap();
@@ -16,7 +17,7 @@ fn load(filename: &str) -> Problem {
     let mut order: usize = 0;
     for line in io::BufReader::new(file).lines() {
         if let Ok(line_string) = line {
-            p.push(Number {
+            p.push_back(Number {
                 value: line_string.parse().expect("n"),
                 order: order,
             });
@@ -29,11 +30,13 @@ fn load(filename: &str) -> Problem {
 fn mix(p: &mut Problem) {
     // It can be tricky to avoid off-by-one errors in something like
     // this. The best way to get the code right is to compare to the
-    // expected results given in the problem.
-    // The operations used here are all O(N) - not very efficient - but
-    // because of the relative difficulty of getting the code right in
-    // the first place, I wasn't keen to try anything more complex. The
-    // list size is only 5000 items anyway.
+    // example intermediate results given in the problem.
+    //
+    // Use of rotation (with VecDeque) makes the code a lot simpler
+    // but prevents easy comparison to the examples. It's also more
+    // efficient.. however, there is still an O(N) search for the
+    // next number to be processed. The list size is only 5000 items
+    // though.
     for order in 0 .. p.len() {
         // Find the number to be moved
         let mut old_index: usize = usize::MAX;
@@ -45,20 +48,20 @@ fn mix(p: &mut Problem) {
         }
         assert!(old_index < p.len());
         // Remove
-        let number: Number = *p.get(old_index).unwrap();
-        p.remove(old_index);
+        p.rotate_left(old_index);
+        let number: Number = p.pop_front().unwrap();
+        assert_eq!(number.order, order);
 
         // What's the new position?
-        let mut pos: isize = ((number.value + (old_index as isize)) 
-                            % (p.len() as isize)) as isize;
-        if pos <= 0 {
-            pos += p.len() as isize;
-        }
-        let new_index = pos as usize;
-        assert!(new_index <= p.len());
+        let pos: isize = number.value % (p.len() as isize);
 
         // Insert in new position
-        p.insert(new_index as usize, number);
+        if pos < 0 {
+            p.rotate_right((-pos) as usize);
+        } else {
+            p.rotate_left(pos as usize);
+        }
+        p.push_front(number);
     }
 }
 
