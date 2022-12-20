@@ -26,19 +26,15 @@ fn load(filename: &str) -> Problem {
     return p;
 }
 
-fn print_problem(p: &Problem) {
-    for i in 0 .. p.len() {
-        print!("{} ", p.get(i).unwrap().value);
-    }
-    println!();
-}
-
-fn part1(filename: &str) -> isize {
-    let mut p = load(filename);
-
+fn mix(p: &mut Problem) {
+    // It can be tricky to avoid off-by-one errors in something like
+    // this. The best way to get the code right is to compare to the
+    // expected results given in the problem.
+    // The operations used here are all O(N) - not very efficient - but
+    // because of the relative difficulty of getting the code right in
+    // the first place, I wasn't keen to try anything more complex. The
+    // list size is only 5000 items anyway.
     for order in 0 .. p.len() {
-        //print_problem(&p);
-        
         // Find the number to be moved
         let mut old_index: usize = usize::MAX;
         for i in 0 .. p.len() {
@@ -64,8 +60,9 @@ fn part1(filename: &str) -> isize {
         // Insert in new position
         p.insert(new_index as usize, number);
     }
-    //print_problem(&p);
+}
 
+fn get_coords(p: &Problem) -> isize {
     // Find zero
     let mut zero_index: usize = usize::MAX;
     for i in 0 .. p.len() {
@@ -78,8 +75,24 @@ fn part1(filename: &str) -> isize {
     let a = p.get((zero_index + 1000) % p.len()).unwrap().value;
     let b = p.get((zero_index + 2000) % p.len()).unwrap().value;
     let c = p.get((zero_index + 3000) % p.len()).unwrap().value;
-    println!("1000th is {}, 2000th is {}, 3000th is {}", a, b, c);
     return a + b + c;
+}
+
+fn part1(filename: &str) -> isize {
+    let mut p = load(filename);
+    mix(&mut p);
+    return get_coords(&p);
+}
+
+fn part2(filename: &str) -> isize {
+    let mut p = load(filename);
+    for i in 0 .. p.len() {
+        p.get_mut(i).unwrap().value *= 811589153;
+    }
+    for _ in 0 .. 10 {
+        mix(&mut p);
+    }
+    return get_coords(&p);
 }
 
 #[test]
@@ -87,6 +100,12 @@ fn test_part1() {
     assert_eq!(part1(&"test"), 3);
 }
 
+#[test]
+fn test_part2() {
+    assert_eq!(part2(&"test"), 1623178306);
+}
+
 fn main() {
     println!("{}", part1(&"input"));
+    println!("{}", part2(&"input"));
 }
