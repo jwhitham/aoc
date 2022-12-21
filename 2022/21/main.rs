@@ -7,15 +7,20 @@ use std::collections::HashMap;
 type Word = i64;
 
 #[derive(Clone, Eq, PartialEq)]
-enum Op {
+enum Node {
     Literal(Word),
-    Add(String, String),
-    Sub(String, String),
-    Div(String, String),
-    Mul(String, String),
+    Binary(Op, String, String),
 }
 
-type Problem = HashMap<String, Op>;
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum Op {
+    Add,
+    Sub,
+    Div,
+    Mul,
+}
+
+type Problem = HashMap<String, Node>;
 type Cache = HashMap<String, Word>;
 
 fn load(filename: &str) -> Problem {
@@ -30,23 +35,23 @@ fn load(filename: &str) -> Problem {
             match fields.len() {
                 2 => {
                     let v: Word = fields.get(1).unwrap().parse().expect("n");
-                    p.insert(name, Op::Literal(v));
+                    p.insert(name, Node::Literal(v));
                 },
                 4 => {
                     let a: String = fields.get(1).unwrap().to_string();
                     let b: String = fields.get(3).unwrap().to_string();
                     match *fields.get(2).unwrap() {
                         "+" => {
-                            p.insert(name, Op::Add(a, b));
+                            p.insert(name, Node::Binary(Op::Add, a, b));
                         },
                         "-" => {
-                            p.insert(name, Op::Sub(a, b));
+                            p.insert(name, Node::Binary(Op::Sub, a, b));
                         },
                         "/" => {
-                            p.insert(name, Op::Div(a, b));
+                            p.insert(name, Node::Binary(Op::Div, a, b));
                         },
                         "*" => {
-                            p.insert(name, Op::Mul(a, b));
+                            p.insert(name, Node::Binary(Op::Mul, a, b));
                         },
                         _ => {
                             panic!();
@@ -67,23 +72,27 @@ fn calc(p: &Problem, name: &String, cache: &mut Cache) -> Word {
     if cached.is_some() {
         return *cached.unwrap();
     }
-    let op: &Op = p.get(name).unwrap();
+    let node: &Node = p.get(name).unwrap();
     let out: Word;
-    match op {
-        Op::Literal(v) => {
+    match node {
+        Node::Literal(v) => {
             out = *v;
         },
-        Op::Add(a, b) => {
-            out = calc(p, a, cache) + calc(p, b, cache);
-        },
-        Op::Mul(a, b) => {
-            out = calc(p, a, cache) * calc(p, b, cache);
-        },
-        Op::Div(a, b) => {
-            out = calc(p, a, cache) / calc(p, b, cache);
-        },
-        Op::Sub(a, b) => {
-            out = calc(p, a, cache) - calc(p, b, cache);
+        Node::Binary(op, a, b) => {
+            match op {
+                Op::Add => {
+                    out = calc(p, a, cache) + calc(p, b, cache);
+                },
+                Op::Mul => {
+                    out = calc(p, a, cache) * calc(p, b, cache);
+                },
+                Op::Div => {
+                    out = calc(p, a, cache) / calc(p, b, cache);
+                },
+                Op::Sub => {
+                    out = calc(p, a, cache) - calc(p, b, cache);
+                },
+            }
         },
     }
     cache.insert(name.to_string(), out);
@@ -104,19 +113,10 @@ fn part2(p: &Problem) -> Word {
     let match_a: String;
     let match_b: String;
     match copy.get(&"root".to_string()).unwrap() {
-        Op::Literal(_) => {
+        Node::Literal(_) => {
             panic!();
         },
-        Op::Add(a, b) => {
-            match_a = a.to_string(); match_b = b.to_string();
-        },
-        Op::Mul(a, b) => {
-            match_a = a.to_string(); match_b = b.to_string();
-        },
-        Op::Div(a, b) => {
-            match_a = a.to_string(); match_b = b.to_string();
-        },
-        Op::Sub(a, b) => {
+        Node::Binary(_, a, b) => {
             match_a = a.to_string(); match_b = b.to_string();
         },
     }
