@@ -74,10 +74,6 @@ fn load(filename: &str) -> Problem {
         }
     }
     p.height = y;
-    assert!((p.width % 4) == 0);  // width divisible by 4
-    assert!((p.height % 3) == 0); // height divisible by 3
-    p.cube_size = p.width / 4;    // size of cube edge
-    assert!((p.height / 3) == p.cube_size);
     return p;
 }
 
@@ -180,11 +176,7 @@ fn move_forward_and_wrap_part1(p: &Problem, loc: Location, facing: Facing) -> Lo
     }
 }
 
-fn move_forward_and_wrap_part2(p: &Problem, loc: Location, facing: Facing) -> (Location, Facing) {
-    return (move_forward_and_wrap_part1(p, loc, facing), facing);
-}
-
-fn part(filename: &str, part1: bool) -> u64 {
+fn part1(filename: &str) -> u64 {
     let p = load(filename);
     let mut loc = Location { x: 0, y: 0 };
 
@@ -216,11 +208,7 @@ fn part(filename: &str, part1: bool) -> u64 {
             Move::Forward(n) => {
                 for _ in 0 .. *n {
                     trace.insert(loc, facing);
-                    if part1 {
-                        loc = move_forward_and_wrap_part1(&p, loc, facing);
-                    } else {
-                        (loc, facing) = move_forward_and_wrap_part2(&p, loc, facing);
-                    }
+                    loc = move_forward_and_wrap_part1(&p, loc, facing);
                 }
             },
         }
@@ -267,15 +255,179 @@ fn part(filename: &str, part1: bool) -> u64 {
 
 #[test]
 fn test_part1() {
-    assert_eq!(part(&"test", true), 6032);
+    assert_eq!(part1(&"test"), 6032);
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
+struct Location3D {
+    x: Word,
+    y: Word,
+    z: Word,
+}
+
+#[derive(Eq, PartialEq, Copy, Clone)]
+struct Plane {
+    dx: i8,
+    dy: i8,
+    dz: i8,
+}
+
+#[derive(Eq, PartialEq, Copy, Clone)]
+struct Face {
+    loc_2d: Location,
+    loc_3d: Location3D,
+    plane: Plane,
+}
+
+fn plane_transform_east_or_south(p: &Plane, east: bool) -> Plane {
+    if p.dz == 0 {
+        // This is an XY plane
+        if east {
+            return Plane { dz: p.dx, dy: p.dy, dx: 0 };
+        } else {
+            return Plane { dx: p.dx, dz: p.dy, dy: 0 };
+        }
+    } else if p.dy == 0 {
+        // This is an XZ plane
+        if east {
+            return Plane { dz: p.dz, dy: -p.dx, dx: 0 };
+        } else {
+            return Plane { dy: -p.dz, dx: p.dx, dz: 0 };
+        }
+    } else if p.dx == 0 {
+        // This is a YZ plane
+        if east {
+            return Plane { dx: -p.dz, dy: p.dy, dz: 0 };
+        } else {
+            return Plane { dz: p.dz, dx: -p.dy, dy: 0 };
+        }
+    } else {
+        panic!();
+    }
+}
+
+fn plane_transform(p: &Plane, dir: Facing) -> Plane {
+    match dir {
+        Facing::East => {
+            return plane_transform_east_or_south(p, true);
+        },
+        Facing::South => {
+            return plane_transform_east_or_south(p, false);
+        },
+        Facing::West => {
+            let mut p2 = *p;
+            for _ in 0 .. 3 {
+                p2 = plane_transform_east_or_south(&p2, true);
+            }
+            return p2;
+        },
+        Facing::North => {
+            let mut p2 = *p;
+            for _ in 0 .. 3 {
+                p2 = plane_transform_east_or_south(&p2, false);
+            }
+            return p2;
+        },
+    }
+}
+
+fn part2(filename: &str) -> u64 {
+    let p = load(filename);
+
+    // determine the cube size
+    let smaller = Word::min(p.width, p.height);
+    let larger = Word::max(p.width, p.height);
+    assert!((larger % 4) == 0);
+    assert!((smaller % 3) == 0);
+    let cube_size = smaller / 3;
+    assert!((larger / 4) == cube_size);
+
+    // Find faces in flat representation
+    let mut faces: Vec<Face> = Vec::new();
+    for fy in 0 .. 4 {
+        for fx in 0 .. 4 {
+            let loc = Location { x: fx * cube_size, y: fy * cube_size };
+            if get_loc(&p, &loc) != Item::Nothing {
+                // This face exists in the flat representation
+                // The location in the 3D representation is not yet known
+                faces.push(Face {
+                    loc_2d: loc,
+                    loc_3d: Location3D { x: 0, y: 0, z: 0 },
+                    plane: Plane { dx: i8::MAX, dy: i8::MAX, dz: i8::MAX },
+                });
+            }
+        }
+    }
+
+    assert!(faces.len() == 6);
+
+    // Face 0 is an XY plane with Z = 0
+    faces.get_mut(0).unwrap().plane = Plane {
+        dx: 1, dy: 1, dz: 0,
+    };
+
+    // Find other faces in 3D representation based on adjacency in the 2D representation
+    let mut unmapped: u8 = 5;
+    while unmapped > 0 {
+        let mut progress = false;
+        for a in 0 .. 6 {
+            // Find an unmapped face "fb" that's adjacent to "fa" in the 2D representation
+            let fa = *faces.get(a).unwrap();
+            if fa.plane.dx == i8::MAX {
+                continue; // fa not mapped yet
+            }
+
+            for b in 0 .. 6 {
+                let mut fb = *faces.get(b).unwrap();
+                if fb.plane.dx != i8::MAX {
+                    continue; // fb already mapped
+                }
+
+                if fa.loc_2d.y == fb.loc_2d.y {
+                    if fa.loc_2d.x + cube_size == fb.loc_2d.x {
+                        fb.plane = plane_transform(&fa.plane, Facing::East);
+                    } else if fa.loc_2d.x - cube_size == fb.loc_2d.x {
+                        fb.plane = plane_transform(&fa.plane, Facing::West);
+                    }
+                } else if fa.loc_2d.x == fb.loc_2d.x {
+                    if fa.loc_2d.y + cube_size == fb.loc_2d.y {
+                        fb.plane = plane_transform(&fa.plane, Facing::South);
+                    } else if fa.loc_2d.y - cube_size == fb.loc_2d.y {
+                        fb.plane = plane_transform(&fa.plane, Facing::North);
+                    }
+                }
+
+                if fb.plane.dx == i8::MAX {
+                    continue; // fb not mapped yet (was not adjacent)
+                }
+
+                //fb.loc_3d = loc_transform(&fa.loc_3d, &fa.plane, &fb.plane, cube_size);
+
+                println!("plane {} adjacent to {}", a, b);
+                *faces.get_mut(b).unwrap() = fb;
+                unmapped -= 1;
+                progress = true;
+            }
+        }
+        assert!(progress);
+    }
+
+    for b in 0 .. 6 {
+        let mut fb = *faces.get(b).unwrap();
+        println!("plane {} is at 2d x={} y={} plane dx={} dy={} dz={} at 3d x={} y={} z={}",
+                 b,
+                 fb.loc_2d.x, fb.loc_2d.y,
+                 fb.plane.dx, fb.plane.dy, fb.plane.dz,
+                 fb.loc_3d.x, fb.loc_3d.y, fb.loc_3d.z);
+    }
+    return 0;
+}
 #[test]
 fn test_part2() {
-    assert_eq!(part(&"test", false), 5031);
+    assert_eq!(part2(&"test"), 5031);
 }
 
 fn main() {
-    println!("{}", part(&"input", true));
-    println!("{}", part(&"input", false));
+    println!("{}", part1(&"input"));
+    println!("{}", part2(&"input"));
 }
