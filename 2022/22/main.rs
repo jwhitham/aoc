@@ -4,6 +4,7 @@ use std::io::{self, BufRead};
 use std::iter::FromIterator;
 use std::collections::HashMap;
 
+const DEBUG: bool = false;
 type Word = i16;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
@@ -114,6 +115,9 @@ fn parse_directions(p: &mut Problem, bytes: &Vec<u8>) {
             }
         }
     }
+    if number != 0 {
+        p.moves.push(Move::Forward(number));
+    }
 }
 
 fn rotate_left(facing: Facing) -> Facing {
@@ -188,6 +192,7 @@ fn part1(filename: &str) -> u64 {
 
     // follow directions
     let mut facing = Facing::East;
+    let mut trace: HashMap<Location, Facing> = HashMap::new();
 
     for d in &p.moves {
         match d {
@@ -201,11 +206,13 @@ fn part1(filename: &str) -> u64 {
             },
             Move::Forward(n) => {
                 for _ in 0 .. *n {
+                    trace.insert(loc, facing);
                     loc = move_forward_and_wrap(&p, loc, facing);
                 }
             },
         }
     }
+    trace.insert(loc, facing);
 
     // Where do we end up?
     let mut result = (1000 * (1 + (loc.y as u64))) + (4 * (1 + (loc.x as u64)));
@@ -214,6 +221,33 @@ fn part1(filename: &str) -> u64 {
         Facing::South => { result += 1; },
         Facing::West =>  { result += 2; },
         Facing::North => { result += 3; },
+    }
+
+    // Draw it
+    if DEBUG {
+        for y in 0 .. p.height {
+            for x in 0 .. p.width {
+                let loc = Location { x: x, y: y };
+                let t = trace.get(&loc);
+                let item = get_loc(&p, &loc);
+                if t.is_some() {
+                    assert!(item == Item::Open);
+                    match t.unwrap() {
+                        Facing::East =>  { print!(">"); },
+                        Facing::South => { print!("v"); },
+                        Facing::West =>  { print!("<"); },
+                        Facing::North => { print!("^"); },
+                    }
+                } else {
+                    match item {
+                        Item::Open =>    { print!("."); },
+                        Item::Wall =>    { print!("#"); },
+                        Item::Nothing => { print!(" "); },
+                    }
+                }
+            }
+            println!();
+        }
     }
     return result;
 }
