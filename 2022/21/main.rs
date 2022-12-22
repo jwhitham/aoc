@@ -149,7 +149,7 @@ fn print_expr(p: &Problem, sub_root: &String) {
     }
 }
 
-fn solve(p: &mut Problem, sub_root: &String, cache: &mut Cache,
+fn solve(p: &Problem, sub_root: &String, cache: &mut Cache,
          equals: Word) -> Word {
     if DEBUG {
         print_expr(p, sub_root);
@@ -161,7 +161,7 @@ fn solve(p: &mut Problem, sub_root: &String, cache: &mut Cache,
         assert_eq!(sub_root, HUMN);
         return equals;
     }
-    match rn.unwrap().clone() {
+    match rn.unwrap() {
         Node::Literal(_) => {
             // Must be a binary operation
             panic!();
@@ -223,27 +223,28 @@ fn solve(p: &mut Problem, sub_root: &String, cache: &mut Cache,
     }
 }
     
-fn part2(p: &mut Problem) -> Word {
-    p.remove(&HUMN.to_string());
-    match p.remove(&ROOT.to_string()).unwrap() {
+fn part2(p: &Problem) -> Word {
+    let mut copy: Problem = p.clone();
+    copy.remove(&HUMN.to_string());
+    match copy.remove(&ROOT.to_string()).unwrap() {
         Node::Literal(_) => {
             // Root must be a binary operation
             panic!();
         },
         Node::Binary(_, ma, mb) => {
             // Rewrite root as A - B so that we can solve A - B = 0
-            p.insert(ROOT.to_string(), Node::Binary(Op::Sub, ma, mb));
+            copy.insert(ROOT.to_string(), Node::Binary(Op::Sub, ma, mb));
         },
     }
-    return solve(p, &ROOT.to_string(), &mut Cache::new(), 0);
+    return solve(&copy, &ROOT.to_string(), &mut Cache::new(), 0);
 }
 
 #[test]
 fn test_part2() {
-    assert_eq!(part2(&mut load(&"test")), 301);
+    assert_eq!(part2(&load(&"test")), 301);
 }
 
 fn main() {
     println!("{}", part1(&load(&"input")));
-    println!("{}", part2(&mut load(&"input")));
+    println!("{}", part2(&load(&"input")));
 }
