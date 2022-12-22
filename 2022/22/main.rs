@@ -41,6 +41,7 @@ struct Problem {
     moves: Moves,
     width: Word,
     height: Word,
+    cube_size: Word,
 }
 
 
@@ -51,6 +52,7 @@ fn load(filename: &str) -> Problem {
         moves: Moves::new(),
         width: 0,
         height: 0,
+        cube_size: 0,
     };
     let mut y: Word = 0;
     for line in io::BufReader::new(file).lines() {
@@ -72,6 +74,10 @@ fn load(filename: &str) -> Problem {
         }
     }
     p.height = y;
+    assert!((p.width % 4) == 0);  // width divisible by 4
+    assert!((p.height % 3) == 0); // height divisible by 3
+    p.cube_size = p.width / 4;    // size of cube edge
+    assert!((p.height / 3) == p.cube_size);
     return p;
 }
 
@@ -144,7 +150,7 @@ fn get_loc(p: &Problem, loc: &Location) -> Item {
     return *p.world.get(&loc).unwrap_or(&Item::Nothing);
 }
 
-fn move_forward_and_wrap(p: &Problem, loc: Location, facing: Facing) -> Location {
+fn move_forward_and_wrap_part1(p: &Problem, loc: Location, facing: Facing) -> Location {
     let mut loc2 = move_forward(loc, facing);
     if get_loc(p, &loc2) == Item::Nothing {
         // step into nothingness - wrap around
@@ -174,8 +180,11 @@ fn move_forward_and_wrap(p: &Problem, loc: Location, facing: Facing) -> Location
     }
 }
 
+fn move_forward_and_wrap_part2(p: &Problem, loc: Location, facing: Facing) -> (Location, Facing) {
+    return (move_forward_and_wrap_part1(p, loc, facing), facing);
+}
 
-fn part1(filename: &str) -> u64 {
+fn part(filename: &str, part1: bool) -> u64 {
     let p = load(filename);
     let mut loc = Location { x: 0, y: 0 };
 
@@ -207,7 +216,11 @@ fn part1(filename: &str) -> u64 {
             Move::Forward(n) => {
                 for _ in 0 .. *n {
                     trace.insert(loc, facing);
-                    loc = move_forward_and_wrap(&p, loc, facing);
+                    if part1 {
+                        loc = move_forward_and_wrap_part1(&p, loc, facing);
+                    } else {
+                        (loc, facing) = move_forward_and_wrap_part2(&p, loc, facing);
+                    }
                 }
             },
         }
@@ -254,9 +267,15 @@ fn part1(filename: &str) -> u64 {
 
 #[test]
 fn test_part1() {
-    assert_eq!(part1(&"test"), 6032);
+    assert_eq!(part(&"test", true), 6032);
+}
+
+#[test]
+fn test_part2() {
+    assert_eq!(part(&"test", false), 5031);
 }
 
 fn main() {
-    println!("{}", part1(&"input"));
+    println!("{}", part(&"input", true));
+    println!("{}", part(&"input", false));
 }
