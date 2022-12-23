@@ -286,17 +286,25 @@ fn is_valid_vector(v: &Vector) -> bool {
         || ((i8::abs(v.dz) == 1) && (v.dx == 0) && (v.dy == 0));
 }
 
+fn negative(v: &Vector) -> Vector {
+    return Vector { dx: -v.dx, dy: -v.dy, dz: -v.dz };
+}
+
 fn rotate_axis(to_rotate: &Vector, around: &Vector) -> Vector {
     assert!(is_valid_vector(to_rotate));
     assert!(is_valid_vector(around));
-    if around.dx != 0 {
+    if around.dx > 0 {
         return Vector { dx: to_rotate.dx, dy: -to_rotate.dz, dz: to_rotate.dy };
-    } else if around.dy != 0 {
+    } else if around.dy > 0 {
         return Vector { dy: to_rotate.dy, dz: to_rotate.dx, dx: -to_rotate.dz };
-    } else if around.dz != 0 {
+    } else if around.dz > 0 {
         return Vector { dz: to_rotate.dz, dy: to_rotate.dx, dx: -to_rotate.dy };
     } else {
-        panic!();
+        let mut copy: Vector = *to_rotate;
+        for i in 0 .. 3 {
+            copy = rotate_axis(&copy, &negative(around));
+        }
+        return copy;
     }
 }
 
@@ -331,12 +339,15 @@ fn part2(filename: &str) -> u64 {
 
     assert!(faces.len() == 6);
 
-    // Face 0 is an XY plane with Z = 0
+    // Face 0 represents the top of the cube
     faces.get_mut(0).unwrap().vec_x = Vector {
         dx: 1, dy: 0, dz: 0,
     };
     faces.get_mut(0).unwrap().vec_y = Vector {
         dx: 0, dy: 1, dz: 0,
+    };
+    faces.get_mut(0).unwrap().loc_3d = Location3D {
+        x: 0, y: 0, z: cube_size + 1,
     };
 
     // Find other faces in 3D representation based on adjacency in the 2D representation
@@ -366,42 +377,48 @@ fn part2(filename: &str) -> u64 {
                     // Same Y location in 2D plane
                     if fa.loc_2d.x + cube_size == fb.loc_2d.x {
                         // Right side (X dimension)
-                        fb.vec_x = rotate_axis(&fb.vec_x, &fb.vec_y);
+                        fb.vec_x = rotate_axis(&fb.vec_x, &negative(&fb.vec_y));
+                        fb.loc_3d = Location3D {
+                            x: fa.loc_3d.x + ((fa.vec_x.dx as Word) * (cube_size + 1)),
+                            y: fa.loc_3d.y + ((fa.vec_x.dy as Word) * (cube_size + 1)),
+                            z: fa.loc_3d.z + ((fa.vec_x.dz as Word) * (cube_size + 1)),
+                        };
                         println!("r");
                     } else if fa.loc_2d.x - cube_size == fb.loc_2d.x {
                         // Left side (X dimension)
-                        for _ in 0 .. 3 {
-                            fb.vec_x = rotate_axis(&fb.vec_x, &fb.vec_y);
-                        }
+                        fb.vec_x = rotate_axis(&fb.vec_x, &negative(&fb.vec_y));
+                        fb.loc_3d = Location3D {
+                            x: fa.loc_3d.x - ((fb.vec_x.dx as Word) * (cube_size + 1)),
+                            y: fa.loc_3d.y - ((fb.vec_x.dy as Word) * (cube_size + 1)),
+                            z: fa.loc_3d.z - ((fb.vec_x.dz as Word) * (cube_size + 1)),
+                        };
                         println!("l");
                     } else {
                         continue;
                     }
-                    fb.loc_3d = Location3D {
-                        x: fa.loc_3d.x + ((fa.vec_x.dx as Word) * (cube_size + 1)),
-                        y: fa.loc_3d.y + ((fa.vec_x.dy as Word) * (cube_size + 1)),
-                        z: fa.loc_3d.z + ((fa.vec_x.dz as Word) * (cube_size + 1)),
-                    };
                 } else if fa.loc_2d.x == fb.loc_2d.x {
                     // Same X location in 2D plane
                     if fa.loc_2d.y + cube_size == fb.loc_2d.y {
                         // Bottom side (Y dimension)
-                        fb.vec_y = rotate_axis(&fb.vec_y, &fb.vec_x);
+                        fb.vec_y = rotate_axis(&fb.vec_y, &negative(&fb.vec_x));
+                        fb.loc_3d = Location3D {
+                            x: fa.loc_3d.x + ((fa.vec_y.dx as Word) * (cube_size + 1)),
+                            y: fa.loc_3d.y + ((fa.vec_y.dy as Word) * (cube_size + 1)),
+                            z: fa.loc_3d.z + ((fa.vec_y.dz as Word) * (cube_size + 1)),
+                        };
                         println!("b");
                     } else if fa.loc_2d.y - cube_size == fb.loc_2d.y {
                         // Top side (X dimension)
-                        for _ in 0 .. 3 {
-                            fb.vec_y = rotate_axis(&fb.vec_y, &fb.vec_x);
-                        }
+                        fb.vec_y = rotate_axis(&fb.vec_y, &negative(&fb.vec_x));
+                        fb.loc_3d = Location3D {
+                            x: fa.loc_3d.x - ((fb.vec_y.dx as Word) * (cube_size + 1)),
+                            y: fa.loc_3d.y - ((fb.vec_y.dy as Word) * (cube_size + 1)),
+                            z: fa.loc_3d.z - ((fb.vec_y.dz as Word) * (cube_size + 1)),
+                        };
                         println!("t");
                     } else {
                         continue;
                     }
-                    fb.loc_3d = Location3D {
-                        x: fa.loc_3d.x + ((fa.vec_y.dx as Word) * (cube_size + 1)),
-                        y: fa.loc_3d.y + ((fa.vec_y.dy as Word) * (cube_size + 1)),
-                        z: fa.loc_3d.z + ((fa.vec_y.dz as Word) * (cube_size + 1)),
-                    };
                 } else {
                     continue;
                 }
@@ -449,6 +466,7 @@ fn part2(filename: &str) -> u64 {
                                    + ((fa.vec_y.dz as Word) * (y + 1)),
                 };
                 println!("3d location for {} x={} y={} z={}", a, loc_3d.x, loc_3d.y, loc_3d.z);
+                //assert!(!voxel.contains_key(&loc_3d));
                 voxel.insert(loc_3d, a);
             }
         }
