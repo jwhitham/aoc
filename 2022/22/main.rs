@@ -4,7 +4,7 @@ use std::io::{self, BufRead};
 use std::iter::FromIterator;
 use std::collections::HashMap;
 
-const DEBUG: bool = true;
+const DEBUG: bool = false;
 type Word = i16;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
@@ -265,24 +265,33 @@ struct Location3D {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
-struct Vector {
+struct Vector3D {
     dx: i8,
     dy: i8,
     dz: i8,
 }
 
+const VALID_VECTORS: [Vector3D; 6] = [
+    Vector3D { dx: -1, dy: 0, dz: 0 },
+    Vector3D { dx:  1, dy: 0, dz: 0 },
+    Vector3D { dy: -1, dx: 0, dz: 0 },
+    Vector3D { dy:  1, dx: 0, dz: 0 },
+    Vector3D { dz: -1, dx: 0, dy: 0 },
+    Vector3D { dz:  1, dx: 0, dy: 0 },
+];
+
 #[derive(Eq, PartialEq, Copy, Clone)]
 struct Face {
-    loc_2d: Location,
-    loc_3d: Location3D,
-    vec_x: Vector,
-    vec_y: Vector,
+    loc_2d: Location,       // top left element in the 2D representation
+    loc_3d: Location3D,     // also the top left element 2D representation
+    vec_x: Vector3D,        // 3D vector for rightward movement in 2D representation
+    vec_y: Vector3D,        // 3D vector for downward movement in 2D representation
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 struct Voxel {
-    face: usize,
-    loc_2d: Location,
+    face: usize,            // 0..5 (cube face 0 is the top)
+    loc_2d: Location,       // 2D location for this voxel
     item: Item,
 }
 
@@ -292,7 +301,7 @@ fn move_forward_part_2(voxels: &World3D, faces: &Vec<Face>,
                        loc: &mut Location3D, facing: &mut Facing) {
     let v1 = voxels.get(loc).unwrap();
     let f1 = faces.get(v1.face).unwrap();
-    let fv: Vector = match facing {
+    let fv: Vector3D = match facing {
         Facing::Right => f1.vec_x,
         Facing::Down =>  f1.vec_y,
         Facing::Left =>  negative(&f1.vec_x),
@@ -304,17 +313,9 @@ fn move_forward_part_2(voxels: &World3D, faces: &Vec<Face>,
 
     if !voxels.contains_key(&loc2) {
         // Moved to a new face - but which one?
-        let new_facing: [Vector; 6] = [
-            Vector { dx: -1, dy: 0, dz: 0 },
-            Vector { dx:  1, dy: 0, dz: 0 },
-            Vector { dy: -1, dx: 0, dz: 0 },
-            Vector { dy:  1, dx: 0, dz: 0 },
-            Vector { dz: -1, dx: 0, dy: 0 },
-            Vector { dz:  1, dx: 0, dy: 0 },
-        ];
         let mut found: bool = false;
         let mut loc4 = loc2;
-        for nf in new_facing {
+        for nf in VALID_VECTORS {
             let loc3 = add_vector(&loc2, &nf, 1);
             let v2 = voxels.get(&loc3);
             if v2.is_some() && (v2.unwrap().face != v1.face) {
@@ -348,35 +349,54 @@ fn move_forward_part_2(voxels: &World3D, faces: &Vec<Face>,
     }
 }
 
-fn is_valid_vector(v: &Vector) -> bool {
+fn is_valid_vector(v: &Vector3D) -> bool {
     return ((i8::abs(v.dx) == 1) && (v.dy == 0) && (v.dz == 0))
         || ((i8::abs(v.dy) == 1) && (v.dx == 0) && (v.dz == 0))
         || ((i8::abs(v.dz) == 1) && (v.dx == 0) && (v.dy == 0));
 }
 
-fn negative(v: &Vector) -> Vector {
-    return Vector { dx: -v.dx, dy: -v.dy, dz: -v.dz };
+fn negative(v: &Vector3D) -> Vector3D {
+    return Vector3D { dx: -v.dx, dy: -v.dy, dz: -v.dz };
 }
 
-fn rotate_axis(to_rotate: &Vector, around: &Vector) -> Vector {
+fn rotate_axis(to_rotate: &Vector3D, around: &Vector3D) -> Vector3D {
     assert!(is_valid_vector(to_rotate));
     assert!(is_valid_vector(around));
-    if around.dx > 0 {
-        return Vector { dx: to_rotate.dx, dy: -to_rotate.dz, dz: to_rotate.dy };
-    } else if around.dy > 0 {
-        return Vector { dy: to_rotate.dy, dz: to_rotate.dx, dx: -to_rotate.dz };
-    } else if around.dz > 0 {
-        return Vector { dz: to_rotate.dz, dy: to_rotate.dx, dx: -to_rotate.dy };
+    if around.dx != 0 {
+        return Vector3D { dx: to_rotate.dx, dy: -to_rotate.dz, dz: to_rotate.dy };
+    } else if around.dy != 0 {
+        return Vector3D { dy: to_rotate.dy, dz: to_rotate.dx, dx: -to_rotate.dz };
+    } else if around.dz != 0 {
+        return Vector3D { dz: to_rotate.dz, dy: to_rotate.dx, dx: -to_rotate.dy };
     } else {
-        let mut copy = *to_rotate;
-        for _ in 0 .. 3 {
-            copy = rotate_axis(&copy, &negative(&around));
-        }
-        return copy;
+        panic!();
     }
 }
 
-fn add_vector(l: &Location3D, v: &Vector, scale: Word) -> Location3D {
+fn rotate_axis_into_cube(to_rotate: &Vector3D, around: &Vector3D,
+                         start_for_test: &Location3D, scale_for_test: Word,
+                         cube_size: Word) -> Vector3D {
+    let mut v: Vector3D = *to_rotate;
+    let mut accept: Vector3D = *to_rotate;
+    let mut found: bool = false;
+    for _ in 0 .. 2 {
+        v = rotate_axis(&v, around);
+        let test = add_vector(start_for_test, &v, (cube_size + 1) * scale_for_test);
+        if (test.x >= 0) && (test.y >= 0) && (test.z >= 0)
+        && (test.x <= (cube_size + 1))
+        && (test.y <= (cube_size + 1))
+        && (test.z <= (cube_size + 1)) {
+            assert!(!found);
+            found = true;
+            accept = v;
+        }
+        v = rotate_axis(&v, around);
+    }
+    assert!(found);
+    return accept;
+}
+
+fn add_vector(l: &Location3D, v: &Vector3D, scale: Word) -> Location3D {
     return Location3D {
         x: l.x + ((v.dx as Word) * scale),
         y: l.y + ((v.dy as Word) * scale),
@@ -406,8 +426,8 @@ fn part2(filename: &str) -> u64 {
                 faces.push(Face {
                     loc_2d: loc,
                     loc_3d: Location3D { x: 0, y: 0, z: 0 },
-                    vec_x: Vector { dx: i8::MAX, dy: i8::MAX, dz: i8::MAX },
-                    vec_y: Vector { dx: i8::MAX, dy: i8::MAX, dz: i8::MAX },
+                    vec_x: Vector3D { dx: i8::MAX, dy: i8::MAX, dz: i8::MAX },
+                    vec_y: Vector3D { dx: i8::MAX, dy: i8::MAX, dz: i8::MAX },
                 });
             }
         }
@@ -416,10 +436,10 @@ fn part2(filename: &str) -> u64 {
     assert!(faces.len() == 6);
 
     // Face 0 represents the top of the cube
-    faces.get_mut(0).unwrap().vec_x = Vector {
+    faces.get_mut(0).unwrap().vec_x = Vector3D {
         dx: 1, dy: 0, dz: 0,
     };
-    faces.get_mut(0).unwrap().vec_y = Vector {
+    faces.get_mut(0).unwrap().vec_y = Vector3D {
         dx: 0, dy: 1, dz: 0,
     };
     faces.get_mut(0).unwrap().loc_3d = Location3D {
@@ -453,18 +473,18 @@ fn part2(filename: &str) -> u64 {
                     // Same Y location in 2D plane
                     if fa.loc_2d.x + cube_size == fb.loc_2d.x {
                         // Right side (X dimension)
-                        fb.vec_x = rotate_axis(&fb.vec_x, &negative(&fb.vec_y));
-                        fb.loc_3d = add_vector(&fa.loc_3d, &fa.vec_x, cube_size + 1);
                         if DEBUG {
                             println!("new side is right");
                         }
+                        fb.loc_3d = add_vector(&fa.loc_3d, &fa.vec_x, cube_size + 1);
+                        fb.vec_x = rotate_axis_into_cube(&fb.vec_x, &fb.vec_y, &fb.loc_3d, 1, cube_size);
                     } else if fa.loc_2d.x - cube_size == fb.loc_2d.x {
                         // Left side (X dimension)
-                        fb.vec_x = rotate_axis(&fb.vec_x, &negative(&fb.vec_y));
-                        fb.loc_3d = add_vector(&fa.loc_3d, &fb.vec_x, -(cube_size + 1));
                         if DEBUG {
                             println!("new side is left");
                         }
+                        fb.vec_x = rotate_axis_into_cube(&fb.vec_x, &fb.vec_y, &fa.loc_3d, -1, cube_size);
+                        fb.loc_3d = add_vector(&fa.loc_3d, &fb.vec_x, -(cube_size + 1));
                     } else {
                         continue;
                     }
@@ -472,19 +492,19 @@ fn part2(filename: &str) -> u64 {
                     // Same X location in 2D plane
                     if fa.loc_2d.y + cube_size == fb.loc_2d.y {
                         // Bottom side (Y dimension)
-                        fb.vec_y = rotate_axis(&fb.vec_y, &negative(&fb.vec_x));
-                        fb.loc_3d = add_vector(&fa.loc_3d, &fa.vec_y, cube_size + 1);
                         if DEBUG {
                             println!("new side is below");
                         }
+                        fb.loc_3d = add_vector(&fa.loc_3d, &fa.vec_y, cube_size + 1);
+                        fb.vec_y = rotate_axis_into_cube(&fb.vec_y, &fb.vec_x, &fb.loc_3d, 1, cube_size);
                     } else if fa.loc_2d.y - cube_size == fb.loc_2d.y {
                         // Top side (X dimension)
-                        fb.vec_y = rotate_axis(&fb.vec_y, &negative(&fb.vec_x));
-                        fb.loc_3d = add_vector(&fa.loc_3d, &fb.vec_y, -(cube_size + 1));
                         // NOTE: Not seen in the test data or the input problem (not tested)
                         if DEBUG {
                             println!("new side is above");
                         }
+                        fb.vec_y = rotate_axis_into_cube(&fb.vec_y, &fb.vec_x, &fa.loc_3d, -1, cube_size);
+                        fb.loc_3d = add_vector(&fa.loc_3d, &fb.vec_y, -(cube_size + 1));
                     } else {
                         continue;
                     }
