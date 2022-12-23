@@ -258,7 +258,7 @@ fn test_part1() {
     assert_eq!(part1(&"test"), 6032);
 }
 
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Copy, Clone)]
 struct Location3D {
     x: Word,
     y: Word,
@@ -266,7 +266,7 @@ struct Location3D {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
-struct Plane {
+struct Vector {
     dx: i8,
     dy: i8,
     dz: i8,
@@ -276,58 +276,27 @@ struct Plane {
 struct Face {
     loc_2d: Location,
     loc_3d: Location3D,
-    plane: Plane,
+    vec_x: Vector,
+    vec_y: Vector,
 }
 
-fn plane_transform_east_or_south(p: &Plane, east: bool) -> Plane {
-    if p.dz == 0 {
-        // This is an XY plane
-        if east {
-            return Plane { dz: p.dx, dy: p.dy, dx: 0 };
-        } else {
-            return Plane { dx: p.dx, dz: p.dy, dy: 0 };
-        }
-    } else if p.dy == 0 {
-        // This is an XZ plane
-        if east {
-            return Plane { dz: p.dz, dy: -p.dx, dx: 0 };
-        } else {
-            return Plane { dy: -p.dz, dx: p.dx, dz: 0 };
-        }
-    } else if p.dx == 0 {
-        // This is a YZ plane
-        if east {
-            return Plane { dx: -p.dz, dy: p.dy, dz: 0 };
-        } else {
-            return Plane { dz: p.dz, dx: -p.dy, dy: 0 };
-        }
+fn is_valid_vector(v: &Vector) -> bool {
+    return ((i8::abs(v.dx) == 1) && (v.dy == 0) && (v.dz == 0))
+        || ((i8::abs(v.dy) == 1) && (v.dx == 0) && (v.dz == 0))
+        || ((i8::abs(v.dz) == 1) && (v.dx == 0) && (v.dy == 0));
+}
+
+fn rotate_axis(to_rotate: &Vector, around: &Vector) -> Vector {
+    assert!(is_valid_vector(to_rotate));
+    assert!(is_valid_vector(around));
+    if around.dx != 0 {
+        return Vector { dx: to_rotate.dx, dy: -to_rotate.dz, dz: to_rotate.dy };
+    } else if around.dy != 0 {
+        return Vector { dy: to_rotate.dy, dz: to_rotate.dx, dx: -to_rotate.dz };
+    } else if around.dz != 0 {
+        return Vector { dz: to_rotate.dz, dy: to_rotate.dx, dx: -to_rotate.dy };
     } else {
         panic!();
-    }
-}
-
-fn plane_transform(p: &Plane, dir: Facing) -> Plane {
-    match dir {
-        Facing::East => {
-            return plane_transform_east_or_south(p, true);
-        },
-        Facing::South => {
-            return plane_transform_east_or_south(p, false);
-        },
-        Facing::West => {
-            let mut p2 = *p;
-            for _ in 0 .. 3 {
-                p2 = plane_transform_east_or_south(&p2, true);
-            }
-            return p2;
-        },
-        Facing::North => {
-            let mut p2 = *p;
-            for _ in 0 .. 3 {
-                p2 = plane_transform_east_or_south(&p2, false);
-            }
-            return p2;
-        },
     }
 }
 
@@ -353,7 +322,8 @@ fn part2(filename: &str) -> u64 {
                 faces.push(Face {
                     loc_2d: loc,
                     loc_3d: Location3D { x: 0, y: 0, z: 0 },
-                    plane: Plane { dx: i8::MAX, dy: i8::MAX, dz: i8::MAX },
+                    vec_x: Vector { dx: i8::MAX, dy: i8::MAX, dz: i8::MAX },
+                    vec_y: Vector { dx: i8::MAX, dy: i8::MAX, dz: i8::MAX },
                 });
             }
         }
@@ -362,8 +332,11 @@ fn part2(filename: &str) -> u64 {
     assert!(faces.len() == 6);
 
     // Face 0 is an XY plane with Z = 0
-    faces.get_mut(0).unwrap().plane = Plane {
-        dx: 1, dy: 1, dz: 0,
+    faces.get_mut(0).unwrap().vec_x = Vector {
+        dx: 1, dy: 0, dz: 0,
+    };
+    faces.get_mut(0).unwrap().vec_y = Vector {
+        dx: 0, dy: 1, dz: 0,
     };
 
     // Find other faces in 3D representation based on adjacency in the 2D representation
@@ -373,37 +346,77 @@ fn part2(filename: &str) -> u64 {
         for a in 0 .. 6 {
             // Find an unmapped face "fb" that's adjacent to "fa" in the 2D representation
             let fa = *faces.get(a).unwrap();
-            if fa.plane.dx == i8::MAX {
+            if fa.vec_x.dx == i8::MAX {
                 continue; // fa not mapped yet
             }
 
             for b in 0 .. 6 {
                 let mut fb = *faces.get(b).unwrap();
-                if fb.plane.dx != i8::MAX {
+                if fb.vec_x.dx != i8::MAX {
                     continue; // fb already mapped
                 }
 
+                fb.vec_x = fa.vec_x;
+                fb.vec_y = fa.vec_y;
+                fb.loc_3d = fa.loc_3d;
+                assert!(is_valid_vector(&fa.vec_x));
+                assert!(is_valid_vector(&fa.vec_y));
+
                 if fa.loc_2d.y == fb.loc_2d.y {
+                    // Same Y location in 2D plane
                     if fa.loc_2d.x + cube_size == fb.loc_2d.x {
-                        fb.plane = plane_transform(&fa.plane, Facing::East);
+                        // Right side (X dimension)
+                        fb.vec_x = rotate_axis(&fb.vec_x, &fb.vec_y);
+                        println!("r");
                     } else if fa.loc_2d.x - cube_size == fb.loc_2d.x {
-                        fb.plane = plane_transform(&fa.plane, Facing::West);
+                        // Left side (X dimension)
+                        for _ in 0 .. 3 {
+                            fb.vec_x = rotate_axis(&fb.vec_x, &fb.vec_y);
+                        }
+                        println!("l");
+                    } else {
+                        continue;
                     }
+                    fb.loc_3d = Location3D {
+                        x: fa.loc_3d.x + ((fa.vec_x.dx as Word) * (cube_size + 1)),
+                        y: fa.loc_3d.y + ((fa.vec_x.dy as Word) * (cube_size + 1)),
+                        z: fa.loc_3d.z + ((fa.vec_x.dz as Word) * (cube_size + 1)),
+                    };
                 } else if fa.loc_2d.x == fb.loc_2d.x {
+                    // Same X location in 2D plane
                     if fa.loc_2d.y + cube_size == fb.loc_2d.y {
-                        fb.plane = plane_transform(&fa.plane, Facing::South);
+                        // Bottom side (Y dimension)
+                        fb.vec_y = rotate_axis(&fb.vec_y, &fb.vec_x);
+                        println!("b");
                     } else if fa.loc_2d.y - cube_size == fb.loc_2d.y {
-                        fb.plane = plane_transform(&fa.plane, Facing::North);
+                        // Top side (X dimension)
+                        for _ in 0 .. 3 {
+                            fb.vec_y = rotate_axis(&fb.vec_y, &fb.vec_x);
+                        }
+                        println!("t");
+                    } else {
+                        continue;
                     }
+                    fb.loc_3d = Location3D {
+                        x: fa.loc_3d.x + ((fa.vec_y.dx as Word) * (cube_size + 1)),
+                        y: fa.loc_3d.y + ((fa.vec_y.dy as Word) * (cube_size + 1)),
+                        z: fa.loc_3d.z + ((fa.vec_y.dz as Word) * (cube_size + 1)),
+                    };
+                } else {
+                    continue;
                 }
 
-                if fb.plane.dx == i8::MAX {
-                    continue; // fb not mapped yet (was not adjacent)
-                }
+                println!("plane {} (adjacent to {}) is at 2d x={} y={}",
+                         b, a, fb.loc_2d.x, fb.loc_2d.y);
+                println!("    x in the 2D plane dx={} dy={} dz={}",
+                         fb.vec_x.dx, fb.vec_x.dy, fb.vec_x.dz);
+                println!("    y in the 2D plane dx={} dy={} dz={}",
+                         fb.vec_y.dx, fb.vec_y.dy, fb.vec_y.dz);
+                println!("    3d x={} y={} z={}",
+                         fb.loc_3d.x, fb.loc_3d.y, fb.loc_3d.z);
 
-                //fb.loc_3d = loc_transform(&fa.loc_3d, &fa.plane, &fb.plane, cube_size);
-
-                println!("plane {} adjacent to {}", a, b);
+                assert!(is_valid_vector(&fb.vec_x));
+                assert!(is_valid_vector(&fb.vec_y));
                 *faces.get_mut(b).unwrap() = fb;
                 unmapped -= 1;
                 progress = true;
@@ -412,14 +425,59 @@ fn part2(filename: &str) -> u64 {
         assert!(progress);
     }
 
-    for b in 0 .. 6 {
-        let mut fb = *faces.get(b).unwrap();
-        println!("plane {} is at 2d x={} y={} plane dx={} dy={} dz={} at 3d x={} y={} z={}",
-                 b,
-                 fb.loc_2d.x, fb.loc_2d.y,
-                 fb.plane.dx, fb.plane.dy, fb.plane.dz,
-                 fb.loc_3d.x, fb.loc_3d.y, fb.loc_3d.z);
+    // Generate voxel map
+    let mut voxel: HashMap<Location3D, usize> = HashMap::new();
+    for a in 0 .. 6 {
+        let fa = faces.get(a).unwrap();
+        assert!(is_valid_vector(&fa.vec_x));
+        assert!(is_valid_vector(&fa.vec_y));
+        for y in 0 .. cube_size {
+            for x in 0 .. cube_size {
+                let loc_2d = Location {
+                    x: fa.loc_2d.x + x,
+                    y: fa.loc_2d.y + y,
+                };
+                let item = get_loc(&p, &loc_2d);
+                assert!(item != Item::Nothing);
+
+                let loc_3d = Location3D {
+                    x: fa.loc_3d.x + ((fa.vec_x.dx as Word) * (x + 1))
+                                   + ((fa.vec_y.dx as Word) * (y + 1)),
+                    y: fa.loc_3d.y + ((fa.vec_x.dy as Word) * (x + 1))
+                                   + ((fa.vec_y.dy as Word) * (y + 1)),
+                    z: fa.loc_3d.z + ((fa.vec_x.dz as Word) * (x + 1))
+                                   + ((fa.vec_y.dz as Word) * (y + 1)),
+                };
+                println!("3d location for {} x={} y={} z={}", a, loc_3d.x, loc_3d.y, loc_3d.z);
+                voxel.insert(loc_3d, a);
+            }
+        }
     }
+
+    // Draw voxel map
+    for z in 0 .. cube_size + 3 {
+        println!();
+        println!("-------------- z = {}", z);
+        for y in 0 .. cube_size + 3 {
+            for x in 0 .. cube_size + 3 {
+                let item = *voxel.get(&Location3D { x: x, y: y, z: z, })
+                                 .unwrap_or(&9);
+                if item != 9 {
+                    print!("{}", item);
+                } else {
+                    print!(" ");
+                }
+                /*
+                match item {
+                    Item::Open =>    { print!("."); },
+                    Item::Wall =>    { print!("#"); },
+                    Item::Nothing => { print!(" "); },
+                }*/
+            }
+            println!();
+        }
+    }
+
     return 0;
 }
 #[test]
@@ -429,5 +487,5 @@ fn test_part2() {
 
 fn main() {
     println!("{}", part1(&"input"));
-    println!("{}", part2(&"input"));
+    println!("{}", part2(&"test"));
 }
