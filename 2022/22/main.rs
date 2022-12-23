@@ -34,6 +34,7 @@ enum Facing {
 
 
 type World = HashMap<Location, Item>;
+type Trace = HashMap<Location, Facing>;
 type Moves = Vec<Move>;
 
 struct Problem {
@@ -41,7 +42,6 @@ struct Problem {
     moves: Moves,
     width: Word,
     height: Word,
-    cube_size: Word,
 }
 
 
@@ -52,7 +52,6 @@ fn load(filename: &str) -> Problem {
         moves: Moves::new(),
         width: 0,
         height: 0,
-        cube_size: 0,
     };
     let mut y: Word = 0;
     for line in io::BufReader::new(file).lines() {
@@ -193,7 +192,7 @@ fn part1(filename: &str) -> u64 {
 
     // follow directions
     let mut facing = Facing::Right;
-    let mut trace: HashMap<Location, Facing> = HashMap::new();
+    let mut trace: Trace = HashMap::new();
 
     for d in &p.moves {
         match d {
@@ -285,6 +284,76 @@ struct Voxel {
     face: usize,
     loc_2d: Location,
     item: Item,
+}
+
+type World3D = HashMap<Location3D, Voxel>;
+
+fn move_forward_part_2(voxels: &World3D, faces: &Vec<Face>,
+                       loc: &mut Location3D, facing: &mut Facing) {
+    let v1 = voxels.get(loc).unwrap();
+    let f1 = faces.get(v1.face).unwrap();
+    let fv: Vector = match facing {
+        Facing::Right => f1.vec_x,
+        Facing::Down =>  f1.vec_y,
+        Facing::Left =>  negative(&f1.vec_x),
+        Facing::Up =>    negative(&f1.vec_y),
+    };
+
+    let mut loc2 = Location3D {
+        x: loc.x + (fv.dx as Word),
+        y: loc.y + (fv.dy as Word),
+        z: loc.z + (fv.dz as Word),
+    };
+    let mut facing2: Facing = *facing;
+
+    if !voxels.contains_key(&loc2) {
+        // Moved to a new face - but which one?
+        let new_facing: [Vector; 6] = [
+            Vector { dx: -1, dy: 0, dz: 0 },
+            Vector { dx:  1, dy: 0, dz: 0 },
+            Vector { dy: -1, dx: 0, dz: 0 },
+            Vector { dy:  1, dx: 0, dz: 0 },
+            Vector { dz: -1, dx: 0, dy: 0 },
+            Vector { dz:  1, dx: 0, dy: 0 },
+        ];
+        let mut found: bool = false;
+        let mut loc4 = loc2;
+        for nf in new_facing {
+            let loc3 = Location3D {
+                x: loc2.x + (nf.dx as Word),
+                y: loc2.y + (nf.dy as Word),
+                z: loc2.z + (nf.dz as Word),
+            };
+            let v2 = voxels.get(&loc3);
+            if v2.is_some() && (v2.unwrap().face != v1.face) {
+                assert!(!found);
+                found = true;
+                // New location
+                loc4 = loc3;
+
+                // Compute the new facing
+                let f2 = faces.get(v2.unwrap().face).unwrap();
+                if nf == f2.vec_x {
+                    facing2 = Facing::Right;
+                } else if nf == f2.vec_y {
+                    facing2 = Facing::Down;
+                } else if nf == negative(&f2.vec_x) {
+                    facing2 = Facing::Left;
+                } else if nf == negative(&f2.vec_y) {
+                    facing2 = Facing::Up;
+                } else {
+                    panic!();
+                }
+            }
+        }
+        loc2 = loc4;
+        assert!(found);
+    }
+    // Accept move if the new space is open
+    if voxels.get(&loc2).unwrap().item == Item::Open {
+        *loc = loc2;
+        *facing = facing2;
+    }
 }
 
 fn is_valid_vector(v: &Vector) -> bool {
@@ -448,7 +517,7 @@ fn part2(filename: &str) -> u64 {
     }
 
     // Generate voxel map
-    let mut voxel: HashMap<Location3D, Voxel> = HashMap::new();
+    let mut voxels: World3D = HashMap::new();
     for a in 0 .. 6 {
         let fa = faces.get(a).unwrap();
         assert!(is_valid_vector(&fa.vec_x));
@@ -474,14 +543,14 @@ fn part2(filename: &str) -> u64 {
                     println!("3d location for {} x={} y={} z={}",
                              a, loc_3d.x, loc_3d.y, loc_3d.z);
                 }
-                assert!(!voxel.contains_key(&loc_3d));
+                assert!(!voxels.contains_key(&loc_3d));
                 assert!(loc_3d.x >= 0);
                 assert!(loc_3d.y >= 0);
                 assert!(loc_3d.z >= 0);
                 assert!(loc_3d.x <= (cube_size + 1));
                 assert!(loc_3d.y <= (cube_size + 1));
                 assert!(loc_3d.z <= (cube_size + 1));
-                voxel.insert(loc_3d, Voxel {
+                voxels.insert(loc_3d, Voxel {
                     face: a,
                     loc_2d: loc_2d,
                     item: item,
@@ -497,7 +566,7 @@ fn part2(filename: &str) -> u64 {
             println!("-------------- z = {}", z);
             for y in 0 .. cube_size + 2 {
                 for x in 0 .. cube_size + 2 {
-                    let v = voxel.get(&Location3D { x: x, y: y, z: z, });
+                    let v = voxels.get(&Location3D { x: x, y: y, z: z, });
                     if v.is_none() {
                         print!(" ");
                         continue;
@@ -514,61 +583,12 @@ fn part2(filename: &str) -> u64 {
     }
 
     // follow directions
-    let mut trace: HashMap<Location, Facing> = HashMap::new();
+    let mut trace: Trace = HashMap::new();
     let mut facing = Facing::Right;
     let mut loc = Location3D {
         x: 1, y: 1, z: cube_size + 1,
     };
 
-    let mut move_forward_part_2 = |facing: Facing| {
-        let dx: i8;
-        let dy: i8;
-        match facing {
-            Facing::Right => { dx = 1; dy = 0; },
-            Facing::Down =>  { dx = 0; dy = 1; },
-            Facing::Left =>  { dx = -1; dy = 0; },
-            Facing::Up =>    { dx = 0; dy = -1; },
-        }
-        let v1 = voxel.get(&loc).unwrap();
-        let f1 = faces.get(v1.face).unwrap();
-        let mut loc2 = Location3D {
-            x: loc.x + (((dx * f1.vec_x.dx) + (dy * f1.vec_y.dx)) as Word),
-            y: loc.y + (((dx * f1.vec_x.dy) + (dy * f1.vec_y.dy)) as Word),
-            z: loc.z + (((dx * f1.vec_x.dz) + (dy * f1.vec_y.dz)) as Word),
-        };
-        trace.insert(v1.loc_2d, facing);
-
-        if !voxel.contains_key(&loc2) {
-            // Moved to a new face - but which one?
-            let check: [Vector; 6] = [
-                Vector { dx: -1, dy: 0, dz: 0 },
-                Vector { dx:  1, dy: 0, dz: 0 },
-                Vector { dy: -1, dx: 0, dz: 0 },
-                Vector { dy:  1, dx: 0, dz: 0 },
-                Vector { dz: -1, dx: 0, dy: 0 },
-                Vector { dz:  1, dx: 0, dy: 0 },
-            ];
-            let mut found: Option<Location3D> = None;
-            for v in check {
-                let loc3 = Location3D {
-                    x: loc2.x + (v.dx as Word),
-                    y: loc2.y + (v.dy as Word),
-                    z: loc2.z + (v.dz as Word),
-                };
-                let v2 = voxel.get(&loc3);
-                if v2.is_some() && (v2.unwrap().face != v1.face) {
-                    assert!(found.is_none());
-                    found = Some(loc3);
-                }
-            }
-            assert!(found.is_some());
-            loc2 = found.unwrap();
-        }
-        // Detect wall
-        if voxel.get(&loc2).unwrap().item == Item::Open {
-            loc = loc2;
-        }
-    };
 
     for d in &p.moves {
         match d {
@@ -582,14 +602,16 @@ fn part2(filename: &str) -> u64 {
             },
             Move::Forward(n) => {
                 for _ in 0 .. *n {
-                    move_forward_part_2(facing);
+                    let v = voxels.get(&loc).unwrap();
+                    trace.insert(v.loc_2d, facing);
+                    move_forward_part_2(&voxels, &faces, &mut loc, &mut facing);
                 }
             },
         }
     }
 
     // Where do we end up?
-    let v = voxel.get(&loc).unwrap();
+    let v = voxels.get(&loc).unwrap();
     trace.insert(v.loc_2d, facing);
     let mut result = (1000 * (1 + (v.loc_2d.y as u64))) + (4 * (1 + (v.loc_2d.x as u64)));
     match facing {
@@ -599,7 +621,7 @@ fn part2(filename: &str) -> u64 {
         Facing::Up =>    { result += 3; },
     }
 
-    // Draw it
+    // Draw it in 2D
     if DEBUG {
         for y in 0 .. p.height {
             for x in 0 .. p.width {
@@ -635,5 +657,5 @@ fn test_part2() {
 
 fn main() {
     println!("{}", part1(&"input"));
-    println!("{}", part2(&"test"));
+    println!("{}", part2(&"input"));
 }
