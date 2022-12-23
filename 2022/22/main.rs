@@ -4,7 +4,7 @@ use std::io::{self, BufRead};
 use std::iter::FromIterator;
 use std::collections::HashMap;
 
-const DEBUG: bool = false;
+const DEBUG: bool = true;
 type Word = i16;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
@@ -280,6 +280,13 @@ struct Face {
     vec_y: Vector,
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
+struct Voxel {
+    face: usize,
+    loc_2d: Location,
+    item: Item,
+}
+
 fn is_valid_vector(v: &Vector) -> bool {
     return ((i8::abs(v.dx) == 1) && (v.dy == 0) && (v.dz == 0))
         || ((i8::abs(v.dy) == 1) && (v.dx == 0) && (v.dz == 0))
@@ -301,7 +308,7 @@ fn rotate_axis(to_rotate: &Vector, around: &Vector) -> Vector {
         return Vector { dz: to_rotate.dz, dy: to_rotate.dx, dx: -to_rotate.dy };
     } else {
         let mut copy: Vector = *to_rotate;
-        for i in 0 .. 3 {
+        for _ in 0 .. 3 {
             copy = rotate_axis(&copy, &negative(around));
         }
         return copy;
@@ -383,7 +390,6 @@ fn part2(filename: &str) -> u64 {
                             y: fa.loc_3d.y + ((fa.vec_x.dy as Word) * (cube_size + 1)),
                             z: fa.loc_3d.z + ((fa.vec_x.dz as Word) * (cube_size + 1)),
                         };
-                        println!("r");
                     } else if fa.loc_2d.x - cube_size == fb.loc_2d.x {
                         // Acw side (X dimension)
                         fb.vec_x = rotate_axis(&fb.vec_x, &negative(&fb.vec_y));
@@ -392,7 +398,6 @@ fn part2(filename: &str) -> u64 {
                             y: fa.loc_3d.y - ((fb.vec_x.dy as Word) * (cube_size + 1)),
                             z: fa.loc_3d.z - ((fb.vec_x.dz as Word) * (cube_size + 1)),
                         };
-                        println!("l");
                     } else {
                         continue;
                     }
@@ -406,7 +411,6 @@ fn part2(filename: &str) -> u64 {
                             y: fa.loc_3d.y + ((fa.vec_y.dy as Word) * (cube_size + 1)),
                             z: fa.loc_3d.z + ((fa.vec_y.dz as Word) * (cube_size + 1)),
                         };
-                        println!("b");
                     } else if fa.loc_2d.y - cube_size == fb.loc_2d.y {
                         // Top side (X dimension)
                         fb.vec_y = rotate_axis(&fb.vec_y, &negative(&fb.vec_x));
@@ -415,7 +419,6 @@ fn part2(filename: &str) -> u64 {
                             y: fa.loc_3d.y - ((fb.vec_y.dy as Word) * (cube_size + 1)),
                             z: fa.loc_3d.z - ((fb.vec_y.dz as Word) * (cube_size + 1)),
                         };
-                        println!("t");
                     } else {
                         continue;
                     }
@@ -423,14 +426,16 @@ fn part2(filename: &str) -> u64 {
                     continue;
                 }
 
-                println!("plane {} (adjacent to {}) is at 2d x={} y={}",
-                         b, a, fb.loc_2d.x, fb.loc_2d.y);
-                println!("    x in the 2D plane dx={} dy={} dz={}",
-                         fb.vec_x.dx, fb.vec_x.dy, fb.vec_x.dz);
-                println!("    y in the 2D plane dx={} dy={} dz={}",
-                         fb.vec_y.dx, fb.vec_y.dy, fb.vec_y.dz);
-                println!("    3d x={} y={} z={}",
-                         fb.loc_3d.x, fb.loc_3d.y, fb.loc_3d.z);
+                if DEBUG {
+                    println!("plane {} (adjacent to {}) is at 2d x={} y={}",
+                             b, a, fb.loc_2d.x, fb.loc_2d.y);
+                    println!("    x in the 2D plane dx={} dy={} dz={}",
+                             fb.vec_x.dx, fb.vec_x.dy, fb.vec_x.dz);
+                    println!("    y in the 2D plane dx={} dy={} dz={}",
+                             fb.vec_y.dx, fb.vec_y.dy, fb.vec_y.dz);
+                    println!("    3d x={} y={} z={}",
+                             fb.loc_3d.x, fb.loc_3d.y, fb.loc_3d.z);
+                }
 
                 assert!(is_valid_vector(&fb.vec_x));
                 assert!(is_valid_vector(&fb.vec_y));
@@ -443,7 +448,7 @@ fn part2(filename: &str) -> u64 {
     }
 
     // Generate voxel map
-    let mut voxel: HashMap<Location3D, Item> = HashMap::new();
+    let mut voxel: HashMap<Location3D, Voxel> = HashMap::new();
     for a in 0 .. 6 {
         let fa = faces.get(a).unwrap();
         assert!(is_valid_vector(&fa.vec_x));
@@ -465,7 +470,10 @@ fn part2(filename: &str) -> u64 {
                     z: fa.loc_3d.z + ((fa.vec_x.dz as Word) * (x + 1))
                                    + ((fa.vec_y.dz as Word) * (y + 1)),
                 };
-                println!("3d location for {} x={} y={} z={}", a, loc_3d.x, loc_3d.y, loc_3d.z);
+                if DEBUG {
+                    println!("3d location for {} x={} y={} z={}",
+                             a, loc_3d.x, loc_3d.y, loc_3d.z);
+                }
                 assert!(!voxel.contains_key(&loc_3d));
                 assert!(loc_3d.x >= 0);
                 assert!(loc_3d.y >= 0);
@@ -473,31 +481,152 @@ fn part2(filename: &str) -> u64 {
                 assert!(loc_3d.x <= (cube_size + 1));
                 assert!(loc_3d.y <= (cube_size + 1));
                 assert!(loc_3d.z <= (cube_size + 1));
-                voxel.insert(loc_3d, item);
+                voxel.insert(loc_3d, Voxel {
+                    face: a,
+                    loc_2d: loc_2d,
+                    item: item,
+                });
             }
         }
     }
 
     // Draw voxel map
-    for z in 0 .. cube_size + 2 {
-        println!();
-        println!("-------------- z = {}", z);
-        for y in 0 .. cube_size + 3 {
-            for x in 0 .. cube_size + 3 {
-                let item = *voxel.get(&Location3D { x: x, y: y, z: z, })
-                                 .unwrap_or(&Item::Nothing);
-                match item {
-                    Item::Open =>    { print!("."); },
-                    Item::Wall =>    { print!("#"); },
-                    Item::Nothing => { print!(" "); },
+    if DEBUG {
+        for z in 0 .. cube_size + 2 {
+            println!();
+            println!("-------------- z = {}", z);
+            for y in 0 .. cube_size + 2 {
+                for x in 0 .. cube_size + 2 {
+                    let v = voxel.get(&Location3D { x: x, y: y, z: z, });
+                    if v.is_none() {
+                        print!(" ");
+                        continue;
+                    }
+                    match v.unwrap().item {
+                        Item::Open =>    { print!("."); },
+                        Item::Wall =>    { print!("#"); },
+                        Item::Nothing => { print!(" "); },
+                    }
+                }
+                println!();
+            }
+        }
+    }
+
+    // follow directions
+    let mut trace: HashMap<Location, Facing> = HashMap::new();
+    let mut facing = Facing::Right;
+    let mut loc = Location3D {
+        x: 1, y: 1, z: cube_size + 1,
+    };
+
+    let mut move_forward_part_2 = |facing: Facing| {
+        let dx: i8;
+        let dy: i8;
+        match facing {
+            Facing::Right => { dx = 1; dy = 0; },
+            Facing::Down =>  { dx = 0; dy = 1; },
+            Facing::Left =>  { dx = -1; dy = 0; },
+            Facing::Up =>    { dx = 0; dy = -1; },
+        }
+        let v1 = voxel.get(&loc).unwrap();
+        let f1 = faces.get(v1.face).unwrap();
+        let mut loc2 = Location3D {
+            x: loc.x + (((dx * f1.vec_x.dx) + (dy * f1.vec_y.dx)) as Word),
+            y: loc.y + (((dx * f1.vec_x.dy) + (dy * f1.vec_y.dy)) as Word),
+            z: loc.z + (((dx * f1.vec_x.dz) + (dy * f1.vec_y.dz)) as Word),
+        };
+        trace.insert(v1.loc_2d, facing);
+
+        if !voxel.contains_key(&loc2) {
+            // Moved to a new face - but which one?
+            let check: [Vector; 6] = [
+                Vector { dx: -1, dy: 0, dz: 0 },
+                Vector { dx:  1, dy: 0, dz: 0 },
+                Vector { dy: -1, dx: 0, dz: 0 },
+                Vector { dy:  1, dx: 0, dz: 0 },
+                Vector { dz: -1, dx: 0, dy: 0 },
+                Vector { dz:  1, dx: 0, dy: 0 },
+            ];
+            let mut found: Option<Location3D> = None;
+            for v in check {
+                let loc3 = Location3D {
+                    x: loc2.x + (v.dx as Word),
+                    y: loc2.y + (v.dy as Word),
+                    z: loc2.z + (v.dz as Word),
+                };
+                let v2 = voxel.get(&loc3);
+                if v2.is_some() && (v2.unwrap().face != v1.face) {
+                    assert!(found.is_none());
+                    found = Some(loc3);
+                }
+            }
+            assert!(found.is_some());
+            loc2 = found.unwrap();
+        }
+        // Detect wall
+        if voxel.get(&loc2).unwrap().item == Item::Open {
+            loc = loc2;
+        }
+    };
+
+    for d in &p.moves {
+        match d {
+            Move::Acw => {
+                facing = rotate_acw(facing);
+            },
+            Move::Cw => {
+                for _ in 0 .. 3 {
+                    facing = rotate_acw(facing);
+                }
+            },
+            Move::Forward(n) => {
+                for _ in 0 .. *n {
+                    move_forward_part_2(facing);
+                }
+            },
+        }
+    }
+
+    // Where do we end up?
+    let v = voxel.get(&loc).unwrap();
+    trace.insert(v.loc_2d, facing);
+    let mut result = (1000 * (1 + (v.loc_2d.y as u64))) + (4 * (1 + (v.loc_2d.x as u64)));
+    match facing {
+        Facing::Right => { result += 0; },
+        Facing::Down =>  { result += 1; },
+        Facing::Left =>  { result += 2; },
+        Facing::Up =>    { result += 3; },
+    }
+
+    // Draw it
+    if DEBUG {
+        for y in 0 .. p.height {
+            for x in 0 .. p.width {
+                let loc = Location { x: x, y: y };
+                let t = trace.get(&loc);
+                let item = get_loc(&p, &loc);
+                if t.is_some() {
+                    assert!(item == Item::Open);
+                    match t.unwrap() {
+                        Facing::Right => { print!(">"); },
+                        Facing::Down =>  { print!("v"); },
+                        Facing::Left =>  { print!("<"); },
+                        Facing::Up =>    { print!("^"); },
+                    }
+                } else {
+                    match item {
+                        Item::Open =>    { print!("."); },
+                        Item::Wall =>    { print!("#"); },
+                        Item::Nothing => { print!(" "); },
+                    }
                 }
             }
             println!();
         }
     }
 
-    // follow directions
-    return 0;
+    return result;
 }
 #[test]
 fn test_part2() {
