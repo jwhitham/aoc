@@ -23,13 +23,13 @@ enum Item {
 #[derive(Eq, PartialEq, Copy, Clone)]
 enum Move {
     Forward(Word),
-    Left,
-    Right,
+    Acw,
+    Cw,
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 enum Facing {
-    North, South, East, West,
+    Up, Down, Right, Left,
 }
 
 
@@ -106,10 +106,10 @@ fn parse_directions(p: &mut Problem, bytes: &Vec<u8>) {
             }
             match b {
                 b'L' => {
-                    p.moves.push(Move::Left);
+                    p.moves.push(Move::Acw);
                 },
                 b'R' => {
-                    p.moves.push(Move::Right);
+                    p.moves.push(Move::Cw);
                 },
                 _ => {
                     panic!();
@@ -122,22 +122,22 @@ fn parse_directions(p: &mut Problem, bytes: &Vec<u8>) {
     }
 }
 
-fn rotate_left(facing: Facing) -> Facing {
+fn rotate_acw(facing: Facing) -> Facing {
     return match facing {
-        Facing::North => Facing::West,
-        Facing::West => Facing::South,
-        Facing::South => Facing::East,
-        Facing::East => Facing::North,
+        Facing::Up =>    Facing::Left,
+        Facing::Left =>  Facing::Down,
+        Facing::Down =>  Facing::Right,
+        Facing::Right => Facing::Up,
     }
 }
 
 fn move_forward(loc: Location, facing: Facing) -> Location {
     let mut loc2 = loc;
     match facing {
-        Facing::North => { loc2.y -= 1; },
-        Facing::South => { loc2.y += 1; },
-        Facing::West =>  { loc2.x -= 1; },
-        Facing::East =>  { loc2.x += 1; },
+        Facing::Up =>    { loc2.y -= 1; },
+        Facing::Down =>  { loc2.y += 1; },
+        Facing::Left =>  { loc2.x -= 1; },
+        Facing::Right => { loc2.x += 1; },
     }
     return loc2;
 }
@@ -151,10 +151,10 @@ fn move_forward_and_wrap_part1(p: &Problem, loc: Location, facing: Facing) -> Lo
     if get_loc(p, &loc2) == Item::Nothing {
         // step into nothingness - wrap around
         match facing {
-            Facing::North => { loc2.y = p.height - 1; },
-            Facing::South => { loc2.y = 0; },
-            Facing::West =>  { loc2.x = p.width - 1; },
-            Facing::East =>  { loc2.x = 0; },
+            Facing::Up => { loc2.y = p.height - 1; },
+            Facing::Down => { loc2.y = 0; },
+            Facing::Left =>  { loc2.x = p.width - 1; },
+            Facing::Right =>  { loc2.x = 0; },
         }
         while get_loc(p, &loc2) == Item::Nothing {
             loc2 = move_forward(loc2, facing);
@@ -192,17 +192,17 @@ fn part1(filename: &str) -> u64 {
     assert!(found);
 
     // follow directions
-    let mut facing = Facing::East;
+    let mut facing = Facing::Right;
     let mut trace: HashMap<Location, Facing> = HashMap::new();
 
     for d in &p.moves {
         match d {
-            Move::Left => {
-                facing = rotate_left(facing);
+            Move::Acw => {
+                facing = rotate_acw(facing);
             },
-            Move::Right => {
+            Move::Cw => {
                 for _ in 0 .. 3 {
-                    facing = rotate_left(facing);
+                    facing = rotate_acw(facing);
                 }
             },
             Move::Forward(n) => {
@@ -218,10 +218,10 @@ fn part1(filename: &str) -> u64 {
     // Where do we end up?
     let mut result = (1000 * (1 + (loc.y as u64))) + (4 * (1 + (loc.x as u64)));
     match facing {
-        Facing::East =>  { result += 0; },
-        Facing::South => { result += 1; },
-        Facing::West =>  { result += 2; },
-        Facing::North => { result += 3; },
+        Facing::Right =>  { result += 0; },
+        Facing::Down => { result += 1; },
+        Facing::Left =>  { result += 2; },
+        Facing::Up => { result += 3; },
     }
 
     // Draw it
@@ -234,10 +234,10 @@ fn part1(filename: &str) -> u64 {
                 if t.is_some() {
                     assert!(item == Item::Open);
                     match t.unwrap() {
-                        Facing::East =>  { print!(">"); },
-                        Facing::South => { print!("v"); },
-                        Facing::West =>  { print!("<"); },
-                        Facing::North => { print!("^"); },
+                        Facing::Right => { print!(">"); },
+                        Facing::Down =>  { print!("v"); },
+                        Facing::Left =>  { print!("<"); },
+                        Facing::Up =>    { print!("^"); },
                     }
                 } else {
                     match item {
@@ -376,7 +376,7 @@ fn part2(filename: &str) -> u64 {
                 if fa.loc_2d.y == fb.loc_2d.y {
                     // Same Y location in 2D plane
                     if fa.loc_2d.x + cube_size == fb.loc_2d.x {
-                        // Right side (X dimension)
+                        // Cw side (X dimension)
                         fb.vec_x = rotate_axis(&fb.vec_x, &negative(&fb.vec_y));
                         fb.loc_3d = Location3D {
                             x: fa.loc_3d.x + ((fa.vec_x.dx as Word) * (cube_size + 1)),
@@ -385,7 +385,7 @@ fn part2(filename: &str) -> u64 {
                         };
                         println!("r");
                     } else if fa.loc_2d.x - cube_size == fb.loc_2d.x {
-                        // Left side (X dimension)
+                        // Acw side (X dimension)
                         fb.vec_x = rotate_axis(&fb.vec_x, &negative(&fb.vec_y));
                         fb.loc_3d = Location3D {
                             x: fa.loc_3d.x - ((fb.vec_x.dx as Word) * (cube_size + 1)),
@@ -496,6 +496,7 @@ fn part2(filename: &str) -> u64 {
         }
     }
 
+    // follow directions
     return 0;
 }
 #[test]
