@@ -443,7 +443,7 @@ fn part2(filename: &str) -> u64 {
     }
 
     // Generate voxel map
-    let mut voxel: HashMap<Location3D, usize> = HashMap::new();
+    let mut voxel: HashMap<Location3D, Item> = HashMap::new();
     for a in 0 .. 6 {
         let fa = faces.get(a).unwrap();
         assert!(is_valid_vector(&fa.vec_x));
@@ -466,31 +466,31 @@ fn part2(filename: &str) -> u64 {
                                    + ((fa.vec_y.dz as Word) * (y + 1)),
                 };
                 println!("3d location for {} x={} y={} z={}", a, loc_3d.x, loc_3d.y, loc_3d.z);
-                //assert!(!voxel.contains_key(&loc_3d));
-                voxel.insert(loc_3d, a);
+                assert!(!voxel.contains_key(&loc_3d));
+                assert!(loc_3d.x >= 0);
+                assert!(loc_3d.y >= 0);
+                assert!(loc_3d.z >= 0);
+                assert!(loc_3d.x <= (cube_size + 1));
+                assert!(loc_3d.y <= (cube_size + 1));
+                assert!(loc_3d.z <= (cube_size + 1));
+                voxel.insert(loc_3d, item);
             }
         }
     }
 
     // Draw voxel map
-    for z in 0 .. cube_size + 3 {
+    for z in 0 .. cube_size + 2 {
         println!();
         println!("-------------- z = {}", z);
         for y in 0 .. cube_size + 3 {
             for x in 0 .. cube_size + 3 {
                 let item = *voxel.get(&Location3D { x: x, y: y, z: z, })
-                                 .unwrap_or(&9);
-                if item != 9 {
-                    print!("{}", item);
-                } else {
-                    print!(" ");
-                }
-                /*
+                                 .unwrap_or(&Item::Nothing);
                 match item {
                     Item::Open =>    { print!("."); },
                     Item::Wall =>    { print!("#"); },
                     Item::Nothing => { print!(" "); },
-                }*/
+                }
             }
             println!();
         }
