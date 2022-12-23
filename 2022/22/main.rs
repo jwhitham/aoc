@@ -299,11 +299,7 @@ fn move_forward_part_2(voxels: &World3D, faces: &Vec<Face>,
         Facing::Up =>    negative(&f1.vec_y),
     };
 
-    let mut loc2 = Location3D {
-        x: loc.x + (fv.dx as Word),
-        y: loc.y + (fv.dy as Word),
-        z: loc.z + (fv.dz as Word),
-    };
+    let mut loc2 = add_vector(&loc, &fv, 1);
     let mut facing2: Facing = *facing;
 
     if !voxels.contains_key(&loc2) {
@@ -319,11 +315,7 @@ fn move_forward_part_2(voxels: &World3D, faces: &Vec<Face>,
         let mut found: bool = false;
         let mut loc4 = loc2;
         for nf in new_facing {
-            let loc3 = Location3D {
-                x: loc2.x + (nf.dx as Word),
-                y: loc2.y + (nf.dy as Word),
-                z: loc2.z + (nf.dz as Word),
-            };
+            let loc3 = add_vector(&loc2, &nf, 1);
             let v2 = voxels.get(&loc3);
             if v2.is_some() && (v2.unwrap().face != v1.face) {
                 assert!(!found);
@@ -376,12 +368,20 @@ fn rotate_axis(to_rotate: &Vector, around: &Vector) -> Vector {
     } else if around.dz > 0 {
         return Vector { dz: to_rotate.dz, dy: to_rotate.dx, dx: -to_rotate.dy };
     } else {
-        let mut copy: Vector = *to_rotate;
+        let mut copy = *to_rotate;
         for _ in 0 .. 3 {
-            copy = rotate_axis(&copy, &negative(around));
+            copy = rotate_axis(&copy, &negative(&around));
         }
         return copy;
     }
+}
+
+fn add_vector(l: &Location3D, v: &Vector, scale: Word) -> Location3D {
+    return Location3D {
+        x: l.x + ((v.dx as Word) * scale),
+        y: l.y + ((v.dy as Word) * scale),
+        z: l.z + ((v.dz as Word) * scale),
+    };
 }
 
 fn part2(filename: &str) -> u64 {
@@ -452,21 +452,19 @@ fn part2(filename: &str) -> u64 {
                 if fa.loc_2d.y == fb.loc_2d.y {
                     // Same Y location in 2D plane
                     if fa.loc_2d.x + cube_size == fb.loc_2d.x {
-                        // Cw side (X dimension)
+                        // Right side (X dimension)
                         fb.vec_x = rotate_axis(&fb.vec_x, &negative(&fb.vec_y));
-                        fb.loc_3d = Location3D {
-                            x: fa.loc_3d.x + ((fa.vec_x.dx as Word) * (cube_size + 1)),
-                            y: fa.loc_3d.y + ((fa.vec_x.dy as Word) * (cube_size + 1)),
-                            z: fa.loc_3d.z + ((fa.vec_x.dz as Word) * (cube_size + 1)),
-                        };
+                        fb.loc_3d = add_vector(&fa.loc_3d, &fa.vec_x, cube_size + 1);
+                        if DEBUG {
+                            println!("new side is right");
+                        }
                     } else if fa.loc_2d.x - cube_size == fb.loc_2d.x {
-                        // Acw side (X dimension)
+                        // Left side (X dimension)
                         fb.vec_x = rotate_axis(&fb.vec_x, &negative(&fb.vec_y));
-                        fb.loc_3d = Location3D {
-                            x: fa.loc_3d.x - ((fb.vec_x.dx as Word) * (cube_size + 1)),
-                            y: fa.loc_3d.y - ((fb.vec_x.dy as Word) * (cube_size + 1)),
-                            z: fa.loc_3d.z - ((fb.vec_x.dz as Word) * (cube_size + 1)),
-                        };
+                        fb.loc_3d = add_vector(&fa.loc_3d, &fb.vec_x, -(cube_size + 1));
+                        if DEBUG {
+                            println!("new side is left");
+                        }
                     } else {
                         continue;
                     }
@@ -475,19 +473,18 @@ fn part2(filename: &str) -> u64 {
                     if fa.loc_2d.y + cube_size == fb.loc_2d.y {
                         // Bottom side (Y dimension)
                         fb.vec_y = rotate_axis(&fb.vec_y, &negative(&fb.vec_x));
-                        fb.loc_3d = Location3D {
-                            x: fa.loc_3d.x + ((fa.vec_y.dx as Word) * (cube_size + 1)),
-                            y: fa.loc_3d.y + ((fa.vec_y.dy as Word) * (cube_size + 1)),
-                            z: fa.loc_3d.z + ((fa.vec_y.dz as Word) * (cube_size + 1)),
-                        };
+                        fb.loc_3d = add_vector(&fa.loc_3d, &fa.vec_y, cube_size + 1);
+                        if DEBUG {
+                            println!("new side is below");
+                        }
                     } else if fa.loc_2d.y - cube_size == fb.loc_2d.y {
                         // Top side (X dimension)
                         fb.vec_y = rotate_axis(&fb.vec_y, &negative(&fb.vec_x));
-                        fb.loc_3d = Location3D {
-                            x: fa.loc_3d.x - ((fb.vec_y.dx as Word) * (cube_size + 1)),
-                            y: fa.loc_3d.y - ((fb.vec_y.dy as Word) * (cube_size + 1)),
-                            z: fa.loc_3d.z - ((fb.vec_y.dz as Word) * (cube_size + 1)),
-                        };
+                        fb.loc_3d = add_vector(&fa.loc_3d, &fb.vec_y, -(cube_size + 1));
+                        // NOTE: Not seen in the test data or the input problem (not tested)
+                        if DEBUG {
+                            println!("new side is above");
+                        }
                     } else {
                         continue;
                     }
@@ -531,14 +528,8 @@ fn part2(filename: &str) -> u64 {
                 let item = get_loc(&p, &loc_2d);
                 assert!(item != Item::Nothing);
 
-                let loc_3d = Location3D {
-                    x: fa.loc_3d.x + ((fa.vec_x.dx as Word) * (x + 1))
-                                   + ((fa.vec_y.dx as Word) * (y + 1)),
-                    y: fa.loc_3d.y + ((fa.vec_x.dy as Word) * (x + 1))
-                                   + ((fa.vec_y.dy as Word) * (y + 1)),
-                    z: fa.loc_3d.z + ((fa.vec_x.dz as Word) * (x + 1))
-                                   + ((fa.vec_y.dz as Word) * (y + 1)),
-                };
+                let loc_3d = add_vector(&add_vector(&fa.loc_3d, &fa.vec_x, x + 1),
+                                        &fa.vec_y, y + 1);
                 if DEBUG {
                     println!("3d location for {} x={} y={} z={}",
                              a, loc_3d.x, loc_3d.y, loc_3d.z);
