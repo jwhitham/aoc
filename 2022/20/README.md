@@ -12,8 +12,12 @@ linked list is used, each search will be O(N).
 There's no need for anything smarter in this case, because the list size
 is only 5000 elements. My first implementation worked with Vec, after
 some minor struggles with off-by-one errors, fixed by comparing with the
-examples. Later I tried VecDeque, which I think is better.
-However, is it possible to do better?
+examples (commit e8d1d5ee6cf68a51587e24b9ffedfb05a432ac54e).
+Later I tried VecDeque, which I thought would be better, but was actually
+slightly slower when benchmarked
+(commit 62c1967ae6b7c2b84df87894043f9a5565ba12f7).
+
+Is it possible to do better?
 
 A hash table is not helpful for finding the element because its position
 changes every time elements are added/removed. Updating the hash table
@@ -34,7 +38,9 @@ current index of any element. You need only store a pointer to each node, so if 
 need to move the elements in a particular order, the pointers can appear in an ordered
 list.
 
-I made a C# class for this purpose in 2020 and I ported it to Rust for this problem.
+I made a C# class for this purpose in 2020 and I ported it to Rust for this problem,
+as a crate named "[tree list](tree_list)".
+
 The original class made heavy use of pointers (well, references, since C# is managed code).
 An exact Rust port would require pointers with reference counting. I did attempt this,
 but I found that I'm still not comfortable with Rust's pointer restrictions and it
@@ -42,4 +48,11 @@ is extremely hard to get any code to a state that the compiler will accept. Ther
 I assigned each tree node a unique reference number to be used in place of a pointer.
 This is slower but leads to relatively readable code which works. The ownership issues
 created by directly using pointers are side-stepped.
+
+Theoretically the "tree list" should be faster than Vec or VecDeque, given enough
+list elements, but for the actual problem size (5000) it appears to be about 50% slower
+in benchmarks. This might be related to the use of references rather than pointers, or some
+other issue. For example, being a binary tree, the cache behaviour is unlikely to be as good as Vec.
+
+
 
