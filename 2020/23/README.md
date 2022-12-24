@@ -77,4 +77,5 @@ library. Visual Studio's debugger is quite acceptable,
 though no conventional debugger really competes with a reversible
 debugger.
 
+Postscript: [2022 day 20](../../2022/20) made use of this data structure.
 

@@ -1,83 +1,69 @@
 
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::collections::VecDeque;
 
-#[derive(Copy, Clone)]
-struct Number {
-    value: isize,
-    order: usize,
+extern crate tree_list;
+use tree_list::TreeList;
+
+struct Problem {
+    orders: TreeList,
+    order_to_value: Vec<isize>,
 }
-
-type Problem = VecDeque<Number>;
 
 fn load(filename: &str) -> Problem {
     let file = File::open(filename).unwrap();
-    let mut p: Problem = Problem::new();
-    let mut order: usize = 0;
+    let mut p = Problem {
+        orders: TreeList::new(),
+        order_to_value: Vec::new(),
+    };
     for line in io::BufReader::new(file).lines() {
         if let Ok(line_string) = line {
-            p.push_back(Number {
-                value: line_string.parse().expect("n"),
-                order: order,
-            });
-            order += 1;
+            let value: isize = line_string.parse().expect("n");
+            let order: usize = p.order_to_value.len();
+            p.orders.insert(order);
+            p.order_to_value.push(value);
         }
     }
     return p;
 }
 
 fn mix(p: &mut Problem) {
-    // It can be tricky to avoid off-by-one errors in something like
-    // this. The best way to get the code right is to compare to the
-    // example intermediate results given in the problem.
-    //
-    // Use of rotation (with VecDeque) makes the code a lot simpler
-    // but prevents easy comparison to the examples. It's also more
-    // efficient.. however, there is still an O(N) search for the
-    // next number to be processed. The list size is only 5000 items
-    // though.
-    for order in 0 .. p.len() {
-        // Find the number to be moved
-        let mut old_index: usize = usize::MAX;
-        for i in 0 .. p.len() {
-            if p.get(i).unwrap().order == order {
-                old_index = i;
-                break;
-            }
-        }
+    for order in 0 .. p.orders.len() {
+        // Find the index of the number to be moved
+        let old_index: usize = p.find(order).unwrap();
         assert!(old_index < p.len());
+
         // Remove
-        p.rotate_left(old_index);
-        let number: Number = p.pop_front().unwrap();
-        assert_eq!(number.order, order);
+        p.orders.remove(old_index);
+
+        // Value of number
+        let value: isize = p.order_to_value(order).unwrap();
 
         // What's the new position?
-        let pos: isize = number.value % (p.len() as isize);
+        let pos: isize = value % (p.len() as isize);
 
         // Insert in new position
         if pos < 0 {
-            p.rotate_right((-pos) as usize);
-        } else {
-            p.rotate_left(pos as usize);
+            pos += p.len() as isize;
         }
-        p.push_front(number);
+        p.insert(pos as usize, order);
     }
 }
 
 fn get_coords(p: &Problem) -> isize {
     // Find zero
     let mut zero_index: usize = usize::MAX;
-    for i in 0 .. p.len() {
-        if p.get(i).unwrap().value == 0 {
-            zero_index = i;
+    for order in 0 .. p.orders.len() {
+        let value: isize = p.order_to_value(order).unwrap();
+        if value == 0 {
+            zero_index = p.orders.find(order).unwrap();
             break;
         }
     }
-    assert!(zero_index < p.len());
-    let a = p.get((zero_index + 1000) % p.len()).unwrap().value;
-    let b = p.get((zero_index + 2000) % p.len()).unwrap().value;
-    let c = p.get((zero_index + 3000) % p.len()).unwrap().value;
+    assert!(zero_index < p.orders.len());
+    let a = p.orders.get((zero_index + 1000) % p.orders.len()).unwrap().value;
+    let b = p.orders.get((zero_index + 2000) % p.orders.len()).unwrap().value;
+    let c = p.orders.get((zero_index + 3000) % p.orders.len()).unwrap().value;
     return a + b + c;
 }
 
@@ -89,8 +75,8 @@ fn part1(filename: &str) -> isize {
 
 fn part2(filename: &str) -> isize {
     let mut p = load(filename);
-    for i in 0 .. p.len() {
-        p.get_mut(i).unwrap().value *= 811589153;
+    for order in 0 .. p.orders.len() {
+        *p.order_to_value.get_mut(order) *= 811589153;
     }
     for _ in 0 .. 10 {
         mix(&mut p);

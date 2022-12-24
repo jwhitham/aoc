@@ -14,14 +14,17 @@ would make it easier to cross from one face to another, but they don't actually 
 easier to deal with the effects of folding.
 
 I finally made progress by translating the input into voxels, assuming that the
-first face in the input file is the top of the cube. For each face, I stored
-3D coordinates for the first item in the input file, and also 3D vectors representing
-the X and Y dimensions as seen in the input file.
+first face in the input file is the top of the cube.
 
-Then I was able (eventually) to figure out the 3D vector rotation necessary to move
-across one of the folds. Having a model cube (a cardboard box) was helpful here.
+To deal with the folding, I needed to store two 3D vectors per face. One vector represents
+the effect of rightwards movement in the 2D puzzle input, which could actually correspond
+to movement in any of six directions in 3D. The other vector represents downwards movement
+in the 2D puzzle input. The crucial insight is that folding means that one of these vectors
+rotates by 90 degrees around the other. The direction of the rotation is whichever direction
+causes the new face to be part of the cube. Having a model cube (a cardboard box) was helpful
+in realising this. I found it very hard to visualise the problem in my head or on paper.
 
-It helped to draw the voxel model. I suppose I could have used some 3D rendering
+It also helped to draw the voxel model. I suppose I could have used some 3D rendering
 tool here, but I just drew 2D slices for simplicity, and this was good enough.
 Looking at the voxels and comparing them to the model cube helped reveal bugs.
 Usually one side was flipped wrongly.
@@ -31,6 +34,7 @@ while following the path. It searches both ways in all three dimensions for a vo
 on another face. The new direction could be determined directly, but this would mean
 figuring out the right 3D vector rotation again.
 
-My fear now is that a further puzzle will involve folding hypercubes.
+My fear now is that a further puzzle will involve folding hypercubes or more complex 3D shapes.
+
 
 
