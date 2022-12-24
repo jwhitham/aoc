@@ -90,14 +90,14 @@ impl TreeList {
     }
 
     // This returns the index where value can be found (if any).
-    pub fn find(self: &Self, value: &ValueType) -> Option<ExternalIndex> {
-        let pp: Option<&InternalIndex> = self.first.get(value);
+    pub fn find(self: &Self, value: ValueType) -> Option<ExternalIndex> {
+        let pp: Option<&InternalIndex> = self.first.get(&value);
 
         if pp.is_none() {
             return None; // This value does not exist
         }
         let mut p: InternalIndex = *pp.unwrap();
-        assert_eq!(self.iget(p).value, *value);
+        assert_eq!(self.iget(p).value, value);
 
         let mut ext_index: ExternalIndex = self.left_rank(p);
         let end: InternalIndex = self.head().child[1];
@@ -680,7 +680,7 @@ fn test() {
         check_with_list(&t, &s);
     }
     for k in 1 .. test_size + 1 {
-        let j = t.find(&k);
+        let j = t.find(k);
         assert!(j.is_some());
         assert!(j.unwrap() < s.len());
         assert!(s[j.unwrap() ] == k);
@@ -697,14 +697,14 @@ fn test() {
             let i: usize = (next_random() % (s.len() as ValueType)) as usize;
             let v: ValueType = *s.get(i).unwrap();
 
-            assert_eq!(t.find(&v).unwrap() as usize, i);
+            assert_eq!(t.find(v).unwrap() as usize, i);
             s.remove(i);
             t.remove(i);
         } else {
             let i: usize = (next_random() % ((s.len() + 1) as ValueType)) as usize;
             s.insert(i, k);
             t.insert(i, k);
-            let j = t.find(&k);
+            let j = t.find(k);
             assert_eq!(j.unwrap() as usize, i);
         }
         check_consistent(&t);

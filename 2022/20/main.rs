@@ -5,9 +5,12 @@ use std::io::{self, BufRead};
 extern crate tree_list;
 use tree_list::TreeList;
 
+const DEBUG: bool = false;
+
 struct Problem {
     orders: TreeList,
     order_to_value: Vec<isize>,
+    size: usize,
 }
 
 fn load(filename: &str) -> Problem {
@@ -15,55 +18,73 @@ fn load(filename: &str) -> Problem {
     let mut p = Problem {
         orders: TreeList::new(),
         order_to_value: Vec::new(),
+        size: 0,
     };
     for line in io::BufReader::new(file).lines() {
         if let Ok(line_string) = line {
             let value: isize = line_string.parse().expect("n");
             let order: usize = p.order_to_value.len();
-            p.orders.insert(order);
+            p.orders.insert(order, order);
             p.order_to_value.push(value);
         }
     }
+    p.size = p.order_to_value.len();
     return p;
 }
 
 fn mix(p: &mut Problem) {
-    for order in 0 .. p.orders.len() {
+    for order in 0 .. p.size {
         // Find the index of the number to be moved
-        let old_index: usize = p.find(order).unwrap();
-        assert!(old_index < p.len());
+        let old_index: usize = p.orders.find(order).unwrap();
+        if DEBUG {
+            assert!(old_index < p.size);
+            assert_eq!(p.orders.get(old_index).unwrap(), order);
+        }
 
         // Remove
         p.orders.remove(old_index);
 
         // Value of number
-        let value: isize = p.order_to_value(order).unwrap();
+        let value: isize = *p.order_to_value.get(order).unwrap();
 
         // What's the new position?
-        let pos: isize = value % (p.len() as isize);
+        let mut pos: isize = (value + (old_index as isize)) % ((p.size as isize) - 1);
 
         // Insert in new position
         if pos < 0 {
-            pos += p.len() as isize;
+            pos += (p.size as isize) - 1;
         }
-        p.insert(pos as usize, order);
+        if DEBUG {
+            println!("order {} old index {} value {} pos {}", order, old_index, value, pos);
+        }
+        p.orders.insert(pos as usize, order);
+
+        if DEBUG {
+            assert_eq!(p.orders.get(pos as usize).unwrap(), order);
+            for index in 0 .. p.size {
+                let order: usize = p.orders.get(index).unwrap();
+                let value: isize = *p.order_to_value.get(order).unwrap();
+                print!("{} ", value);
+            }
+            println!();
+        }
     }
 }
 
 fn get_coords(p: &Problem) -> isize {
     // Find zero
     let mut zero_index: usize = usize::MAX;
-    for order in 0 .. p.orders.len() {
-        let value: isize = p.order_to_value(order).unwrap();
+    for order in 0 .. p.size {
+        let value: isize = *p.order_to_value.get(order).unwrap();
         if value == 0 {
             zero_index = p.orders.find(order).unwrap();
             break;
         }
     }
-    assert!(zero_index < p.orders.len());
-    let a = p.orders.get((zero_index + 1000) % p.orders.len()).unwrap().value;
-    let b = p.orders.get((zero_index + 2000) % p.orders.len()).unwrap().value;
-    let c = p.orders.get((zero_index + 3000) % p.orders.len()).unwrap().value;
+    assert!(zero_index < p.size);
+    let a = *p.order_to_value.get(p.orders.get((zero_index + 1000) % p.size).unwrap()).unwrap();
+    let b = *p.order_to_value.get(p.orders.get((zero_index + 2000) % p.size).unwrap()).unwrap();
+    let c = *p.order_to_value.get(p.orders.get((zero_index + 3000) % p.size).unwrap()).unwrap();
     return a + b + c;
 }
 
@@ -75,8 +96,8 @@ fn part1(filename: &str) -> isize {
 
 fn part2(filename: &str) -> isize {
     let mut p = load(filename);
-    for order in 0 .. p.orders.len() {
-        *p.order_to_value.get_mut(order) *= 811589153;
+    for order in 0 .. p.size {
+        *p.order_to_value.get_mut(order).unwrap() *= 811589153;
     }
     for _ in 0 .. 10 {
         mix(&mut p);
