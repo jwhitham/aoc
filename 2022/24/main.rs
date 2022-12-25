@@ -3,6 +3,8 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::iter::FromIterator;
 use std::collections::HashSet;
+use std::collections::BinaryHeap;
+use std::cmp::Ordering;
 
 type Word = i32;
 type Time = u32;
@@ -79,6 +81,49 @@ struct BlizzardMaps {
     west: BlizzardMap,
 }
 
+#[derive(Hash, Copy, Clone)]
+struct Location3D {
+    x: Word,
+    y: Word,
+    t: Time,
+}
+
+impl Eq for Location3D {}
+
+impl PartialEq for Location3D {
+    fn eq(&self, other: &Self) -> bool {
+        return self.cmp(other) == Ordering::Equal;
+    }
+}
+
+impl PartialOrd for Location3D {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        return Some(self.cmp(other));
+    }
+}
+
+impl Ord for Location3D {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Need a min-heap so the order is reversed
+        if self.t > other.t {
+            return Ordering::Less;      // Prefer other to self
+        } else if self.t < other.t {
+            return Ordering::Greater;   // Prefer self to other
+        } else {
+            // Heuristic: furthest from 0,0 is best
+            let self_dist = self.x + self.y;
+            let other_dist = other.x + other.y;
+            if self_dist > other_dist {
+                return Ordering::Greater;   // Prefer self to other
+            } else if self_dist < other_dist {
+                return Ordering::Less;      // Prefer other to self
+            } else {
+                return Ordering::Equal;
+            }
+        }
+    }
+}
+
 fn make_blizzard_map(p: &Problem, dir: &Vector) -> BlizzardMap {
     let mut bm = BlizzardMap::new();
 
@@ -99,16 +144,16 @@ fn make_blizzard_maps(p: &Problem) -> BlizzardMaps {
     };
 }
 
-fn is_in_blizzard(p: &Problem, bm: &BlizzardMap, dir: &Vector, loc: &Location, t: Time) -> bool {
+fn is_in_blizzard(p: &Problem, bm: &BlizzardMap, dir: &Vector, loc: &Location3D) -> bool {
     // The blizzard moves one "dir" per time unit
     let bl = Location {
-        x: Word::rem_euclid(-((dir.dx as Word) * (t as Word)) + loc.x - 1, p.width - 2) + 1,
-        y: Word::rem_euclid(-((dir.dy as Word) * (t as Word)) + loc.y - 1, p.height - 2) + 1,
+        x: Word::rem_euclid(-((dir.dx as Word) * (loc.t as Word)) + loc.x - 1, p.width - 2) + 1,
+        y: Word::rem_euclid(-((dir.dy as Word) * (loc.t as Word)) + loc.y - 1, p.height - 2) + 1,
     };
     return bm.contains(&bl);
 }
 
-fn can_move_to(p: &Problem, bms: &BlizzardMaps, loc: &Location, t: Time) -> bool {
+fn can_move_to(p: &Problem, bms: &BlizzardMaps, loc: &Location3D) -> bool {
     // Check the borders of the map
     if loc.x <= 0 {
         return false;
@@ -128,10 +173,10 @@ fn can_move_to(p: &Problem, bms: &BlizzardMaps, loc: &Location, t: Time) -> bool
         }
     }
     // Check for blizzards
-    if is_in_blizzard(p, &bms.north, &Vector { dx: 0, dy: -1 }, loc, t)
-    || is_in_blizzard(p, &bms.south, &Vector { dx: 0, dy: 1 },  loc, t)
-    || is_in_blizzard(p, &bms.east,  &Vector { dx: 1, dy: 0 },  loc, t)
-    || is_in_blizzard(p, &bms.west,  &Vector { dx: -1, dy: 0 }, loc, t) {
+    if is_in_blizzard(p, &bms.north, &Vector { dx: 0, dy: -1 }, loc)
+    || is_in_blizzard(p, &bms.south, &Vector { dx: 0, dy: 1 },  loc)
+    || is_in_blizzard(p, &bms.east,  &Vector { dx: 1, dy: 0 },  loc)
+    || is_in_blizzard(p, &bms.west,  &Vector { dx: -1, dy: 0 }, loc) {
         return false;
     }
 
@@ -142,7 +187,7 @@ fn can_move_to(p: &Problem, bms: &BlizzardMaps, loc: &Location, t: Time) -> bool
 fn print_map(p: &Problem, bms: &BlizzardMaps, t: Time) {
     for y in 0 .. p.height {
         for x in 0 .. p.width {
-            if can_move_to(p, bms, &Location { x: x, y: y }, t) {
+            if can_move_to(p, bms, &Location3D { x: x, y: y, t: t }) {
                 print!(".");
             } else {
                 print!("#");
@@ -152,18 +197,46 @@ fn print_map(p: &Problem, bms: &BlizzardMaps, t: Time) {
     }
 }
 
-
-fn part1(filename: &str) -> u32 {
+fn part1(filename: &str) -> Time {
     let p = load(filename);
     let bms = make_blizzard_maps(&p);
+    let mut todo: BinaryHeap<Location3D> = BinaryHeap::new();
+    let mut planned: HashSet<Location3D> = HashSet::new();
 
-    print_map(&p, &bms, 0);
-    print_map(&p, &bms, 1);
-    print_map(&p, &bms, 2);
-    print_map(&p, &bms, 3);
-    
+    todo.push(Location3D {
+        x: 1,
+        y: 0,
+        t: 0,
+    });
+    while !todo.is_empty() {
+        let here = todo.pop().unwrap();
 
-    return 0;
+        if (here.x == (p.width - 2)) && (here.y == (p.height - 1)) {
+            // goal reached
+            return here.t;
+        }
+        if here.t > 1000 {
+            // not looking good...
+            panic!();
+        }
+        for v in [Vector { dx: 1, dy: 0 },
+                  Vector { dx: -1, dy: 0 },
+                  Vector { dx: 0, dy: 1 },
+                  Vector { dx: 0, dy: -1 },
+                  Vector { dx: 0, dy: 0 }] {
+            let there = Location3D {
+                x: here.x + (v.dx as Word),
+                y: here.y + (v.dy as Word),
+                t: here.t + 1,
+            };
+            if !planned.contains(&there)
+            && can_move_to(&p, &bms, &there) {
+                todo.push(there);
+                planned.insert(there);
+            }
+        }
+    }
+    panic!(); // no path
 }
 
 
