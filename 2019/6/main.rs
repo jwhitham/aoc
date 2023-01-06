@@ -2,15 +2,16 @@
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::collections::HashMap;
-
+use std::rc::Rc;
+use std::cell::RefCell;
 
 struct Object {
-    parent: String,
+    parent: Option<Rc<RefCell<Object>>>,
     flag: bool,
 }
 
 struct Space {
-    object: HashMap<String, Object>,
+    object: HashMap<String, Rc<RefCell<Object>>>,
 }
 
 impl Space {
@@ -22,23 +23,22 @@ impl Space {
 
     fn create(self: &mut Self, name: &str) {
         if !self.object.contains_key(name) {
-            self.object.insert(name.to_string(), Object {
-                parent: String::new(),
+            self.object.insert(name.to_string(), Rc::new(RefCell::new(Object {
+                parent: None,
                 flag: false,
-            });
+            })));
         }
     }
 
-    fn get(self: &Self, name: &str) -> Option<&Object> {
-        return self.object.get(name);
+    fn get(self: &Self, name: &str) -> Option<Rc<RefCell<Object>>> {
+        return self.object.get(name).cloned();
     }
 
-    fn get_mut(self: &mut Self, name: &str) -> Option<&mut Object> {
-        return self.object.get_mut(name);
-    }
-
-    fn parent_name(self: &Self, name: &str) -> Option<String> {
-        return self.get(name).map(|item| item.parent.clone());
+    fn parent(self: &Self, satellite: Rc<RefCell<Object>>) -> Option<Rc<RefCell<Object>>> {
+        if let Some(planet) = &satellite.borrow().parent {
+            return Some(planet.clone());
+        }
+        return None;
     }
 
     fn add_link(self: &mut Self,
@@ -46,21 +46,20 @@ impl Space {
         
         self.create(planet_name);
         self.create(satellite_name);
-        if let Some(satellite) = self.get_mut(satellite_name) {
-            satellite.parent = planet_name.to_string();
+        if let Some(item1) = self.get(satellite_name) {
+            let mut item2 = item1.borrow_mut();
+            item2.parent = Some(self.get(planet_name).unwrap().clone());
         }
     }
 
     fn count_transitive(self: &mut Self) -> u32 {
         let mut count = 0;
         for satellite_name in self.object.keys() {
-            let mut name = self.parent_name(satellite_name);
-            if name.is_some() {
-                name = self.parent_name(&name.unwrap());
-            }
-            while name.is_some() {
-                count += 1;
-                name = self.parent_name(&name.unwrap());
+            if let Some(mut item1) = self.get(satellite_name) {
+                while let Some(item2) = self.parent(item1) {
+                    item1 = item2;
+                    count += 1;
+                }
             }
         }
         return count;
@@ -68,18 +67,18 @@ impl Space {
 
     fn flip_flag(self: &mut Self, satellite_name: &str) -> u32 {
         let mut count = 0;
-        let mut name = self.parent_name(satellite_name);
-        while name.is_some() {
-            if let Some(mut value) = self.get_mut(&name.unwrap()) {
-                if !value.flag {
-                    count += 1;
-                    value.flag = true;
-                } else {
-                    value.flag = false;
+        if let Some(mut item1) = self.get(satellite_name) {
+            while let Some(item2) = self.parent(item1) {
+                {
+                    let mut item3 = item2.borrow_mut();
+                    if !item3.flag {
+                        count += 1;
+                        item3.flag = true;
+                    } else {
+                        item3.flag = false;
+                    }
                 }
-                name = Some(value.parent.clone());
-            } else {
-                name = None;
+                item1 = item2;
             }
         }
         return count;
