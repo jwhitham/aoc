@@ -540,174 +540,175 @@ fn test() {
     type Rank = usize;
     type Depth = usize;
 
-    fn get_max_depth(t: &TreeList, node: InternalIndex) -> Depth {
+    fn get_max_depth(test_me: &TreeList, node: InternalIndex) -> Depth {
         let mut d1: Depth = 0;
         let mut d2: Depth = 0;
-        let c1 = t.iget(node).child[0];
+        let c1 = test_me.iget(node).child[0];
         if c1 != NO_INDEX {
-            d1 = 1 + get_max_depth(t, c1);
+            d1 = 1 + get_max_depth(test_me, c1);
         }
-        let c2 = t.iget(node).child[1];
+        let c2 = test_me.iget(node).child[1];
         if c2 != NO_INDEX {
-            d2 = 1 + get_max_depth(t, c2);
+            d2 = 1 + get_max_depth(test_me, c2);
         }
         return Depth::max(d1, d2);
     }
 
-    fn get_balance(t: &TreeList, node: InternalIndex) -> Balance {
+    fn get_balance(test_me: &TreeList, node: InternalIndex) -> Balance {
         let mut d1: Depth = 0;
         let mut d2: Depth = 0;
-        let c1 = t.iget(node).child[0];
+        let c1 = test_me.iget(node).child[0];
         if c1 != NO_INDEX {
-            d1 = 1 + get_max_depth(t, c1);
+            d1 = 1 + get_max_depth(test_me, c1);
         }
-        let c2 = t.iget(node).child[1];
+        let c2 = test_me.iget(node).child[1];
         if c2 != NO_INDEX {
-            d2 = 1 + get_max_depth(t, c2);
+            d2 = 1 + get_max_depth(test_me, c2);
         }
         return ((d2 as isize) - (d1 as isize)) as Balance;
     }
 
-    fn get_rank(t: &TreeList, node: InternalIndex) -> Rank {
+    fn get_rank(test_me: &TreeList, node: InternalIndex) -> Rank {
         let mut rank: Rank = 1;
         for i in 0 .. 2 {
-            let c = t.iget(node).child[i];
+            let c = test_me.iget(node).child[i];
             if c != NO_INDEX {
-                rank += get_rank(t, c);
+                rank += get_rank(test_me, c);
             }
         }
         return rank;
     }
 
     fn check_consistent_node(
-            t: &TreeList,
+            test_me: &TreeList,
             node: InternalIndex,
             visited: &mut HashMap<InternalIndex, bool>) {
        
         assert!(!visited.contains_key(&node));
         visited.insert(node, true);
 
-        assert!(t.data.contains_key(&node));
+        assert!(test_me.data.contains_key(&node));
         for i in 0 .. 2 as Direction {
-            let child = t.iget(node).child[i as usize];
+            let child = test_me.iget(node).child[i as usize];
             if child != NO_INDEX {
-                check_consistent_node(t, child, visited);
-                assert_eq!(t.iget(child).parent, node);
-                assert_eq!(t.iget(child).direction, i);
+                check_consistent_node(test_me, child, visited);
+                assert_eq!(test_me.iget(child).parent, node);
+                assert_eq!(test_me.iget(child).direction, i);
             }
         }
-        let r = get_rank(t, node);
-        assert_eq!(r, t.iget(node).rank);
-        let x = get_balance(t, node);
+        let r = get_rank(test_me, node);
+        assert_eq!(r, test_me.iget(node).rank);
+        let x = get_balance(test_me, node);
         assert!(x >= -1);
         assert!(x <= 1);
-        assert_eq!(x, t.iget(node).balance);
+        assert_eq!(x, test_me.iget(node).balance);
     }
 
-    fn check_consistent(t: &TreeList) {
-        if t.head().child[1] == NO_INDEX {
+    fn check_consistent(test_me: &TreeList) {
+        if test_me.head().child[1] == NO_INDEX {
             return;
         }
-        assert_eq!(t.iget(t.head().child[1]).parent, HEAD_INDEX);
-        assert_eq!(t.iget(t.head().child[1]).direction, 1);
+        assert_eq!(test_me.iget(test_me.head().child[1]).parent, HEAD_INDEX);
+        assert_eq!(test_me.iget(test_me.head().child[1]).direction, 1);
         let mut visited: HashMap<InternalIndex, bool> = HashMap::new();
-        check_consistent_node(t, t.head().child[1], &mut visited);
+        check_consistent_node(test_me, test_me.head().child[1], &mut visited);
     }
 
-    fn check_with_list_node(t: &TreeList,
+    fn check_with_list_node(test_me: &TreeList,
                             node: InternalIndex,
-                            s: &[ValueType]) {
+                            ref_list: &[ValueType]) {
         let mut size: Rank = 0;
-        let c1 = t.iget(node).child[0];
+        let c1 = test_me.iget(node).child[0];
         if c1 != NO_INDEX {
-            size += t.iget(c1).rank;
-            check_with_list_node(t, c1, &s[0 .. size]);
+            size += test_me.iget(c1).rank;
+            check_with_list_node(test_me, c1, &ref_list[0 .. size]);
         }
-        assert_eq!(s[size], t.iget(node).value);
+        assert_eq!(ref_list[size], test_me.iget(node).value);
 
-        let node2 = t.first.get(&t.iget(node).value);
+        let node2 = test_me.first.get(&test_me.iget(node).value);
         assert!(node2.is_some());
         assert_eq!(*node2.unwrap(), node);
         size += 1;
 
-        let c2 = t.iget(node).child[1];
+        let c2 = test_me.iget(node).child[1];
         if c2 != NO_INDEX {
-            check_with_list_node(t, c2, &s[size .. s.len()]);
-            size += t.iget(c2).rank;
+            check_with_list_node(test_me, c2, &ref_list[size .. ref_list.len()]);
+            size += test_me.iget(c2).rank;
         }
-        assert_eq!(size, s.len());
+        assert_eq!(size, ref_list.len());
     }
 
-    fn check_with_list(t: &TreeList, s: &Vec<ValueType>) {
-        assert_eq!(t.first.len(), s.len());
-        assert_eq!(t.data.len(), s.len() + 1); // +1 for HEAD_INDEX element
-        assert_eq!(t.len(), s.len());
-        assert!(t.get(s.len()).is_none());
+    fn check_with_list(test_me: &TreeList, ref_list: &Vec<ValueType>) {
+        assert_eq!(test_me.first.len(), ref_list.len());
+        assert_eq!(test_me.data.len(), ref_list.len() + 1); // +1 for HEAD_INDEX element
+        assert_eq!(test_me.len(), ref_list.len());
+        assert!(test_me.get(ref_list.len()).is_none());
 
-        let c = t.head().child[1];
+        let c = test_me.head().child[1];
         if c == NO_INDEX {
-            assert!(s.len() == 0);
+            assert!(ref_list.len() == 0);
         } else {
-            assert!(s.len() != 0); // size of tree should be non-zero
+            assert!(ref_list.len() != 0); // size of tree should be non-zero
             // size of 'first' hash should match size of tree if values are unique
-            assert_eq!(t.iget(c).rank, t.first.len());
-            check_with_list_node(t, c, &s.as_slice());
+            assert_eq!(test_me.iget(c).rank, test_me.first.len());
+            check_with_list_node(test_me, c, &ref_list.as_slice());
         }
     }
 
-    let mut t = TreeList::new();
-    let mut s: Vec<ValueType> = Vec::new();
+    let mut test_me = TreeList::new();
+    let mut ref_list: Vec<ValueType> = Vec::new();
 
-    check_consistent(&t);
-    check_with_list(&t, &s);
+    check_consistent(&test_me);
+    check_with_list(&test_me, &ref_list);
 
     let mut rng = StdRng::seed_from_u64(1);
     let test_size: ValueType = 1000;
 
     for k in 1 .. test_size + 1{
-        let i = rng.gen_range(0 .. (s.len() + 1) as ValueType);
-        t.insert(i as usize, k);
-        s.insert(i as usize, k);
-        check_consistent(&t);
-        check_with_list(&t, &s);
+        let i = rng.gen_range(0 .. (ref_list.len() + 1) as ValueType);
+        test_me.insert(i as usize, k);
+        ref_list.insert(i as usize, k);
+        check_consistent(&test_me);
+        check_with_list(&test_me, &ref_list);
     }
     for k in 1 .. test_size + 1 {
-        let j = t.find(k);
+        let j = test_me.find(k);
         assert!(j.is_some());
-        assert!(j.unwrap() < s.len());
-        assert!(s[j.unwrap() ] == k);
+        assert!(j.unwrap() < ref_list.len());
+        assert!(ref_list[j.unwrap() ] == k);
     }
     for _ in 1 .. test_size + 1 {
-        let i = rng.gen_range(0 .. s.len() as ValueType);
-        t.remove(i as usize);
-        s.remove(i as usize);
-        check_consistent(&t);
-        check_with_list(&t, &s);
+        let i = rng.gen_range(0 .. ref_list.len() as ValueType);
+        test_me.remove(i as usize);
+        ref_list.remove(i as usize);
+        check_consistent(&test_me);
+        check_with_list(&test_me, &ref_list);
     }
     for k in 1 .. (test_size * 10) + 1 {
-        if rng.gen_ratio(1, 2) && (s.len() > 0) {
+        if rng.gen_ratio(1, 2) && (ref_list.len() > 0) {
             // test removing a random value
-            let i: usize = (rng.gen_range(0 .. s.len() as ValueType)) as usize;
-            let v: ValueType = *s.get(i).unwrap();
+            let i: usize = (rng.gen_range(0 .. ref_list.len() as ValueType)) as usize;
+            let v: ValueType = *ref_list.get(i).unwrap();
 
-            assert_eq!(t.find(v).unwrap() as usize, i);
-            s.remove(i);
-            t.remove(i);
+            assert_eq!(test_me.find(v).unwrap() as usize, i);
+            ref_list.remove(i);
+            test_me.remove(i);
         } else {
             // test adding a random value
-            let i: usize = (rng.gen_range(0 .. s.len() + 1 as ValueType)) as usize;
-            s.insert(i, k);
-            t.insert(i, k);
-            let j = t.find(k);
+            let i: usize = (rng.gen_range(0 .. ref_list.len() + 1 as ValueType)) as usize;
+            ref_list.insert(i, k);
+            test_me.insert(i, k);
+            let j = test_me.find(k);
             assert_eq!(j.unwrap() as usize, i);
         }
-        check_consistent(&t);
-        check_with_list(&t, &s);
+        check_consistent(&test_me);
+        check_with_list(&test_me, &ref_list);
     }
-    while s.len() > 0 {
-        s.remove(0);
-        t.remove(0);
-        check_consistent(&t);
-        check_with_list(&t, &s);
+    while ref_list.len() > 0 {
+        let i: usize = (rng.gen_range(0 .. ref_list.len() as ValueType)) as usize;
+        ref_list.remove(i);
+        test_me.remove(i);
+        check_consistent(&test_me);
+        check_with_list(&test_me, &ref_list);
     }
 }
