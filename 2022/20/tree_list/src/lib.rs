@@ -5,8 +5,7 @@
 // Provided that element values are unique, you can find an element's index from
 // its value in O(log N) time too, with the "find" method.
 //
-// If element values are not unique, then the "find" method will return one of
-// the indexes for that value, but it's not defined which one will be returned.
+// If element values are not unique, then the "find" method's return value is not defined.
 //
 // A balanced binary tree (AVL) is used.
 // See https://en.wikipedia.org/wiki/AVL_tree for an introduction to AVL trees.
