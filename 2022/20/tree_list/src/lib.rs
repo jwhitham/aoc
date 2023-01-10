@@ -1,9 +1,12 @@
 ﻿//
 // This data structure implements an indexed list (like a Vec) in which
-// you can insert/remove/access elements at any index with O(log N) operations.
+// you can insert/remove/get elements at any index with O(log N) operations.
 //
 // Provided that element values are unique, you can find an element's index from
-// its value in O(log N) time too.
+// its value in O(log N) time too, with the "find" method.
+//
+// If element values are not unique, then the "find" method will return one of
+// the indexes for that value, but it's not defined which one will be returned.
 //
 // A balanced binary tree (AVL) is used.
 // See https://en.wikipedia.org/wiki/AVL_tree for an introduction to AVL trees.
@@ -28,13 +31,12 @@ type InternalIndex = usize;
 type ExternalIndex = usize;
 type Direction = u8;
 type Balance = i8;
-const NO_INDEX: InternalIndex = 10000;
-const HEAD_INDEX: InternalIndex = NO_INDEX + 1;
+const NO_INDEX: InternalIndex = usize::MAX;
+const HEAD_INDEX: InternalIndex = 0;
 
 pub struct TreeList {
-    first: HashMap<ValueType, InternalIndex>,
-    data: HashMap<InternalIndex, AVLNode>,
-    next: InternalIndex,
+    lookup: HashMap<ValueType, InternalIndex>,
+    data: Vec<AVLNode>,
 }
 
 struct AVLNode {
@@ -50,9 +52,8 @@ impl TreeList {
 
     pub fn new() -> Self {
         let mut s = TreeList {
-            next: HEAD_INDEX,
-            data: HashMap::new(),
-            first: HashMap::new(),
+            data: Vec::new(),
+            lookup: HashMap::new(),
         };
         let c = s.new_node();
         assert_eq!(c, HEAD_INDEX);
@@ -60,11 +61,11 @@ impl TreeList {
     }
 
     fn iget(self: &Self, index: InternalIndex) -> &AVLNode {
-        return self.data.get(&index).unwrap();
+        return self.data.get(index).unwrap();
     }
 
     fn iget_mut(self: &mut Self, index: InternalIndex) -> &mut AVLNode {
-        return self.data.get_mut(&index).unwrap();
+        return self.data.get_mut(index).unwrap();
     }
 
     fn head(self: &Self) -> &AVLNode {
@@ -91,7 +92,7 @@ impl TreeList {
 
     // This returns the index where value can be found (if any).
     pub fn find(self: &Self, value: ValueType) -> Option<ExternalIndex> {
-        let pp: Option<&InternalIndex> = self.first.get(&value);
+        let pp: Option<&InternalIndex> = self.lookup.get(&value);
 
         if pp.is_none() {
             return None; // This value does not exist
@@ -140,9 +141,40 @@ impl TreeList {
             rank: 0,
             parent: NO_INDEX,
         };
-        self.data.insert(self.next, n);
-        self.next += 1;
-        return self.next - 1;
+        self.data.push(n);
+        return self.data.len() - 1;
+    }
+
+    fn free_node(self: &mut Self, remove_index: InternalIndex) {
+        // Swap with the item at the end
+        let replacement: AVLNode = self.data.pop().unwrap();
+        let replacement_index: InternalIndex = self.data.len();
+
+        if remove_index >= replacement_index {
+            // remove_index was at the end, so nothing more is needed - it's gone!
+            return;
+        }
+
+        // Change the index of "replacement" to be "remove_index" by making
+        // new child-parent links
+        if let Some(parent) = self.data.get_mut(replacement.parent) {
+            for i in 0 .. 2 as Direction {
+                if parent.child[i as usize] == replacement_index {
+                    parent.child[i as usize] = remove_index;
+                }
+            }
+        }
+        for i in 0 .. 2 as Direction {
+            if let Some(child) = self.data.get_mut(replacement.child[i as usize]) {
+                child.parent = remove_index;
+            }
+        }
+
+        // Change the index for this value
+        self.lookup.insert(replacement.value, remove_index);
+
+        // replace the node itself
+        *self.data.get_mut(remove_index).unwrap() = replacement;
     }
 
     // Insert a new element at the given index. All items at greater indexes are shifted +1.
@@ -165,7 +197,7 @@ impl TreeList {
             n.direction = 1;
             n.rank = 1;
             n.parent = HEAD_INDEX;
-            self.first.insert(value, i);
+            self.lookup.insert(value, i);
             return;
         }
 
@@ -200,7 +232,7 @@ impl TreeList {
                 n.rank = 1;
                 n.parent = p;
                 self.iget_mut(p).child[direction as usize] = q;
-                self.first.insert(value, q);
+                self.lookup.insert(value, q);
                 break;
             }
         }
@@ -402,6 +434,7 @@ impl TreeList {
                 break;
             }
         }
+        let free_before_returning: InternalIndex;
 
         // found the node to delete (p)
         if (self.iget(p).child[0] != NO_INDEX) && (self.iget(p).child[1] != NO_INDEX) {
@@ -431,10 +464,10 @@ impl TreeList {
 
             // move p's contents to q
             let v = self.iget(q).value;
-            self.first.remove(&v);
-            self.first.insert(self.iget(p).value, q);
+            self.lookup.remove(&v);
+            self.lookup.insert(self.iget(p).value, q);
             self.iget_mut(q).value = self.iget(p).value;
-            self.data.remove(&p); // free p
+            free_before_returning = p;
             p = q;
 
             // fix up a connection to p's child (if p had a child)
@@ -452,22 +485,22 @@ impl TreeList {
         } else if self.iget(p).child[0] != NO_INDEX {
             // Node has one child - so it's easily removed:
             let v = self.iget(p).value;
-            self.first.remove(&v);
+            self.lookup.remove(&v);
             self.iget_mut(adjust_p).child[adjust_direction as usize] = self.iget(p).child[0];
             self.iget_mut(self.iget(p).child[0]).parent = adjust_p;
             self.iget_mut(self.iget(p).child[0]).direction = adjust_direction;
-            self.data.remove(&p); // free p
+            free_before_returning = p;
         } else {
             // Node has zero or one child - again easily removed.
             let v = self.iget(p).value;
-            self.first.remove(&v);
+            self.lookup.remove(&v);
             self.iget_mut(adjust_p).child[adjust_direction as usize] = self.iget(p).child[1];
             let c = self.iget(p).child[1];
             if c != NO_INDEX {
                 self.iget_mut(c).parent = adjust_p;
                 self.iget_mut(c).direction = adjust_direction;
             }
-            self.data.remove(&p); // free p
+            free_before_returning = p;
         }
 
         // The process of deleting node p sets parent.p.child[parent.direction]
@@ -483,7 +516,7 @@ impl TreeList {
             } else if self.iget(adjust_p).balance == 0 {
                 // page 466 ii: tree is balanced
                 self.iget_mut(adjust_p).balance = -adjust_a;
-                return;
+                break;
             } else {
                 // page 466 iii - rebalancing required
                 let s = adjust_p; // parent of subtree requiring rotation
@@ -518,7 +551,7 @@ impl TreeList {
                     self.rerank(s);
                     self.rerank(r);
                     self.rerank(p);
-                    return; // balanced after single rotation
+                    break; // balanced after single rotation
                 } else {
                     // unexpected balance value
                     panic!();
@@ -527,6 +560,9 @@ impl TreeList {
             adjust_direction = next_adjust_direction;
             adjust_p = next_adjust_p;
         }
+        // Don't free any nodes while we have copies of the indexes, because
+        // indexes will be invalidated.
+        self.free_node(free_before_returning);
     }
 }
 
@@ -587,7 +623,7 @@ fn test() {
         assert!(!visited.contains_key(&node));
         visited.insert(node, true);
 
-        assert!(test_me.data.contains_key(&node));
+        assert!(node < test_me.data.len());
         for i in 0 .. 2 as Direction {
             let child = test_me.iget(node).child[i as usize];
             if child != NO_INDEX {
@@ -625,7 +661,7 @@ fn test() {
         }
         assert_eq!(ref_list[size], test_me.iget(node).value);
 
-        let node2 = test_me.first.get(&test_me.iget(node).value);
+        let node2 = test_me.lookup.get(&test_me.iget(node).value);
         assert!(node2.is_some());
         assert_eq!(*node2.unwrap(), node);
         size += 1;
@@ -639,7 +675,7 @@ fn test() {
     }
 
     fn check_with_list(test_me: &TreeList, ref_list: &Vec<ValueType>) {
-        assert_eq!(test_me.first.len(), ref_list.len());
+        assert_eq!(test_me.lookup.len(), ref_list.len());
         assert_eq!(test_me.data.len(), ref_list.len() + 1); // +1 for HEAD_INDEX element
         assert_eq!(test_me.len(), ref_list.len());
         assert!(test_me.get(ref_list.len()).is_none());
@@ -649,8 +685,8 @@ fn test() {
             assert!(ref_list.len() == 0);
         } else {
             assert!(ref_list.len() != 0); // size of tree should be non-zero
-            // size of 'first' hash should match size of tree if values are unique
-            assert_eq!(test_me.iget(c).rank, test_me.first.len());
+            // size of 'lookup' hash should match size of tree if values are unique
+            assert_eq!(test_me.iget(c).rank, test_me.lookup.len());
             check_with_list_node(test_me, c, &ref_list.as_slice());
         }
     }
