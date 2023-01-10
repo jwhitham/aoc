@@ -534,6 +534,9 @@ impl TreeList {
 
 #[test]
 fn test() {
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
+    use rand::Rng;
     type Rank = usize;
     type Depth = usize;
 
@@ -658,22 +661,11 @@ fn test() {
     check_consistent(&t);
     check_with_list(&t, &s);
 
-    let mut r_state: u64 = 0x853c49e6748fea9b;
-    let r_inc: u64 = 0xda3e39cb94b95bdb;
-    let mut next_random = || -> ValueType {
-        let oldstate = r_state;
-        let (v, _) = oldstate.overflowing_mul(6364136223846793005);
-        (r_state, _) = v.overflowing_add(r_inc);
-        let xorshifted = ((oldstate >> 18) ^ oldstate) >> 27;
-        let rot = oldstate >> 59;
-        return (((xorshifted >> rot)
-                 | (xorshifted << ((32 - rot) & 31)))
-                    & 0xffffffff) as ValueType;
-    };
+    let mut rng = StdRng::seed_from_u64(1);
     let test_size: ValueType = 1000;
 
     for k in 1 .. test_size + 1{
-        let i = next_random() % ((s.len() + 1) as ValueType);
+        let i = rng.gen_range(0 .. (s.len() + 1) as ValueType);
         t.insert(i as usize, k);
         s.insert(i as usize, k);
         check_consistent(&t);
@@ -686,22 +678,24 @@ fn test() {
         assert!(s[j.unwrap() ] == k);
     }
     for _ in 1 .. test_size + 1 {
-        let i = next_random() % (s.len() as ValueType);
+        let i = rng.gen_range(0 .. s.len() as ValueType);
         t.remove(i as usize);
         s.remove(i as usize);
         check_consistent(&t);
         check_with_list(&t, &s);
     }
     for k in 1 .. (test_size * 10) + 1 {
-        if ((next_random() % 2) == 0) && (s.len() > 0) {
-            let i: usize = (next_random() % (s.len() as ValueType)) as usize;
+        if rng.gen_ratio(1, 2) && (s.len() > 0) {
+            // test removing a random value
+            let i: usize = (rng.gen_range(0 .. s.len() as ValueType)) as usize;
             let v: ValueType = *s.get(i).unwrap();
 
             assert_eq!(t.find(v).unwrap() as usize, i);
             s.remove(i);
             t.remove(i);
         } else {
-            let i: usize = (next_random() % ((s.len() + 1) as ValueType)) as usize;
+            // test adding a random value
+            let i: usize = (rng.gen_range(0 .. s.len() + 1 as ValueType)) as usize;
             s.insert(i, k);
             t.insert(i, k);
             let j = t.find(k);
