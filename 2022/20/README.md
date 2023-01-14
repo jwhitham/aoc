@@ -45,14 +45,9 @@ The original class made heavy use of pointers (well, references, since C# is man
 An exact Rust port would require pointers with reference counting. I did attempt this,
 but I found that I'm still not comfortable with Rust's pointer restrictions and it
 is extremely hard to get any code to a state that the compiler will accept. Therefore
-I assigned each tree node a unique reference number to be used in place of a pointer.
-This is slower but leads to relatively readable code which works. The ownership issues
-created by directly using pointers are side-stepped.
-
-Theoretically the "tree list" should be faster than Vec or VecDeque, given enough
-list elements, but for the actual problem size (5000) it appears to be about 50% slower
-in benchmarks. This might be related to the use of references rather than pointers, or some
-other issue. For example, being a binary tree, the cache behaviour is unlikely to be as good as Vec.
+I assigned each tree node an index within a vector. This leads to relatively readable
+code, and though there may be a small performance cost for adding the base address
+of the vector, memory allocation is more efficient and the CPU cache is used better.
 
 
 

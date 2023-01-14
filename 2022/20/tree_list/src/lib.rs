@@ -25,7 +25,6 @@
 
 use std::collections::HashMap;
 
-type ValueType = usize;
 type InternalIndex = usize;
 type ExternalIndex = usize;
 type Direction = u8;
@@ -33,12 +32,13 @@ type Balance = i8;
 const NO_INDEX: InternalIndex = usize::MAX;
 const HEAD_INDEX: InternalIndex = 0;
 
-pub struct TreeList {
+pub struct TreeList<ValueType>
+        where ValueType: std::hash::Hash + Eq + std::default::Default + Clone {
     lookup: HashMap<ValueType, InternalIndex>,
-    data: Vec<AVLNode>,
+    data: Vec<AVLNode<ValueType>>,
 }
 
-struct AVLNode {
+struct AVLNode<ValueType> {
     child: [InternalIndex; 2],
     value: ValueType,
     balance: Balance,
@@ -47,7 +47,8 @@ struct AVLNode {
     parent: InternalIndex,
 }
 
-impl TreeList {
+impl<ValueType> TreeList<ValueType>
+        where ValueType: std::hash::Hash + Eq + std::default::Default + Clone {
 
     pub fn new() -> Self {
         let mut s = TreeList {
@@ -59,15 +60,15 @@ impl TreeList {
         return s;
     }
 
-    fn iget(self: &Self, index: InternalIndex) -> &AVLNode {
+    fn iget(self: &Self, index: InternalIndex) -> &AVLNode<ValueType> {
         return self.data.get(index).unwrap();
     }
 
-    fn iget_mut(self: &mut Self, index: InternalIndex) -> &mut AVLNode {
+    fn iget_mut(self: &mut Self, index: InternalIndex) -> &mut AVLNode<ValueType> {
         return self.data.get_mut(index).unwrap();
     }
 
-    fn head(self: &Self) -> &AVLNode {
+    fn head(self: &Self) -> &AVLNode<ValueType> {
         return self.iget(HEAD_INDEX);
     }
 
@@ -94,10 +95,12 @@ impl TreeList {
         let pp: Option<&InternalIndex> = self.lookup.get(&value);
 
         if pp.is_none() {
-            return None; // This value does not exist
+            return None; // This value does not exist (or the rule about uniqueness wasn't followed)
         }
         let mut p: InternalIndex = *pp.unwrap();
-        assert_eq!(self.iget(p).value, value);
+        if self.iget(p).value != value {
+            return None; // The value has changed, the rule about uniqueness wasn't followed
+        }
 
         let mut ext_index: ExternalIndex = self.left_rank(p);
         let end: InternalIndex = self.head().child[1];
@@ -113,7 +116,7 @@ impl TreeList {
     }
 
     // This returns the item at index (if index is less than the length of the list)
-    pub fn get(self: &Self, ext_index: ExternalIndex) -> Option<ValueType> {
+    pub fn get(self: &Self, ext_index: ExternalIndex) -> Option<&ValueType> {
         let mut p: InternalIndex = self.head().child[1];
         let mut ext_index_copy = ext_index;
 
@@ -123,7 +126,7 @@ impl TreeList {
             } else if ext_index_copy < self.left_rank(p) {
                 p = self.iget(p).child[0];
             } else if ext_index_copy == self.left_rank(p) {
-                return Some(self.iget(p).value);  // index found
+                return Some(&self.iget(p).value);  // index found
             } else {
                 ext_index_copy -= self.left_rank(p) + 1;
                 p = self.iget(p).child[1];
@@ -132,9 +135,9 @@ impl TreeList {
     }
 
     fn new_node(self: &mut Self) -> InternalIndex {
-        let n = AVLNode {
+        let n: AVLNode<ValueType> = AVLNode {
             child: [NO_INDEX, NO_INDEX],
-            value: 0,
+            value: Default::default(),
             balance: 0,
             direction: 0,
             rank: 0,
@@ -146,7 +149,7 @@ impl TreeList {
 
     fn free_node(self: &mut Self, remove_index: InternalIndex) {
         // Swap with the item at the end
-        let replacement: AVLNode = self.data.pop().unwrap();
+        let replacement: AVLNode<ValueType> = self.data.pop().unwrap();
         let replacement_index: InternalIndex = self.data.len();
 
         if remove_index >= replacement_index {
@@ -170,7 +173,7 @@ impl TreeList {
         }
 
         // Change the index for this value
-        self.lookup.insert(replacement.value, remove_index);
+        self.lookup.insert(replacement.value.clone(), remove_index);
 
         // replace the node itself
         *self.data.get_mut(remove_index).unwrap() = replacement;
@@ -192,7 +195,7 @@ impl TreeList {
             let i = self.new_node();
             self.iget_mut(HEAD_INDEX).child[1] = i;
             let mut n = self.iget_mut(i);
-            n.value = value;
+            n.value = value.clone();
             n.direction = 1;
             n.rank = 1;
             n.parent = HEAD_INDEX;
@@ -226,18 +229,17 @@ impl TreeList {
                 // New child (appending)
                 q = self.new_node();
                 let mut n = self.iget_mut(q);
-                n.value = value;
+                n.value = value.clone();
                 n.direction = direction;
                 n.rank = 1;
                 n.parent = p;
+                n.balance = 0;
                 self.iget_mut(p).child[direction as usize] = q;
                 self.lookup.insert(value, q);
                 break;
             }
         }
 
-        self.iget_mut(q).value = value;
-        self.iget_mut(q).balance = 0;
         // adjust balance factors
         c_index = s_index;
         if c_index <= self.left_rank(s) {
@@ -462,10 +464,9 @@ impl TreeList {
             let p_child_1 = self.iget(p).child[1];
 
             // move p's contents to q
-            let v = self.iget(q).value;
-            self.lookup.remove(&v);
-            self.lookup.insert(self.iget(p).value, q);
-            self.iget_mut(q).value = self.iget(p).value;
+            self.lookup.remove(&self.iget(q).value.clone());
+            self.lookup.insert(self.iget(p).value.clone(), q);
+            self.iget_mut(q).value = self.iget(p).value.clone();
             free_before_returning = p;
             p = q;
 
@@ -483,16 +484,14 @@ impl TreeList {
             }
         } else if self.iget(p).child[0] != NO_INDEX {
             // Node has one child - so it's easily removed:
-            let v = self.iget(p).value;
-            self.lookup.remove(&v);
+            self.lookup.remove(&self.iget(p).value.clone());
             self.iget_mut(adjust_p).child[adjust_direction as usize] = self.iget(p).child[0];
             self.iget_mut(self.iget(p).child[0]).parent = adjust_p;
             self.iget_mut(self.iget(p).child[0]).direction = adjust_direction;
             free_before_returning = p;
         } else {
             // Node has zero or one child - again easily removed.
-            let v = self.iget(p).value;
-            self.lookup.remove(&v);
+            self.lookup.remove(&self.iget(p).value.clone());
             self.iget_mut(adjust_p).child[adjust_direction as usize] = self.iget(p).child[1];
             let c = self.iget(p).child[1];
             if c != NO_INDEX {
@@ -574,8 +573,10 @@ fn test() {
     use rand::Rng;
     type Rank = usize;
     type Depth = usize;
+    type TestValueType = u16;
+    type TestTreeList = TreeList<TestValueType>;
 
-    fn get_max_depth(test_me: &TreeList, node: InternalIndex) -> Depth {
+    fn get_max_depth(test_me: &TestTreeList, node: InternalIndex) -> Depth {
         let mut d1: Depth = 0;
         let mut d2: Depth = 0;
         let c1 = test_me.iget(node).child[0];
@@ -589,7 +590,7 @@ fn test() {
         return Depth::max(d1, d2);
     }
 
-    fn get_balance(test_me: &TreeList, node: InternalIndex) -> Balance {
+    fn get_balance(test_me: &TestTreeList, node: InternalIndex) -> Balance {
         let mut d1: Depth = 0;
         let mut d2: Depth = 0;
         let c1 = test_me.iget(node).child[0];
@@ -603,7 +604,7 @@ fn test() {
         return ((d2 as isize) - (d1 as isize)) as Balance;
     }
 
-    fn get_rank(test_me: &TreeList, node: InternalIndex) -> Rank {
+    fn get_rank(test_me: &TestTreeList, node: InternalIndex) -> Rank {
         let mut rank: Rank = 1;
         for i in 0 .. 2 {
             let c = test_me.iget(node).child[i];
@@ -615,7 +616,7 @@ fn test() {
     }
 
     fn check_consistent_node(
-            test_me: &TreeList,
+            test_me: &TestTreeList,
             node: InternalIndex,
             visited: &mut HashMap<InternalIndex, bool>) {
        
@@ -639,7 +640,7 @@ fn test() {
         assert_eq!(x, test_me.iget(node).balance);
     }
 
-    fn check_consistent(test_me: &TreeList) {
+    fn check_consistent(test_me: &TestTreeList) {
         if test_me.head().child[1] == NO_INDEX {
             return;
         }
@@ -649,9 +650,9 @@ fn test() {
         check_consistent_node(test_me, test_me.head().child[1], &mut visited);
     }
 
-    fn check_with_list_node(test_me: &TreeList,
+    fn check_with_list_node(test_me: &TestTreeList,
                             node: InternalIndex,
-                            ref_list: &[ValueType]) {
+                            ref_list: &[TestValueType]) {
         let mut size: Rank = 0;
         let c1 = test_me.iget(node).child[0];
         if c1 != NO_INDEX {
@@ -673,7 +674,7 @@ fn test() {
         assert_eq!(size, ref_list.len());
     }
 
-    fn check_with_list(test_me: &TreeList, ref_list: &Vec<ValueType>) {
+    fn check_with_list(test_me: &TestTreeList, ref_list: &Vec<TestValueType>) {
         assert_eq!(test_me.lookup.len(), ref_list.len());
         assert_eq!(test_me.data.len(), ref_list.len() + 1); // +1 for HEAD_INDEX element
         assert_eq!(test_me.len(), ref_list.len());
@@ -690,17 +691,17 @@ fn test() {
         }
     }
 
-    let mut test_me = TreeList::new();
-    let mut ref_list: Vec<ValueType> = Vec::new();
+    let mut test_me: TestTreeList = TreeList::new();
+    let mut ref_list: Vec<TestValueType> = Vec::new();
 
     check_consistent(&test_me);
     check_with_list(&test_me, &ref_list);
 
     let mut rng = StdRng::seed_from_u64(1);
-    let test_size: ValueType = 1000;
+    let test_size: TestValueType = 1000;
 
     for k in 1 .. test_size + 1{
-        let i = rng.gen_range(0 .. (ref_list.len() + 1) as ValueType);
+        let i = rng.gen_range(0 .. (ref_list.len() + 1) as TestValueType);
         test_me.insert(i as usize, k);
         ref_list.insert(i as usize, k);
         check_consistent(&test_me);
@@ -713,7 +714,7 @@ fn test() {
         assert!(ref_list[j.unwrap() ] == k);
     }
     for _ in 1 .. test_size + 1 {
-        let i = rng.gen_range(0 .. ref_list.len() as ValueType);
+        let i = rng.gen_range(0 .. ref_list.len() as TestValueType);
         test_me.remove(i as usize);
         ref_list.remove(i as usize);
         check_consistent(&test_me);
@@ -722,15 +723,15 @@ fn test() {
     for k in 1 .. (test_size * 10) + 1 {
         if rng.gen_ratio(1, 2) && (ref_list.len() > 0) {
             // test removing a random value
-            let i: usize = (rng.gen_range(0 .. ref_list.len() as ValueType)) as usize;
-            let v: ValueType = *ref_list.get(i).unwrap();
+            let i: usize = (rng.gen_range(0 .. ref_list.len() as TestValueType)) as usize;
+            let v: TestValueType = *ref_list.get(i).unwrap();
 
             assert_eq!(test_me.find(v).unwrap() as usize, i);
             ref_list.remove(i);
             test_me.remove(i);
         } else {
             // test adding a random value
-            let i: usize = (rng.gen_range(0 .. ref_list.len() + 1 as ValueType)) as usize;
+            let i: usize = rng.gen_range(0 .. ref_list.len() + 1);
             ref_list.insert(i, k);
             test_me.insert(i, k);
             let j = test_me.find(k);
@@ -740,7 +741,7 @@ fn test() {
         check_with_list(&test_me, &ref_list);
     }
     while ref_list.len() > 0 {
-        let i: usize = (rng.gen_range(0 .. ref_list.len() as ValueType)) as usize;
+        let i: usize = (rng.gen_range(0 .. ref_list.len() as TestValueType)) as usize;
         ref_list.remove(i);
         test_me.remove(i);
         check_consistent(&test_me);

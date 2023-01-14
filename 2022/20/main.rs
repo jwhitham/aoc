@@ -8,7 +8,7 @@ use tree_list::TreeList;
 const DEBUG: bool = false;
 
 struct Problem {
-    orders: TreeList,
+    orders: TreeList<usize>,
     order_to_value: Vec<isize>,
     size: usize,
 }
@@ -38,7 +38,7 @@ fn mix(p: &mut Problem) {
         let old_index: usize = p.orders.find(order).unwrap();
         if DEBUG {
             assert!(old_index < p.size);
-            assert_eq!(p.orders.get(old_index).unwrap(), order);
+            assert_eq!(*p.orders.get(old_index).unwrap(), order);
         }
 
         // Remove
@@ -60,9 +60,9 @@ fn mix(p: &mut Problem) {
         p.orders.insert(pos as usize, order);
 
         if DEBUG {
-            assert_eq!(p.orders.get(pos as usize).unwrap(), order);
+            assert_eq!(*p.orders.get(pos as usize).unwrap(), order);
             for index in 0 .. p.size {
-                let order: usize = p.orders.get(index).unwrap();
+                let order: usize = *p.orders.get(index).unwrap();
                 let value: isize = *p.order_to_value.get(order).unwrap();
                 print!("{} ", value);
             }
@@ -82,9 +82,9 @@ fn get_coords(p: &Problem) -> isize {
         }
     }
     assert!(zero_index < p.size);
-    let a = *p.order_to_value.get(p.orders.get((zero_index + 1000) % p.size).unwrap()).unwrap();
-    let b = *p.order_to_value.get(p.orders.get((zero_index + 2000) % p.size).unwrap()).unwrap();
-    let c = *p.order_to_value.get(p.orders.get((zero_index + 3000) % p.size).unwrap()).unwrap();
+    let a = *p.order_to_value.get(*p.orders.get((zero_index + 1000) % p.size).unwrap()).unwrap();
+    let b = *p.order_to_value.get(*p.orders.get((zero_index + 2000) % p.size).unwrap()).unwrap();
+    let c = *p.order_to_value.get(*p.orders.get((zero_index + 3000) % p.size).unwrap()).unwrap();
     return a + b + c;
 }
 
