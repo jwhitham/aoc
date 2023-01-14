@@ -1,14 +1,28 @@
-﻿//
-// This data structure implements an indexed list (like a Vec) in which
-// you can insert/remove/get elements at any index with O(log N) operations.
-//
-// Provided that element values are unique, you can find an element's index from
-// its value in O(log N) time too, with the "find" method.
-//
-// If element values are not unique, then the "find" method's return value is not defined.
-//
-// A balanced binary tree (AVL) is used.
-// See https://en.wikipedia.org/wiki/AVL_tree for an introduction to AVL trees.
+﻿//! TreeList implements an indexed list in which
+//! you can `insert`, `remove` and `get` values at any index with O(log N) time,
+//! where N is the length of the list.
+//!
+//! Provided that values have always been unique, you can find an index for a value
+//! in O(log N) time with the `find` method.
+//!
+//! In a conventional indexed list such as [`Vec`], it is possible to access values
+//! in O(1) time, but inserting, removing, and finding by value requires O(N)
+//! time in general cases. Insertion and removal require moving all of the following
+//! items in the list, while finding by value requires a search of the whole list
+//! in the worst case.
+//!
+//! TreeList is implemented using a self-balancing binary tree. These are most commonly used
+//! to implement ordered associative data structures, similar to [`HashMap`] but with values
+//! stored in key order. But they can also be used to implement indexed data structures such
+//! as lists, by using the index (or "rank") of each value as the ordering criteria. This
+//! is not possible with most generic tree structures (e.g. [`std::collections::BTreeMap`])
+//! because they do not provide structural information to the comparison function. Therefore,
+//! TreeList uses its own binary tree implementation, which is an [AVL] tree based on pseudocode
+//! from [Knuth's TAOCP] volume 3, "Sorting and Searching". 
+//!
+//! [AVL]: https://en.wikipedia.org/wiki/AVL_tree 
+//! [Knuth's TAOCP]: https://en.wikipedia.org/wiki/The_Art_of_Computer_Programming
+//!
 // This Adelson-Velsky and Landis (AVL) tree implementation comes from Knuth's TAOCP textbook,
 // volume 3, "Sorting and Searching". Page numbers refer to the 1973 edition. I have used
 // Knuth's variable names where possible and replicated the algorithm steps from the book.
@@ -21,7 +35,6 @@
 // * children are numbered 0 and 1, so that rotation procedures can be generic
 // * insert and remove operations are not recursive
 // * a "head" node is always present so that the "empty" set is not a special case
-//
 
 use std::collections::HashMap;
 
@@ -32,8 +45,13 @@ type Balance = i8;
 const NO_INDEX: InternalIndex = usize::MAX;
 const HEAD_INDEX: InternalIndex = 0;
 
-pub struct TreeList<ValueType>
-        where ValueType: std::hash::Hash + Eq + std::default::Default + Clone {
+/// TreeList implements an indexed list in which
+/// you can `insert`, `remove` and `get` values at any index with O(log N) time,
+/// where N is the length of the list.
+///
+/// Provided that values have always been unique, you can find an index for a value
+/// in O(log N) time with the `find` method.
+pub struct TreeList<ValueType> where ValueType: std::hash::Hash + Eq + std::default::Default + Clone {
     lookup: HashMap<ValueType, InternalIndex>,
     data: Vec<AVLNode<ValueType>>,
 }
@@ -47,9 +65,9 @@ struct AVLNode<ValueType> {
     parent: InternalIndex,
 }
 
-impl<ValueType> TreeList<ValueType>
-        where ValueType: std::hash::Hash + Eq + std::default::Default + Clone {
+impl<ValueType> TreeList<ValueType> where ValueType: std::hash::Hash + Eq + std::default::Default + Clone {
 
+    /// Makes a new, empty TreeList.
     pub fn new() -> Self {
         let mut s = TreeList {
             data: Vec::new(),
@@ -80,7 +98,7 @@ impl<ValueType> TreeList<ValueType>
         return 0;
     }
 
-    // Returns the number of items in the list
+    /// Returns the number of items in the list
     pub fn len(self: &Self) -> ExternalIndex {
         let c = self.head().child[1];
         if c == NO_INDEX {
@@ -90,7 +108,10 @@ impl<ValueType> TreeList<ValueType>
         }
     }
 
-    // This returns the index where value can be found (if any).
+    /// Returns the index where `value` can be found, or `None` if `value` is not present.
+    ///
+    /// Note: If values have not always been unique within the list, then the `find` method's
+    /// return is not defined.
     pub fn find(self: &Self, value: ValueType) -> Option<ExternalIndex> {
         let pp: Option<&InternalIndex> = self.lookup.get(&value);
 
@@ -115,10 +136,11 @@ impl<ValueType> TreeList<ValueType>
         return Some(ext_index);
     }
 
-    // This returns the item at index (if index is less than the length of the list)
-    pub fn get(self: &Self, ext_index: ExternalIndex) -> Option<&ValueType> {
+    /// Returns a reference to the value at `index`, if `index` is less than the length of the list.
+    /// Otherwise returns `None`.
+    pub fn get(self: &Self, index: ExternalIndex) -> Option<&ValueType> {
         let mut p: InternalIndex = self.head().child[1];
-        let mut ext_index_copy = ext_index;
+        let mut ext_index_copy = index;
 
         loop {
             if p == NO_INDEX {
@@ -179,16 +201,17 @@ impl<ValueType> TreeList<ValueType>
         *self.data.get_mut(remove_index).unwrap() = replacement;
     }
 
-    // Insert a new element at the given index. All items at greater indexes are shifted +1.
-    pub fn insert(self: &mut Self, ext_index: ExternalIndex, value: ValueType) {
+    /// Insert `value` at `index`, causing the indexes of all items with index >= `index`
+    /// to be increased by 1.
+    pub fn insert(self: &mut Self, index: ExternalIndex, value: ValueType) {
         let mut p: InternalIndex = self.head().child[1];  // the pointer variable p will move down the tree
         let mut s: InternalIndex = self.head().child[1];  // s will point to the place where rebalancing may be necessary
         let mut t: InternalIndex = HEAD_INDEX;            // t will always point to the parent of s
         let mut q: InternalIndex;
         let r: InternalIndex;
         let mut direction: Direction;
-        let mut s_index: ExternalIndex = ext_index; // index at the point where rebalancing was necessary
-        let mut c_index: ExternalIndex = ext_index;
+        let mut s_index: ExternalIndex = index; // index at the point where rebalancing was necessary
+        let mut c_index: ExternalIndex = index;
 
         if p == NO_INDEX {
             // empty tree special case
@@ -401,14 +424,15 @@ impl<ValueType> TreeList<ValueType>
         }
     }
 
-    // Remove the element at the specified index. All elements with greater indexes are shifted -1.
-    pub fn remove(self: &mut Self, ext_index: ExternalIndex) {
+    /// Remove the value at `index`, causing the indexes of all items with index > `index`
+    /// to be decreased by 1.
+    pub fn remove(self: &mut Self, index: ExternalIndex) {
         let mut p: InternalIndex = self.head().child[1];
         let mut adjust_p: InternalIndex = HEAD_INDEX;
         let mut adjust_direction: Direction = 1;
-        let mut c_index: ExternalIndex = ext_index;
+        let mut c_index: ExternalIndex = index;
 
-        if (p == NO_INDEX) || (ext_index >= self.iget(p).rank) {
+        if (p == NO_INDEX) || (index >= self.iget(p).rank) {
             // unable to delete element outside of list
             return;
         }

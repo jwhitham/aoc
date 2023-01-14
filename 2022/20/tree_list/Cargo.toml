@@ -2,8 +2,10 @@
 name = "tree_list"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "TreeList implements an indexed list in which you can insert, remove, access and find elements by value in O(log N) time"
+homepage = "https://www.jwhitham.org/"
+license = "MIT OR Apache-2.0"
+author = ["Jack Whitham"]
 
 [dev-dependencies]
 rand = { version = "0.8.0" }
