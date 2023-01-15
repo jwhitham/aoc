@@ -68,6 +68,7 @@ impl CrabGame {
         }
     }
 
+    #[allow(dead_code)]
     fn to_string(self: &Self) -> String {
         let current_cup = self.all_cups.get(0).unwrap();
         let mut output = String::new();
@@ -107,6 +108,7 @@ impl CrabGame {
 
 const TEST_INPUT: &str = "389125467";
 const MY_INPUT: &str = "158937462";
+const ORIGINAL_AOC_PROBLEM: bool = false;
 
 #[test]
 fn test_part1_example() {
@@ -120,8 +122,15 @@ fn test_part1_example() {
 #[test]
 fn test_part2_example() {
     let mut cg = CrabGame::new(TEST_INPUT, 1e6 as usize);
-    cg.play(10e6 as usize);
-    assert_eq!(cg.part_2_result(), 149245887792);
+    cg.play(1e3 as usize);
+    assert_eq!(cg.part_2_result(), 12);
+    assert_eq!(cg.part_1_result(), "3467251014");
+    if ORIGINAL_AOC_PROBLEM {
+        // On my PC this requires ~30s of CPU time in release mode, and more than 7 minutes
+        // in debug mode. This is not the best solution to 2020 day 23!
+        cg.play((10e6 - 1e3) as usize);
+        assert_eq!(cg.part_2_result(), 149245887792);
+    }
 }
 
 #[test]
@@ -134,6 +143,12 @@ fn test_part1_problem() {
 #[test]
 fn test_part2_problem() {
     let mut cg = CrabGame::new(MY_INPUT, 1e6 as usize);
-    cg.play(10e6 as usize);
-    assert_eq!(cg.part_2_result(), 96604396189);
+    cg.play(1e3 as usize);
+    assert_eq!(cg.part_2_result(), 28);
+    assert_eq!(cg.part_1_result(), "74632101418");
+    if ORIGINAL_AOC_PROBLEM {
+        // Requires a lot of CPU time (see above)
+        cg.play((10e6 - 1e3) as usize);
+        assert_eq!(cg.part_2_result(), 96604396189);
+    }
 }
