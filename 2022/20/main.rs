@@ -2,13 +2,13 @@
 use std::fs::File;
 use std::io::{self, BufRead};
 
-extern crate tree_list;
-use tree_list::TreeList;
+extern crate associative_positional_list;
+use associative_positional_list::AssociativePositionalList;
 
 const DEBUG: bool = false;
 
 struct Problem {
-    orders: TreeList<usize>,
+    orders: AssociativePositionalList<usize>,
     order_to_value: Vec<isize>,
     size: usize,
 }
@@ -16,7 +16,7 @@ struct Problem {
 fn load(filename: &str) -> Problem {
     let file = File::open(filename).unwrap();
     let mut p = Problem {
-        orders: TreeList::new(),
+        orders: AssociativePositionalList::new(),
         order_to_value: Vec::new(),
         size: 0,
     };
