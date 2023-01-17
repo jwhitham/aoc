@@ -9,7 +9,7 @@
 // * the rank of a node is the total number of nodes in its subtree (including itself)
 // * children are numbered 0 and 1, so that rotation procedures can be generic
 // * insert and remove operations are not recursive
-// * a "head" node is always present so that the "empty" set is not a special case
+// * a "head" node is present after the first value is inserted, so that "empty" is not a special case
 
 use std::collections::HashMap;
 
@@ -43,7 +43,7 @@ const HEAD_INDEX: InternalIndex = 0;
 /// ```
 /// use associative_positional_list::AssociativePositionalList;
 ///
-/// let p: AssociativePositionalList<String> = AssociativePositionalList::new();
+/// let mut p: AssociativePositionalList<String> = AssociativePositionalList::new();
 /// p.insert(0, "World".to_string());
 /// p.insert(0, "Hello".to_string());
 ///
@@ -80,10 +80,12 @@ const HEAD_INDEX: InternalIndex = 0;
 /// The `find` method uses a [`HashMap`] to determine the tree node corresponding to a value,
 /// and then the index of the tree node is computed based on the "rank".
 ///
+/// Insert and remove operations are iterative (no recursion).
+///
 /// [AVL]: https://en.wikipedia.org/wiki/AVL_tree 
 /// [Knuth's TAOCP]: https://en.wikipedia.org/wiki/The_Art_of_Computer_Programming
 ///
-pub struct AssociativePositionalList<ValueType> where ValueType: std::hash::Hash + Eq + std::default::Default + Clone {
+pub struct AssociativePositionalList<ValueType> where ValueType: std::hash::Hash + Eq + Clone {
     lookup: HashMap<ValueType, InternalIndex>,
     data: Vec<AVLNode<ValueType>>,
 }
@@ -97,17 +99,14 @@ struct AVLNode<ValueType> {
     parent: InternalIndex,
 }
 
-impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash::Hash + Eq + std::default::Default + Clone {
+impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash::Hash + Eq + Clone {
 
     /// Makes a new, empty AssociativePositionalList.
     pub fn new() -> Self {
-        let mut s = AssociativePositionalList {
+        return AssociativePositionalList {
             data: Vec::new(),
             lookup: HashMap::new(),
         };
-        let c = s.new_node();
-        assert_eq!(c, HEAD_INDEX);
-        return s;
     }
 
     fn iget(self: &Self, index: InternalIndex) -> &AVLNode<ValueType> {
@@ -119,6 +118,9 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
     }
 
     fn head(self: &Self) -> &AVLNode<ValueType> {
+        if self.data.is_empty() {
+            panic!("cannot access head() until one element has been inserted");
+        }
         return self.iget(HEAD_INDEX);
     }
 
@@ -132,6 +134,10 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
 
     /// Returns the number of items in the list
     pub fn len(self: &Self) -> ExternalIndex {
+        if self.data.is_empty() {
+            // nothing was ever inserted into the list
+            return 0;
+        }
         let c = self.head().child[1];
         if c == NO_INDEX {
             return 0;
@@ -171,6 +177,10 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
     /// Returns a reference to the value at `index`, if `index` is less than the length of the list.
     /// Otherwise returns `None`.
     pub fn get(self: &Self, index: ExternalIndex) -> Option<&ValueType> {
+        if self.data.is_empty() {
+            // nothing was ever inserted into the list
+            return None;
+        }
         let mut p: InternalIndex = self.head().child[1];
         let mut ext_index_copy = index;
 
@@ -188,10 +198,10 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
         }
     }
 
-    fn new_node(self: &mut Self) -> InternalIndex {
+    fn new_node(self: &mut Self, value: ValueType) -> InternalIndex {
         let n: AVLNode<ValueType> = AVLNode {
             child: [NO_INDEX, NO_INDEX],
-            value: Default::default(),
+            value: value,
             balance: 0,
             direction: 0,
             rank: 0,
@@ -241,6 +251,13 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
     /// * If the set did not previously contain this value, true is returned.
     /// * If the set already contained this value, false is returned.
     pub fn insert(self: &mut Self, index: ExternalIndex, value: ValueType) -> bool {
+        if self.data.is_empty() {
+            // Tree has never been used before - add the HEAD_INDEX node
+            if self.new_node(value.clone()) != HEAD_INDEX {
+                panic!("index of head node is not HEAD_INDEX");
+            }
+        }
+
         let mut p: InternalIndex = self.head().child[1];  // the pointer variable p will move down the tree
         let mut s: InternalIndex = self.head().child[1];  // s will point to the place where rebalancing may be necessary
         let mut t: InternalIndex = HEAD_INDEX;            // t will always point to the parent of s
@@ -252,10 +269,9 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
 
         if p == NO_INDEX {
             // empty tree special case
-            let i = self.new_node();
+            let i = self.new_node(value.clone());
             self.iget_mut(HEAD_INDEX).child[1] = i;
             let mut n = self.iget_mut(i);
-            n.value = value.clone();
             n.direction = 1;
             n.rank = 1;
             n.parent = HEAD_INDEX;
@@ -291,9 +307,8 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
                 p = q;
             } else {
                 // New child (appending)
-                q = self.new_node();
+                q = self.new_node(value.clone());
                 let mut n = self.iget_mut(q);
-                n.value = value.clone();
                 n.direction = direction;
                 n.rank = 1;
                 n.parent = p;
@@ -466,9 +481,14 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
         }
     }
 
-    /// Remove the value at `index`, causing the indexes of all items with index > `index`
-    /// to be decreased by 1.
+    /// Removes the value at `index`, causing the indexes of all items with index > `index`
+    /// to be decreased by 1. No effect if `index` is not valid.
     pub fn remove(self: &mut Self, index: ExternalIndex) {
+        if self.data.is_empty() {
+            // nothing was ever inserted into the list
+            return;
+        }
+
         let mut p: InternalIndex = self.head().child[1];
         let mut adjust_p: InternalIndex = HEAD_INDEX;
         let mut adjust_direction: Direction = 1;
@@ -482,7 +502,7 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
         loop {
             if p == NO_INDEX {
                 // this should not be possible due to the index check at the start of the Delete method
-                panic!();
+                panic!("unable to find index");
             }
 
             // element will be removed below p
@@ -707,6 +727,11 @@ fn test() {
     }
 
     fn check_consistent(test_me: &TestAssociativePositionalList) {
+        if test_me.data.is_empty() {
+            // Tree has never been used - check state
+            assert!(test_me.lookup.is_empty());
+            return;
+        }
         if test_me.head().child[1] == NO_INDEX {
             return;
         }
@@ -741,6 +766,12 @@ fn test() {
     }
 
     fn check_with_list(test_me: &TestAssociativePositionalList, ref_list: &Vec<TestValueType>) {
+        if test_me.data.is_empty() {
+            // Tree has never been used - check all state
+            assert!(test_me.lookup.is_empty());
+            assert!(ref_list.is_empty());
+            return;
+        }
         assert_eq!(test_me.lookup.len(), ref_list.len());
         assert_eq!(test_me.data.len(), ref_list.len() + 1); // +1 for HEAD_INDEX element
         assert_eq!(test_me.len(), ref_list.len());
