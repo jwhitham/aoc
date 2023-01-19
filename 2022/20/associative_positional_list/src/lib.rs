@@ -1,4 +1,4 @@
-﻿// This Adelson-Velsky and Landis (AVL) tree implementation comes from Knuth's TAOCP textbook,
+// This Adelson-Velsky and Landis (AVL) tree implementation comes from Knuth's TAOCP textbook,
 // volume 3, "Sorting and Searching". Page numbers refer to the 1973 edition. I have used
 // Knuth's variable names where possible and replicated the algorithm steps from the book.
 //
@@ -12,6 +12,7 @@
 // * a "head" node is present after the first value is inserted, so that "empty" is not a special case
 
 use std::collections::HashMap;
+use std::ops::Index;
 
 type InternalIndex = usize;
 type ExternalIndex = usize;
@@ -44,8 +45,13 @@ const HEAD_INDEX: InternalIndex = 0;
 /// use associative_positional_list::AssociativePositionalList;
 ///
 /// let mut p: AssociativePositionalList<String> = AssociativePositionalList::new();
-/// p.insert(0, "World".to_string());
 /// p.insert(0, "Hello".to_string());
+/// p.insert(1, "World".to_string());
+/// assert_eq!(p.len(), 2);
+/// assert_eq!(p[0], "Hello");
+/// assert_eq!(p[1], "World");
+/// assert_eq!(p, ["Hello", "World"]);
+///
 ///
 /// ```
 ///
@@ -53,7 +59,7 @@ const HEAD_INDEX: InternalIndex = 0;
 ///
 /// * At least two copies of each value will exist within the container.
 /// * Values must be hashable.
-/// * Values do not have to be comparable 
+/// * Values do not have to be comparable.
 ///
 /// # Time complexity
 ///
@@ -97,6 +103,128 @@ struct AVLNode<ValueType> {
     direction: Direction,
     rank: ExternalIndex,
     parent: InternalIndex,
+}
+
+impl<ValueType> Index<usize> for AssociativePositionalList<ValueType>
+        where ValueType: std::hash::Hash + Eq + Clone {
+    /// Get the value at the specified index in the AssociativePositionalList.
+    /// Will panic if the index is not less than the length.
+    type Output = ValueType;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        return self.get(index).unwrap();
+    }
+}
+
+impl<ValueType> FromIterator<ValueType> for AssociativePositionalList<ValueType>
+        where ValueType: std::hash::Hash + Eq + Clone {
+    fn from_iter<I: IntoIterator<Item = ValueType>>(iter: I) -> AssociativePositionalList<ValueType> {
+        let mut p: AssociativePositionalList<ValueType> = AssociativePositionalList::new();
+        let mut i: usize = 0;
+        for x in iter {
+            p.insert(i, x.clone());
+            i += 1;
+        }
+        return p;
+    }
+}
+
+/*
+impl<ValueType> PartialEq for AssociativePositionalList<ValueType>
+        where ValueType: std::hash::Hash + Eq + Clone {
+
+    fn eq(&self, other: &Self) -> bool {
+        // an iterator for AssociativePositionalList would be better
+        if self.len() != other.len() {
+            return false;
+        }
+        for i in 0 .. self.len() {
+            if self.get(i) != other.get(i) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+impl<ValueType> std::fmt::Debug for AssociativePositionalList<ValueType>
+            where ValueType: std::hash::Hash + Eq + Clone + std::fmt::Debug {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for i in 0 .. self.len() {
+            f.debug_list().entries(self.iter()).finish();
+        }
+    }
+}
+
+impl<ValueType> From<&[ValueType]> for AssociativePositionalList<ValueType>
+            where ValueType: std::hash::Hash + Eq + Clone {
+    /// Allocate an `AssociativePositionalList` and fill it by cloning `s`'s items.
+    fn from(s: &[ValueType]) -> AssociativePositionalList<ValueType> {
+        let mut p: AssociativePositionalList<ValueType> = AssociativePositionalList::new();
+        let mut i: usize = 0;
+        for x in s {
+            p.insert(i, x.clone());
+            i += 1;
+        }
+        return p;
+    }
+}
+*/
+
+struct IterStackItem {
+    index: InternalIndex,
+    direction: Direction,
+}
+
+pub struct Iter<'a, ValueType: 'a> where ValueType: std::hash::Hash + Eq + Clone {
+    stack: Vec<IterStackItem>,
+    parent: &'a AssociativePositionalList<ValueType>,
+}
+
+impl<'a, ValueType> Iterator for Iter<'a, ValueType> where ValueType: std::hash::Hash + Eq + Clone {
+    type Item = ValueType;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            // If the stack is empty, no more items
+            if self.stack.is_empty() {
+                return None;
+            }
+
+            // If we returned from the left, a value should be returned
+            if self.stack.last().unwrap().direction == 0 {
+                break;
+            }
+            self.stack.pop();
+        }
+
+        // The value of the current node should be returned
+        let n: &AVLNode<ValueType> = self.parent.iget(self.stack.last().unwrap().index);
+
+        // If there is a right child, we should move right; otherwise we move up
+        let mut c = n.child[1];
+        if c != NO_INDEX {
+            self.stack.push(IterStackItem {
+                index: c,
+                direction: 1,
+            });
+
+            // Fill the stack with the path to the leftmost item with a value
+            loop {
+                c = self.parent.iget(c).child[0];
+                if c == NO_INDEX {
+                    break;
+                }
+                self.stack.push(IterStackItem {
+                    index: c,
+                    direction: 0,
+                });
+            }
+        } else {
+            self.stack.pop();
+        }
+        return Some(n.value.clone());
+    }
 }
 
 impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash::Hash + Eq + Clone {
@@ -196,6 +324,35 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
                 p = self.iget(p).child[1];
             }
         }
+    }
+
+
+    /// Returns an iterator over all values in list order.
+    pub fn iter<'a>(self: &'a Self) -> Iter<'a, ValueType> {
+        // find the next item
+        let mut stack: Vec<IterStackItem> = Vec::new();
+        if !self.data.is_empty() {
+            // Fill the stack with the path to the first item
+            let mut c = self.head().child[1];
+            stack.push(IterStackItem {
+                index: c,
+                direction: 1,
+            });
+            loop {
+                c = self.iget(c).child[0];
+                if c == NO_INDEX {
+                    break;
+                }
+                stack.push(IterStackItem {
+                    index: c,
+                    direction: 0,
+                });
+            }
+        }
+        return Iter {
+            parent: &self,
+            stack: stack,
+        };
     }
 
     fn new_node(self: &mut Self, value: ValueType) -> InternalIndex {
@@ -770,6 +927,7 @@ fn test() {
             // Tree has never been used - check all state
             assert!(test_me.lookup.is_empty());
             assert!(ref_list.is_empty());
+            assert!(Vec::from_iter(test_me.iter()).is_empty());
             return;
         }
         assert_eq!(test_me.lookup.len(), ref_list.len());
@@ -786,6 +944,13 @@ fn test() {
             assert_eq!(test_me.iget(c).rank, test_me.lookup.len());
             check_with_list_node(test_me, c, &ref_list.as_slice());
         }
+
+        let mut i: usize = 0;
+        for value in test_me.iter() {
+            assert_eq!(*ref_list.get(i).unwrap(), value);
+            i += 1;
+        }
+        assert_eq!(ref_list.len(), i);
     }
 
     let mut test_me: TestAssociativePositionalList = AssociativePositionalList::new();
