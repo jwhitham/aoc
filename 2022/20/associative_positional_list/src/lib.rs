@@ -185,21 +185,17 @@ impl<'a, ValueType> Iterator for Iter<'a, ValueType> where ValueType: std::hash:
     type Item = ValueType;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // If the stack is empty, no more items
-            if self.stack.is_empty() {
-                return None;
-            }
-
-            // If we returned from the left, a value should be returned
-            if self.stack.last().unwrap().direction == 0 {
-                break;
-            }
-            self.stack.pop();
+        // If the stack is empty, no more items
+        if self.stack.is_empty() {
+            return None;
         }
 
-        // The value of the current node should be returned
+        // Top of stack is the next item to be returned
         let n: &AVLNode<ValueType> = self.parent.iget(self.stack.last().unwrap().index);
+
+        // Move the stack to the next node
+        // Can't move downwards on the left, unless we first move right.
+        // Can we move right?
 
         // If there is a right child, we should move right; otherwise we move up
         let mut c = n.child[1];
@@ -221,7 +217,20 @@ impl<'a, ValueType> Iterator for Iter<'a, ValueType> where ValueType: std::hash:
                 });
             }
         } else {
-            self.stack.pop();
+            // Move up again every time we moved right
+            loop {
+                // If the stack is now empty, this was the last item
+                if self.stack.is_empty() {
+                    break;
+                }
+
+                // If we returned from the left, we can move right next time
+                if self.stack.last().unwrap().direction == 0 {
+                    self.stack.pop();
+                    break;
+                }
+                self.stack.pop();
+            }
         }
         return Some(n.value.clone());
     }
