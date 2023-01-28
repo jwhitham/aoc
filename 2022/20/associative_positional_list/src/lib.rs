@@ -190,16 +190,13 @@ impl<'a, ValueType> Iterator for Iter<'a, ValueType> where ValueType: std::hash:
             return None;
         }
 
-        // Top of stack is the next item to be returned
-        let n: &AVLNode<ValueType> = self.parent.iget(self.stack.last().unwrap().index);
-
-        // Move the stack to the next node
-        // Can't move downwards on the left, unless we first move right.
-        // Can we move right?
-
-        // If there is a right child, we should move right; otherwise we move up
-        let mut c = n.child[1];
+        // Find the next item to be returned - the top of the stack is
+        // either the last node to be returned by the iterator,
+        // or the head of the list
+        let mut c = self.stack.last().unwrap().index;
+        c = self.parent.iget(c).child[1];
         if c != NO_INDEX {
+            // There is a right child, so we should move right
             self.stack.push(IterStackItem {
                 index: c,
                 direction: 1,
@@ -217,21 +214,24 @@ impl<'a, ValueType> Iterator for Iter<'a, ValueType> where ValueType: std::hash:
                 });
             }
         } else {
-            // Move up again every time we moved right
+            // There is no right child, so we should move up
             loop {
-                // If the stack is now empty, this was the last item
-                if self.stack.is_empty() {
+                let direction = self.stack.last().unwrap().direction;
+                self.stack.pop();
+                if direction == 0 {
+                    // If we returned from the left, we can move right next time
                     break;
+                }
+                if self.stack.is_empty() {
+                    // If the stack is now empty, this was the last item
+                    return None;
                 }
 
-                // If we returned from the left, we can move right next time
-                if self.stack.last().unwrap().direction == 0 {
-                    self.stack.pop();
-                    break;
-                }
-                self.stack.pop();
             }
         }
+
+        // Return the value referenced at the top of the stack
+        let n: &AVLNode<ValueType> = self.parent.iget(self.stack.last().unwrap().index);
         return Some(n.value.clone());
     }
 }
@@ -269,18 +269,14 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
         return 0;
     }
 
+    /// Returns true if the list is empty
+    pub fn is_empty(self: &Self) -> bool {
+        return self.lookup.is_empty();
+    }
+
     /// Returns the number of items in the list
     pub fn len(self: &Self) -> ExternalIndex {
-        if self.data.is_empty() {
-            // nothing was ever inserted into the list
-            return 0;
-        }
-        let c = self.head().child[1];
-        if c == NO_INDEX {
-            return 0;
-        } else {
-            return self.iget(c).rank;
-        }
+        return self.lookup.len();
     }
 
     /// Returns the index where `value` can be found, or `None` if `value` is not present.
@@ -338,25 +334,13 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
 
     /// Returns an iterator over all values in list order.
     pub fn iter<'a>(self: &'a Self) -> Iter<'a, ValueType> {
-        // find the next item
         let mut stack: Vec<IterStackItem> = Vec::new();
-        if !self.data.is_empty() {
-            // Fill the stack with the path to the first item
-            let mut c = self.head().child[1];
+        if !self.is_empty() {
+            // If the list is non-empty, begin iteration at the head
             stack.push(IterStackItem {
-                index: c,
+                index: HEAD_INDEX,
                 direction: 1,
             });
-            loop {
-                c = self.iget(c).child[0];
-                if c == NO_INDEX {
-                    break;
-                }
-                stack.push(IterStackItem {
-                    index: c,
-                    direction: 0,
-                });
-            }
         }
         return Iter {
             parent: &self,
@@ -907,6 +891,28 @@ fn test() {
         check_consistent_node(test_me, test_me.head().child[1], &mut visited);
     }
 
+    fn check_len(test_me: &TestAssociativePositionalList, ref_list: &Vec<TestValueType>) {
+        if test_me.data.is_empty() {
+            // nothing was ever inserted into the list
+            assert_eq!(test_me.len(), 0);
+            assert!(ref_list.is_empty());
+            assert!(test_me.is_empty());
+            return;
+        }
+        let c = test_me.head().child[1];
+        if c == NO_INDEX {
+            // something was inserted into the list, but it's empty now
+            assert_eq!(test_me.len(), 0);
+            assert!(ref_list.is_empty());
+            assert!(test_me.is_empty());
+        } else {
+            let len = test_me.iget(c).rank;
+            assert_eq!(test_me.len(), len);
+            assert_eq!(ref_list.len(), len);
+            assert!(!test_me.is_empty());
+        }
+    }
+
     fn check_with_list_node(test_me: &TestAssociativePositionalList,
                             node: InternalIndex,
                             ref_list: &[TestValueType]) {
@@ -962,11 +968,16 @@ fn test() {
         assert_eq!(ref_list.len(), i);
     }
 
+    fn check_all(test_me: &TestAssociativePositionalList, ref_list: &Vec<TestValueType>) {
+        check_consistent(test_me);
+        check_len(test_me, ref_list);
+        check_with_list(test_me, ref_list);
+    }
+
     let mut test_me: TestAssociativePositionalList = AssociativePositionalList::new();
     let mut ref_list: Vec<TestValueType> = Vec::new();
 
-    check_consistent(&test_me);
-    check_with_list(&test_me, &ref_list);
+    check_all(&test_me, &ref_list);
 
     let mut rng = StdRng::seed_from_u64(1);
     let test_size: TestValueType = 1000;
@@ -976,8 +987,7 @@ fn test() {
         let rc = test_me.insert(i as usize, k);
         ref_list.insert(i as usize, k);
         assert_eq!(rc, true);
-        check_consistent(&test_me);
-        check_with_list(&test_me, &ref_list);
+        check_all(&test_me, &ref_list);
     }
     for k in 1 .. test_size + 1 {
         let j = test_me.find(k);
@@ -989,8 +999,7 @@ fn test() {
         let i = rng.gen_range(0 .. ref_list.len() as TestValueType);
         test_me.remove(i as usize);
         ref_list.remove(i as usize);
-        check_consistent(&test_me);
-        check_with_list(&test_me, &ref_list);
+        check_all(&test_me, &ref_list);
     }
     for k in 1 .. (test_size * 10) + 1 {
         if rng.gen_ratio(1, 2) && (ref_list.len() > 0) {
@@ -1010,14 +1019,12 @@ fn test() {
             let j = test_me.find(k);
             assert_eq!(j.unwrap() as usize, i);
         }
-        check_consistent(&test_me);
-        check_with_list(&test_me, &ref_list);
+        check_all(&test_me, &ref_list);
     }
     while ref_list.len() > 0 {
         let i: usize = (rng.gen_range(0 .. ref_list.len() as TestValueType)) as usize;
         ref_list.remove(i);
         test_me.remove(i);
-        check_consistent(&test_me);
-        check_with_list(&test_me, &ref_list);
+        check_all(&test_me, &ref_list);
     }
 }
