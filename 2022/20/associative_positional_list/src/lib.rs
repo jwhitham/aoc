@@ -166,18 +166,13 @@ impl<'a, ValueType> Iterator for Iter<'a, ValueType> where ValueType: std::hash:
             return None;
         }
 
-        assert!(self.stack.last().unwrap().index != NO_INDEX);
-
-        // Top of stack is the next item to be returned
-        let n: &AVLNode<ValueType> = self.parent.iget(self.stack.last().unwrap().index);
-
-        // Move the stack to the next node
-        // Can't move downwards on the left, unless we first move right.
-        // Can we move right?
-
-        // If there is a right child, we should move right; otherwise we move up
-        let mut c = n.child[1];
+        // Find the next item to be returned - the top of the stack is
+        // either the last node to be returned by the iterator,
+        // or the head of the list
+        let mut c = self.stack.last().unwrap().index;
+        c = self.parent.iget(c).child[1];
         if c != NO_INDEX {
+            // There is a right child, so we should move right
             self.stack.push(IterStackItem {
                 index: c,
                 direction: 1,
@@ -195,27 +190,25 @@ impl<'a, ValueType> Iterator for Iter<'a, ValueType> where ValueType: std::hash:
                 });
             }
         } else {
-            // Move up again every time we moved right
+            // There is no right child, so we should move up
             loop {
-                // If the stack is now empty, this was the last item
-                if self.stack.is_empty() {
+                let direction = self.stack.last().unwrap().direction;
+                self.stack.pop();
+                if direction == 0 {
+                    // If we returned from the left, we can move right next time
                     break;
+                }
+                if self.stack.is_empty() {
+                    // If the stack is now empty, this was the last item
+                    return None;
                 }
 
-                // If we returned from the left, we can move right next time
-                if self.stack.last().unwrap().direction == 0 {
-                    self.stack.pop();
-                    break;
-                }
-                self.stack.pop();
             }
         }
-        // If the stack is empty, no more items
-        if self.stack.is_empty() {
-            return None;
-        }
-        let n1: &AVLNode<ValueType> = self.parent.iget(self.stack.last().unwrap().index);
-        return Some(n1.value.clone());
+
+        // Return the value referenced at the top of the stack
+        let n: &AVLNode<ValueType> = self.parent.iget(self.stack.last().unwrap().index);
+        return Some(n.value.clone());
     }
 }
 
@@ -317,10 +310,9 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
 
     /// Returns an iterator over all values in list order.
     pub fn iter<'a>(self: &'a Self) -> Iter<'a, ValueType> {
-        // start at the head (just before the first item)
-        // If there is no head, then the iterator is initially empty.
         let mut stack: Vec<IterStackItem> = Vec::new();
-        if !self.data.is_empty() {
+        if !self.is_empty() {
+            // If the list is non-empty, begin iteration at the head
             stack.push(IterStackItem {
                 index: HEAD_INDEX,
                 direction: 1,
