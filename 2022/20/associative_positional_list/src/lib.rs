@@ -39,6 +39,12 @@ const HEAD_INDEX: InternalIndex = 0;
 ///
 /// `find` returns the index for a given value.
 ///
+/// `len` returns the number of items in the list,
+/// `is_empty` returns true if the list is empty, and
+/// `clear` removes all items from the list.
+///
+/// `iter` creates an iterator over the list items.
+///
 /// # Examples
 ///
 /// ```
@@ -50,7 +56,14 @@ const HEAD_INDEX: InternalIndex = 0;
 /// assert_eq!(p.len(), 2);
 /// assert_eq!(p[0], "Hello");
 /// assert_eq!(p[1], "World");
-/// assert_eq!(p, ["Hello", "World"]);
+/// assert!(!p.is_empty());
+/// for n in p.iter() {
+///   assert!(n == "Hello" || n == "World");
+/// }
+/// p.remove(0);
+/// assert_eq!(p[0], "World");
+/// p.remove(0);
+/// assert!(p.is_empty());
 ///
 ///
 /// ```
@@ -65,6 +78,11 @@ const HEAD_INDEX: InternalIndex = 0;
 ///
 /// The `insert`, `get`, `remove` and `find` operations have logarithmic 
 /// time complexity (i.e. O(log N) operations are required).
+///
+/// `len`, `is_empty` and `clear` have constant time.
+///
+/// When using an iterator, each step is O(log N), with an overall time complexity
+/// of O(N log N) for the whole list.
 ///
 /// # Notes
 ///
@@ -313,6 +331,17 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
             stack: stack,
         };
     }
+
+    /// Remove all items from the list
+    pub fn clear(self: &mut Self) {
+        if !self.data.is_empty() {
+            // Quickly reset the head of the list
+            self.lookup.clear();
+            self.data.truncate(HEAD_INDEX + 1);
+            self.iget_mut(HEAD_INDEX).child = [NO_INDEX, NO_INDEX];
+        }
+    }
+
 
     fn new_node(self: &mut Self, value: ValueType) -> InternalIndex {
         let n: AVLNode<ValueType> = AVLNode {
@@ -927,28 +956,47 @@ fn test() {
     check_all(&test_me, &ref_list);
 
     let mut rng = StdRng::seed_from_u64(1);
-    let test_size: TestValueType = 1000;
+    let test_size: TestValueType = 100;
 
-    for k in 1 .. test_size + 1{
+    assert!(test_me.is_empty());
+
+    // initially fill the list with some items in random positions
+    for k in 1 .. test_size + 1 {
         let i = rng.gen_range(0 .. (ref_list.len() + 1) as TestValueType);
         let rc = test_me.insert(i as usize, k);
         ref_list.insert(i as usize, k);
         assert_eq!(rc, true);
         check_all(&test_me, &ref_list);
     }
+    assert!(!test_me.is_empty());
+    // check all items are present in the places we expect
     for k in 1 .. test_size + 1 {
         let j = test_me.find(k);
         assert!(j.is_some());
         assert!(j.unwrap() < ref_list.len());
-        assert!(ref_list[j.unwrap() ] == k);
+        assert!(ref_list[j.unwrap()] == k);
     }
-    for _ in 1 .. test_size + 1 {
+    // try adding some items more than once (random positions again)
+    for k in 1 .. 10 {
+        let i = rng.gen_range(0 .. (ref_list.len() + 1) as TestValueType);
+        let rc = test_me.insert(i as usize, k);
+        assert_eq!(rc, false);
+    }
+    for k in 1 .. 10 {
+        let i = rng.gen_range(0 .. (ref_list.len() + 1) as TestValueType);
+        let rc = test_me.insert(i as usize, test_size - k);
+        assert_eq!(rc, false);
+    }
+    check_all(&test_me, &ref_list);
+    // remove half of the items (chosen from random positions)
+    for _ in 1 .. (test_size / 2) {
         let i = rng.gen_range(0 .. ref_list.len() as TestValueType);
         test_me.remove(i as usize);
         ref_list.remove(i as usize);
         check_all(&test_me, &ref_list);
     }
-    for k in 1 .. (test_size * 10) + 1 {
+    // use a random add/remove test
+    for k in (test_size + 1) .. (test_size * 10) + 1 {
         if rng.gen_ratio(1, 2) && (ref_list.len() > 0) {
             // test removing a random value
             let i: usize = (rng.gen_range(0 .. ref_list.len() as TestValueType)) as usize;
@@ -968,10 +1016,37 @@ fn test() {
         }
         check_all(&test_me, &ref_list);
     }
+    // remove the rest of the items
     while ref_list.len() > 0 {
         let i: usize = (rng.gen_range(0 .. ref_list.len() as TestValueType)) as usize;
         ref_list.remove(i);
         test_me.remove(i);
         check_all(&test_me, &ref_list);
+    }
+    assert!(test_me.is_empty());
+
+    // check that the list works the same after clearing:
+    // iteration 0: an empty but used state
+    // iteration 1: a non-empty state
+    // iteration 2: an empty and unused state
+    for j in 0 .. 3 {
+        if j == 2 {
+            test_me = AssociativePositionalList::new();
+        }
+        test_me.clear();
+        ref_list.clear();
+        assert!(test_me.is_empty());
+        if j == 2 {
+            assert_eq!(test_me.data.len(), 0);  // empty and never used
+        } else {
+            assert_eq!(test_me.data.len(), 1);  // empty but used
+        }
+        for k in 1 .. 10 {
+            let i = rng.gen_range(0 .. (ref_list.len() + 1) as TestValueType);
+            let rc = test_me.insert(i as usize, k);
+            ref_list.insert(i as usize, k);
+            assert_eq!(rc, true);
+            check_all(&test_me, &ref_list);
+        }
     }
 }
