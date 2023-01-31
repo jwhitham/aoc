@@ -129,48 +129,6 @@ impl<ValueType> FromIterator<ValueType> for AssociativePositionalList<ValueType>
     }
 }
 
-/*
-impl<ValueType> PartialEq for AssociativePositionalList<ValueType>
-        where ValueType: std::hash::Hash + Eq + Clone {
-
-    fn eq(&self, other: &Self) -> bool {
-        // an iterator for AssociativePositionalList would be better
-        if self.len() != other.len() {
-            return false;
-        }
-        for i in 0 .. self.len() {
-            if self.get(i) != other.get(i) {
-                return false;
-            }
-        }
-        return true;
-    }
-}
-
-impl<ValueType> std::fmt::Debug for AssociativePositionalList<ValueType>
-            where ValueType: std::hash::Hash + Eq + Clone + std::fmt::Debug {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for i in 0 .. self.len() {
-            f.debug_list().entries(self.iter()).finish();
-        }
-    }
-}
-
-impl<ValueType> From<&[ValueType]> for AssociativePositionalList<ValueType>
-            where ValueType: std::hash::Hash + Eq + Clone {
-    /// Allocate an `AssociativePositionalList` and fill it by cloning `s`'s items.
-    fn from(s: &[ValueType]) -> AssociativePositionalList<ValueType> {
-        let mut p: AssociativePositionalList<ValueType> = AssociativePositionalList::new();
-        let mut i: usize = 0;
-        for x in s {
-            p.insert(i, x.clone());
-            i += 1;
-        }
-        return p;
-    }
-}
-*/
-
 struct IterStackItem {
     index: InternalIndex,
     direction: Direction,
@@ -189,6 +147,8 @@ impl<'a, ValueType> Iterator for Iter<'a, ValueType> where ValueType: std::hash:
         if self.stack.is_empty() {
             return None;
         }
+
+        assert!(self.stack.last().unwrap().index != NO_INDEX);
 
         // Top of stack is the next item to be returned
         let n: &AVLNode<ValueType> = self.parent.iget(self.stack.last().unwrap().index);
@@ -232,7 +192,12 @@ impl<'a, ValueType> Iterator for Iter<'a, ValueType> where ValueType: std::hash:
                 self.stack.pop();
             }
         }
-        return Some(n.value.clone());
+        // If the stack is empty, no more items
+        if self.stack.is_empty() {
+            return None;
+        }
+        let n1: &AVLNode<ValueType> = self.parent.iget(self.stack.last().unwrap().index);
+        return Some(n1.value.clone());
     }
 }
 
@@ -269,18 +234,14 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
         return 0;
     }
 
+    /// Returns true if the list is empty
+    pub fn is_empty(self: &Self) -> bool {
+        return self.lookup.is_empty();
+    }
+
     /// Returns the number of items in the list
     pub fn len(self: &Self) -> ExternalIndex {
-        if self.data.is_empty() {
-            // nothing was ever inserted into the list
-            return 0;
-        }
-        let c = self.head().child[1];
-        if c == NO_INDEX {
-            return 0;
-        } else {
-            return self.iget(c).rank;
-        }
+        return self.lookup.len();
     }
 
     /// Returns the index where `value` can be found, or `None` if `value` is not present.
@@ -338,25 +299,14 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
 
     /// Returns an iterator over all values in list order.
     pub fn iter<'a>(self: &'a Self) -> Iter<'a, ValueType> {
-        // find the next item
+        // start at the head (just before the first item)
+        // If there is no head, then the iterator is initially empty.
         let mut stack: Vec<IterStackItem> = Vec::new();
         if !self.data.is_empty() {
-            // Fill the stack with the path to the first item
-            let mut c = self.head().child[1];
             stack.push(IterStackItem {
-                index: c,
+                index: HEAD_INDEX,
                 direction: 1,
             });
-            loop {
-                c = self.iget(c).child[0];
-                if c == NO_INDEX {
-                    break;
-                }
-                stack.push(IterStackItem {
-                    index: c,
-                    direction: 0,
-                });
-            }
         }
         return Iter {
             parent: &self,
@@ -933,10 +883,12 @@ fn test() {
 
     fn check_with_list(test_me: &TestAssociativePositionalList, ref_list: &Vec<TestValueType>) {
         if test_me.data.is_empty() {
-            // Tree has never been used - check all state
+            // Tree has never been used - check all state is empty
             assert!(test_me.lookup.is_empty());
             assert!(ref_list.is_empty());
             assert!(Vec::from_iter(test_me.iter()).is_empty());
+            assert!(test_me.is_empty());
+            assert_eq!(test_me.len(), 0);
             return;
         }
         assert_eq!(test_me.lookup.len(), ref_list.len());
@@ -947,8 +899,10 @@ fn test() {
         let c = test_me.head().child[1];
         if c == NO_INDEX {
             assert!(ref_list.len() == 0);
+            assert!(test_me.is_empty());
         } else {
             assert!(ref_list.len() != 0); // size of tree should be non-zero
+            assert!(!test_me.is_empty());
             // size of 'lookup' hash should match size of tree if values are unique
             assert_eq!(test_me.iget(c).rank, test_me.lookup.len());
             check_with_list_node(test_me, c, &ref_list.as_slice());
@@ -962,11 +916,15 @@ fn test() {
         assert_eq!(ref_list.len(), i);
     }
 
+    fn check_all(test_me: &TestAssociativePositionalList, ref_list: &Vec<TestValueType>) {
+        check_consistent(test_me);
+        check_with_list(test_me, ref_list);
+    }
+
     let mut test_me: TestAssociativePositionalList = AssociativePositionalList::new();
     let mut ref_list: Vec<TestValueType> = Vec::new();
 
-    check_consistent(&test_me);
-    check_with_list(&test_me, &ref_list);
+    check_all(&test_me, &ref_list);
 
     let mut rng = StdRng::seed_from_u64(1);
     let test_size: TestValueType = 1000;
@@ -976,8 +934,7 @@ fn test() {
         let rc = test_me.insert(i as usize, k);
         ref_list.insert(i as usize, k);
         assert_eq!(rc, true);
-        check_consistent(&test_me);
-        check_with_list(&test_me, &ref_list);
+        check_all(&test_me, &ref_list);
     }
     for k in 1 .. test_size + 1 {
         let j = test_me.find(k);
@@ -989,8 +946,7 @@ fn test() {
         let i = rng.gen_range(0 .. ref_list.len() as TestValueType);
         test_me.remove(i as usize);
         ref_list.remove(i as usize);
-        check_consistent(&test_me);
-        check_with_list(&test_me, &ref_list);
+        check_all(&test_me, &ref_list);
     }
     for k in 1 .. (test_size * 10) + 1 {
         if rng.gen_ratio(1, 2) && (ref_list.len() > 0) {
@@ -1010,14 +966,12 @@ fn test() {
             let j = test_me.find(k);
             assert_eq!(j.unwrap() as usize, i);
         }
-        check_consistent(&test_me);
-        check_with_list(&test_me, &ref_list);
+        check_all(&test_me, &ref_list);
     }
     while ref_list.len() > 0 {
         let i: usize = (rng.gen_range(0 .. ref_list.len() as TestValueType)) as usize;
         ref_list.remove(i);
         test_me.remove(i);
-        check_consistent(&test_me);
-        check_with_list(&test_me, &ref_list);
+        check_all(&test_me, &ref_list);
     }
 }
