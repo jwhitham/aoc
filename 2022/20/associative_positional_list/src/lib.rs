@@ -846,6 +846,9 @@ fn test() {
         return rank;
     }
 
+    // Check that a subtree (with root 'node') is internally consistent
+    // (parent/child links are correct, nodes appear exactly once, balanced,
+    // balance and rank values are correct)
     fn check_consistent_node(
             test_me: &TestAssociativePositionalList,
             node: InternalIndex,
@@ -871,6 +874,7 @@ fn test() {
         assert_eq!(x, test_me.iget(node).balance);
     }
 
+    // Check that the whole tree is internally consistent
     fn check_consistent(test_me: &TestAssociativePositionalList) {
         if test_me.data.is_empty() {
             // Tree has never been used - check state
@@ -884,8 +888,10 @@ fn test() {
         assert_eq!(test_me.iget(test_me.head().child[1]).direction, 1);
         let mut visited: HashMap<InternalIndex, bool> = HashMap::new();
         check_consistent_node(test_me, test_me.head().child[1], &mut visited);
+        assert_eq!(visited.len(), test_me.len());
     }
 
+    // Check that a subtree (with root 'node') matches part of the reference list
     fn check_with_list_node(test_me: &TestAssociativePositionalList,
                             node: InternalIndex,
                             ref_list: &[TestValueType]) {
@@ -920,11 +926,13 @@ fn test() {
             assert_eq!(test_me.len(), 0);
             return;
         }
+        // Check the length is correct
         assert_eq!(test_me.lookup.len(), ref_list.len());
         assert_eq!(test_me.data.len(), ref_list.len() + 1); // +1 for HEAD_INDEX element
         assert_eq!(test_me.len(), ref_list.len());
         assert!(test_me.get(ref_list.len()).is_none());
 
+        // Check that the tree matches the reference list
         let c = test_me.head().child[1];
         if c == NO_INDEX {
             assert!(ref_list.len() == 0);
@@ -937,12 +945,18 @@ fn test() {
             check_with_list_node(test_me, c, &ref_list.as_slice());
         }
 
+        // Test the iterator
         let mut i: usize = 0;
         for value in test_me.iter() {
             assert_eq!(*ref_list.get(i).unwrap(), value);
             i += 1;
         }
         assert_eq!(ref_list.len(), i);
+
+        // Test the Index trait
+        for j in 0 .. ref_list.len() {
+            assert_eq!(ref_list[j], test_me[j]);
+        }
     }
 
     fn check_all(test_me: &TestAssociativePositionalList, ref_list: &Vec<TestValueType>) {
@@ -956,7 +970,7 @@ fn test() {
     check_all(&test_me, &ref_list);
 
     let mut rng = StdRng::seed_from_u64(1);
-    let test_size: TestValueType = 100;
+    let test_size: TestValueType = 1000;
 
     assert!(test_me.is_empty());
 
