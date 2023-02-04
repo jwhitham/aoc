@@ -35,7 +35,7 @@ fn load(filename: &str) -> Problem {
 fn mix(p: &mut Problem) {
     for order in 0 .. p.size {
         // Find the index of the number to be moved
-        let old_index: usize = p.orders.find(order).unwrap();
+        let old_index: usize = p.orders.find(&order).unwrap();
         if DEBUG {
             assert!(old_index < p.size);
             assert_eq!(*p.orders.get(old_index).unwrap(), order);
@@ -77,7 +77,7 @@ fn get_coords(p: &Problem) -> isize {
     for order in 0 .. p.size {
         let value: isize = *p.order_to_value.get(order).unwrap();
         if value == 0 {
-            zero_index = p.orders.find(order).unwrap();
+            zero_index = p.orders.find(&order).unwrap();
             break;
         }
     }

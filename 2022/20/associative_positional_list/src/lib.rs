@@ -139,6 +139,8 @@ impl<ValueType> Index<usize> for AssociativePositionalList<ValueType>
 
 impl<ValueType> PartialEq for AssociativePositionalList<ValueType>
         where ValueType: std::hash::Hash + Eq + Clone {
+
+    /// Compare the value of a AssociativePositionalList to another.
     fn eq(self: &Self, other: &Self) -> bool {
         if self.len() != other.len() {
             return false;
