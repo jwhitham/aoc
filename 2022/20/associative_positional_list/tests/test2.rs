@@ -56,7 +56,7 @@ impl CrabGame {
             }
 
             // insert at destination
-            let mut destination_index = self.all_cups.find(destination_cup).unwrap();
+            let mut destination_index = self.all_cups.find(&destination_cup).unwrap();
             destination_index = (destination_index + 1) % self.number_of_cups;
             self.all_cups.insert(destination_index, cup3);
             self.all_cups.insert(destination_index, cup2);
@@ -87,7 +87,7 @@ impl CrabGame {
     }
 
     fn part_1_result(self: &Self) -> String {
-        let mut iter = self.all_cups.find(1).unwrap();
+        let mut iter = self.all_cups.find(&1).unwrap();
         let mut output = String::new();
         for _ in 0 .. usize::min(self.number_of_cups, 8) {
             iter = (iter + 1) % self.number_of_cups;
@@ -97,7 +97,7 @@ impl CrabGame {
     }
 
     fn part_2_result(self: &Self) -> u64 {
-        let mut iter = self.all_cups.find(1).unwrap();
+        let mut iter = self.all_cups.find(&1).unwrap();
         iter = (iter + 1) % self.number_of_cups;
         let r1 = *self.all_cups.get(iter).unwrap() as u64;
         iter = (iter + 1) % self.number_of_cups;

@@ -53,6 +53,7 @@ const HEAD_INDEX: InternalIndex = 0;
 /// let mut p: AssociativePositionalList<String> = AssociativePositionalList::new();
 /// p.insert(0, "Hello".to_string());
 /// p.insert(1, "World".to_string());
+/// assert_eq!(p.find(&"World".to_string()), Some(1));
 /// assert_eq!(p.len(), 2);
 /// assert_eq!(p[0], "Hello");
 /// assert_eq!(p[1], "World");
@@ -62,6 +63,8 @@ const HEAD_INDEX: InternalIndex = 0;
 /// }
 /// p.remove(0);
 /// assert_eq!(p[0], "World");
+/// assert_eq!(p.find(&"Hello".to_string()), None);
+/// assert_eq!(p.find(&"World".to_string()), Some(0));
 /// p.remove(0);
 /// assert!(p.is_empty());
 ///
@@ -259,14 +262,14 @@ impl<ValueType> AssociativePositionalList<ValueType> where ValueType: std::hash:
     ///
     /// Note: If values have not always been unique within the list, then the `find` method's
     /// return is not defined.
-    pub fn find(self: &Self, value: ValueType) -> Option<ExternalIndex> {
-        let pp: Option<&InternalIndex> = self.lookup.get(&value);
+    pub fn find(self: &Self, value: &ValueType) -> Option<ExternalIndex> {
+        let pp: Option<&InternalIndex> = self.lookup.get(value);
 
         if pp.is_none() {
             return None; // This value does not exist (or the rule about uniqueness wasn't followed)
         }
         let mut p: InternalIndex = *pp.unwrap();
-        if self.iget(p).value != value {
+        if self.iget(p).value != *value {
             return None; // The value has changed, the rule about uniqueness wasn't followed
         }
 
@@ -977,7 +980,7 @@ fn test() {
     assert!(!test_me.is_empty());
     // check all items are present in the places we expect
     for k in 1 .. test_size + 1 {
-        let j = test_me.find(k);
+        let j = test_me.find(&k);
         assert!(j.is_some());
         assert!(j.unwrap() < ref_list.len());
         assert!(ref_list[j.unwrap()] == k);
@@ -1006,7 +1009,7 @@ fn test() {
         if rng.gen_ratio(1, 2) && (ref_list.len() > 0) {
             // test removing a random value
             let i: usize = (rng.gen_range(0 .. ref_list.len() as TestValueType)) as usize;
-            let v: TestValueType = *ref_list.get(i).unwrap();
+            let v: &TestValueType = ref_list.get(i).unwrap();
 
             assert_eq!(test_me.find(v).unwrap() as usize, i);
             ref_list.remove(i);
@@ -1017,7 +1020,7 @@ fn test() {
             ref_list.insert(i, k);
             let rc = test_me.insert(i, k);
             assert_eq!(rc, true);
-            let j = test_me.find(k);
+            let j = test_me.find(&k);
             assert_eq!(j.unwrap() as usize, i);
         }
         check_all(&test_me, &ref_list);
