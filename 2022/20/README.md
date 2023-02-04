@@ -39,7 +39,8 @@ need to move the elements in a particular order, the pointers can appear in an o
 list.
 
 I made a C# class for this purpose in 2020 and I ported it to Rust for this problem,
-as a crate named "[tree list](tree_list)".
+as a crate named 
+"[associative\_positional\_list](https://github.com/jwhitham/associative_positional_list)".
 
 The original class made heavy use of pointers (well, references, since C# is managed code).
 An exact Rust port would require pointers with reference counting. I did attempt this,
@@ -47,7 +48,6 @@ but I found that I'm still not comfortable with Rust's pointer restrictions and 
 is extremely hard to get any code to a state that the compiler will accept. Therefore
 I assigned each tree node an index within a vector. This leads to relatively readable
 code, and though there may be a small performance cost for adding the base address
-of the vector, memory allocation is more efficient and the CPU cache is used better.
-
+of the vector, the code is far simpler and memory allocation is more efficient.
 
 
