@@ -132,8 +132,29 @@ impl<ValueType> Index<usize> for AssociativePositionalList<ValueType>
     /// Will panic if the index is not less than the length.
     type Output = ValueType;
 
-    fn index(&self, index: usize) -> &Self::Output {
+    fn index(self: &Self, index: usize) -> &Self::Output {
         return self.get(index).unwrap();
+    }
+}
+
+impl<ValueType> PartialEq for AssociativePositionalList<ValueType>
+        where ValueType: std::hash::Hash + Eq + Clone {
+    fn eq(self: &Self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        let mut it1 = self.iter();
+        let mut it2 = other.iter();
+        loop {
+            let v1 = it1.next();
+            let v2 = it2.next();
+            if v1.is_none() {
+                return v2.is_none();
+            }
+            if v1.unwrap() != v2.unwrap() {
+                return false;
+            }
+        }
     }
 }
 
@@ -967,7 +988,10 @@ fn test() {
     let mut rng = StdRng::seed_from_u64(1);
     let test_size: TestValueType = 1000;
 
+    // test without items
     assert!(test_me.is_empty());
+    assert!(test_me == test_me);
+    //assert_eq!(test_me, test_me);
 
     // initially fill the list with some items in random positions
     for k in 1 .. test_size + 1 {
@@ -997,6 +1021,9 @@ fn test() {
         assert_eq!(rc, false);
     }
     check_all(&test_me, &ref_list);
+    // test equality when some items are present
+    assert!(test_me == test_me);
+    //assert_eq!(test_me, test_me);
     // remove half of the items (chosen from random positions)
     for _ in 1 .. (test_size / 2) {
         let i = rng.gen_range(0 .. ref_list.len() as TestValueType);
@@ -1032,7 +1059,10 @@ fn test() {
         test_me.remove(i);
         check_all(&test_me, &ref_list);
     }
+    // test without items again
     assert!(test_me.is_empty());
+    assert!(test_me == test_me);
+    //assert_eq!(test_me, test_me);
 
     // check that the list works the same after clearing:
     // iteration 0: an empty but used state
@@ -1057,5 +1087,25 @@ fn test() {
             assert_eq!(rc, true);
             check_all(&test_me, &ref_list);
         }
+    }
+
+    // compare to a different list in various states
+    {
+        let mut another: TestAssociativePositionalList = AssociativePositionalList::new();
+        assert!(test_me != another);
+        let mut i: usize = 0;
+        for x in test_me.iter() {
+            another.insert(i, x);
+            i += 1;
+        }
+        assert!(test_me == another);    // the other list has the same values
+        let v = another[1];
+        another.remove(1);
+        assert!(test_me != another);    // the other list has a different length
+        another.insert(1, 0);
+        assert!(test_me != another);    // the other list has a different value
+        another.insert(1, v);
+        another.remove(2);
+        assert!(test_me == another);    // the other list has the same values again
     }
 }
