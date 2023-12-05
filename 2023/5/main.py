@@ -95,8 +95,6 @@ class Map:
 
     def remap(self, cur_loc_ranges: typing.List[LocRange]) -> typing.List[LocRange]:
 
-#       print("")
-#       print("IN")
         check_ranges(cur_loc_ranges)
 
         # Get a list of all of the points where a range begins or ends
@@ -105,11 +103,9 @@ class Map:
         for r in self.map_ranges:
             points.append(Point(r.range_start, True, True, r))
             points.append(Point(r.range_start + r.length, False, True, r))
-#           print(r)
         for r in cur_loc_ranges:
             points.append(Point(r.range_start, True, False, r))
             points.append(Point(r.range_start + r.length, False, False, r))
-#           print(r)
 
         points.sort()
 
@@ -119,7 +115,6 @@ class Map:
         cur_range_start = 0
 
         for point in points:
-#           print(point)
             if point.is_map:
                 # Beginning or end of a map range: the remap delta will change here
                 # The new location range may need to be split or deleted
@@ -128,7 +123,6 @@ class Map:
                         # Split the input range here
                         new_loc_ranges[-1].length = point.location - cur_range_start
                         assert new_loc_ranges[-1].length >= 1, new_loc_ranges[-1].length
-#                       print("Split - range out:", new_loc_ranges[-1])
                     else:
                         # Empty range created - no split
                         new_loc_ranges.pop()
@@ -146,7 +140,6 @@ class Map:
                     cur_range_start = point.location
                     new_loc_ranges.append(LocRange(point.location + remap_delta, 0))
 
-#               print("New remap delta", remap_delta)
                 
             else:
                 # Beginning or end of a location range
@@ -155,22 +148,16 @@ class Map:
                     new_loc_ranges.append(LocRange(point.location + remap_delta, 0))
                     cur_loc_range = typing.cast(LocRange, point.link)
                     cur_range_start = point.location
-#                   print("Start - range in:", cur_loc_range)
                 else:
                     assert cur_loc_range is not None
                     if point.location != cur_range_start:
                         # Range is not empty - set the length
                         new_loc_ranges[-1].length = point.location - cur_range_start
-#                       print("End - range out:", new_loc_ranges[-1], point)
                         assert new_loc_ranges[-1].length >= 1
                     else:
                         # Empty range created - remove
                         new_loc_ranges.pop()
                     cur_loc_range = None
-
-#       print("OUT")
-#       for r in new_loc_ranges:
-#           print(r)
 
         assert remap_delta == 0
         assert cur_loc_range is None
@@ -202,16 +189,12 @@ def part(part: int, fname: str) -> int:
             assert len(fields) == 0
 
     min_loc = sys.maxsize
-    for seed in seeds:
-        loc_ranges = [seed]
-        for m in maps:
-#           print(loc_ranges)
-            loc_ranges = m.remap(loc_ranges)
-#       print(loc_ranges)
-#       print("")
+    loc_ranges = seeds
+    for m in maps:
+        loc_ranges = m.remap(loc_ranges)
 
-        for loc_range in loc_ranges:
-            min_loc = min(loc_range.range_start, min_loc)
+    for loc_range in loc_ranges:
+        min_loc = min(loc_range.range_start, min_loc)
 
     return min_loc
 
