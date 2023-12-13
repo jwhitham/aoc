@@ -1,6 +1,6 @@
 
 import re
-from functools import reduce
+from rosetta_crm import chinese_remainder
 
 def parse(fname):
     with open(fname, "rt") as in_fd:
@@ -80,6 +80,7 @@ def part2(fname):
 
         cycle_data.append(cycle_length)
 
+    # my algorithm
     c1 = cycle_data[0]
     for i in range(1, len(cycle_data)):
         c2 = cycle_data[i]
@@ -105,13 +106,51 @@ def part2(fname):
         assert (a * c1) == (b * c2)
         c1 = a * c1
 
-    return c1
+    result = c1
+
+    # It looked like a Chinese remainder problem, but all of the remainders are zero..
+    #
+    #   In mathematics, the Chinese remainder theorem states that if one knows the
+    #   remainders a[i] of the Euclidean division of an integer R by several integers n[i],
+    #   then one can determine uniquely the remainder of the division of R by the
+    #   product of these integers n[i], under the condition that the divisors are pairwise
+    #   coprime (no two divisors share a common factor other than 1). 
+    #
+    # R = point where everything lines up
+    # n = cycle lengths
+    # a = 0
+    # 
+    # As all the remainders are zero the value of R = 0 which is true but unhelpful.
+    # The algorithm doesn't work as-is.
+    # Least common multiple is better for the special case where all remainders are 0.
+
+    c1 = cycle_data[0]
+    for i in range(1, len(cycle_data)):
+        c2 = cycle_data[i]
+        c1 = lcm(c1, c2)
+
+    assert c1 == result
+    return result
+
+def lcm(a, b):
+    m = a * b
+    if not m: return 0
+    while True:
+        a %= b
+        if not a: return m // b
+        b %= a
+        if not b: return m // a
+
 
 def main():
     assert part1("test") == 2
     print(part1("input"))
     assert part2("test2") == 6
     print(part2("input"))
+
+# R = chinese_remainder(n, a)
+# R is the smallest value where:
+# \forall i  \exists x in Integers  R = a[i] + (x * n[i])
 
 if __name__ == "__main__":
     main()
