@@ -8,7 +8,7 @@ import struct
 Position = typing.Tuple[int, int]
 
 class Problem:
-    def __init__(self, fname: str) -> int:
+    def __init__(self, fname: str) -> None:
         self.movable: typing.List[Position] = []
         self.used: typing.Set[Position] = set()
         self.height = 0

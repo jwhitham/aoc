@@ -2,12 +2,12 @@
 import typing
 
 
-class Beam:
-    x = y = dx = dy = 0
+Position = typing.Tuple[int, int]
+Direction = typing.Tuple[int, int]
 
 class Problem:
     def __init__(self, fname: str) -> None:
-        self.mirrors = {}
+        self.mirrors: typing.Dict[Position, str] = {}
         self.width = self.height = 0
         for (y, line) in enumerate(open(fname, "rt")):
             for (x, col) in enumerate(line.rstrip()):
@@ -17,8 +17,8 @@ class Problem:
         self.reset()
 
     def reset(self) -> None:
-        self.energised = set()
-        self.done = set()
+        self.energised: typing.Set[Position] = set()
+        self.done: typing.Set[typing.Tuple[Position, Direction]] = set()
 
     def part1(self) -> int:
         self.recursive((0, 0), (1, 0))
@@ -51,7 +51,7 @@ class Problem:
                 print(self.mirrors[(x, y)], end="")
             print("")
 
-    def recursive(self, xy, dxdy) -> None:
+    def recursive(self, xy: Position, dxdy: Direction) -> None:
         (x, y) = xy
         (dx, dy) = dxdy
         while True:

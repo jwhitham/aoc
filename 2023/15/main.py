@@ -18,7 +18,7 @@ def part1(fname: str) -> int:
 
 Label = str
 FocalLength = str
-Contents = typing.Tuple[Label, FocalLength]
+Contents = typing.List[typing.Tuple[Label, FocalLength]]
 AllContents = typing.List[Contents]
 
 def part2(fname: str) -> int:
