@@ -1,6 +1,8 @@
 
 
 import typing
+import collections
+import sys
 import re
 
 
@@ -18,6 +20,10 @@ MOVE: typing.Dict[str, Direction] = {
 class Part1:
     def __init__(self) -> None:
         self.border: typing.List[Position] = []
+        self.debug: typing.Optional[typing.Dict[Position, int]] = None
+
+    def set_debug(self) -> None:
+        self.debug = collections.defaultdict(lambda: 0)
 
     def parse(self, fname) -> None:
         parser = re.compile(r"^(\w) (\d+) \(#(\w+)\)\s*$")
@@ -107,7 +113,6 @@ class Part1:
                 # How many border lines between (cx, cy) and (inf, cy)?
                 area = ((x2 - x1 - 2) * (y2 - y1 - 2)) // 4
                 borders = self.count_borders_between_cx_cy_and_inf_cy(cx, cy)
-                #print(f"Rectangle ({x1},{y1}) ({x2},{y2}) borders {borders} area {area}")
                 if (borders % 2) == 0:
                     # Even number of borders, this rectangle is outside the border
                     continue
@@ -115,15 +120,35 @@ class Part1:
                 # Rectangle is within the border
                 total += area
 
+                if self.debug is not None:
+                    for y in range((y1 // 2) + 1, y2 // 2, 1):
+                        for x in range((x1 // 2) + 1, x2 // 2, 1):
+                            self.debug[(x, y)] |= 1
+
                 # Count the lines around the rectangle
                 if not self.is_point_on_border(cx, y2):
                     area = (x2 - x1 - 2) // 2
-                    #print(f"Internal line ({x1},{y2}) ({x2},{y2}) area {area}")
                     total += area
+                    if self.debug is not None:
+                        y = y2 // 2
+                        for x in range((x1 // 2) + 1, x2 // 2, 1):
+                            self.debug[(x, y)] |= 2
+
                 if not self.is_point_on_border(x2, cy):
                     area = (y2 - y1 - 2) // 2
-                    #print(f"Internal line ({x2},{y1}) ({x2},{y2}) area {area}")
                     total += area
+
+                    if self.debug is not None:
+                        x = x2 // 2
+                        for y in range((y1 // 2) + 1, y2 // 2, 1):
+                            self.debug[(x, y)] |= 4
+
+                if not self.is_point_on_border(x2, y2):
+                    total += 1
+                    x = x2 // 2
+                    y = y2 // 2
+                    if self.debug is not None:
+                        self.debug[(x, y)] |= 8
 
         return total
 
@@ -139,19 +164,40 @@ class Part1:
     def area(self) -> int:
         return self.area_within() + self.area_of_line()
 
+    def check_within(self, fname) -> None:
+        if not self.debug:
+            return
+        min_bx = min_by = sys.maxsize
+        for (bx, by) in self.border:
+            min_bx = min(min_bx, bx // 2)
+            min_by = min(min_by, by // 2)
+
+        for (ty, line) in enumerate(open(fname, "rt")):
+            for (tx, col) in enumerate(line.rstrip()):
+                x = tx + min_bx
+                y = ty + min_by
+                if (x, y) in self.debug:
+                    print('{:x}'.format(self.debug[(x,y)]), end="")
+                else:
+                    print(col, end="")
+            print("")
+
 def main() -> None:
     p = Part1()
     p.parse("test2") # A 2x2 square (line length 1)
     assert p.area_of_line() == 4
     assert p.area_within() == 0
+    assert p.area() == 4
     p = Part1() # A 3x3 square (line length 2)
     p.parse("test3")
     assert p.area_of_line() == 8
     assert p.area_within() == 1
+    assert p.area() == 9
     p = Part1() # A 4x4 square (line length 3)
     p.parse("test4")
     assert p.area_of_line() == 12
     assert p.area_within() == 4
+    assert p.area() == 16
     p = Part1()
     # ###       3, 0
     # #*#       2, 1
@@ -161,16 +207,19 @@ def main() -> None:
     p.parse("test5")
     assert p.area_of_line() == 3 + 2 + 4 + 2 + 5
     assert p.area_within() == 1 + 1 + 3
+    assert p.area() == 3 + 3 + 5 + 5 + 5
     p = Part1()
     p.parse("test")
-    print(p.area_of_line())
+    #p.set_debug()
+    #print(p.area_of_line())
     assert p.area_of_line() == 38
-    print(p.area_within())
-    #assert p.area_within() == 62 - 38
-    print(p.area())
+    #print(p.area_within())
+    #p.check_within("test-output")
+    assert p.area_within() == 62 - 38
+    #print(p.area())
     assert p.area() == 62
-    p.parse("input")
     p = Part1()
+    p.parse("input")
     print(p.area())
     assert p.area() == 46359
 
