@@ -30,59 +30,101 @@ class Part1:
             (dx, dy) = MOVE[m.group(1)]
             distance = int(m.group(2))
             label = int(m.group(3), 16)
-            x += dx * distance
-            y += dy * distance
+            x += dx * distance * 2
+            y += dy * distance * 2
             self.border.append((x, y))
 
-        assert (x, y) == (0, 0)
+        assert (x, y) == (0, 0), (x, y)
+
+    def count_borders_between_cx_cy_and_inf_cy(self, cx: int, cy: int) -> int:
+        # How many border lines between (cx, cy) and (inf, cy)?
+        borders = 0
+        for j in range(len(self.border) - 1):
+            (bx1, by1) = self.border[j]
+            (bx2, by2) = self.border[j + 1]
+            if bx1 != bx2:
+                # Not a vertical line: skip
+                continue
+            if bx1 < cx:
+                # Vertical line to the left of cx: skip
+                continue
+
+            if by1 > by2:
+                # Line is upside down
+                (by1, by2) = (by2, by1)
+
+            if not (by1 <= cy <= by2):
+                # Line does not intersect (cx, cy) and (inf, cy)
+                continue
+
+            borders += 1
+        return borders
+
+    def is_point_on_border(self, x, y):
+        for j in range(len(self.border) - 1):
+            (bx1, by1) = self.border[j]
+            (bx2, by2) = self.border[j + 1]
+            if by1 == by2 == y:
+                # Horizontal line at y
+                if bx1 > bx2:
+                    # Line is backwards
+                    (bx1, bx2) = (bx2, bx1)
+                if bx1 <= x <= bx2:
+                    return True
+            elif bx1 == bx2 == x:
+                # Vertical line at x
+                if by1 > by2:
+                    # Line is upside down
+                    (by1, by2) = (by2, by1)
+                if by1 <= y <= by2:
+                    return True
+        return False
 
     def area_within(self) -> int:
+        total = 0
+        # Area divided into rectangles
         x_coords = sorted(set([x for (x, y) in self.border]))
         y_coords = sorted(set([y for (x, y) in self.border]))
-        total = 0
 
-        # The area within the line
-        for i in range(len(y_coords) - 1):
-            # Evaluate an area in the map from (-inf, y1) to (+inf, y2)
-            y1 = y_coords[i]
-            y2 = y_coords[i + 1]
-            assert y1 < y2
+        # Visit each rectangle and determine if it's inside the border
+        for xi in range(len(x_coords) - 1):
+            x1 = x_coords[xi]
+            x2 = x_coords[xi + 1]
+            assert (x1 % 2) == 0
+            assert (x2 % 2) == 0
+            assert x1 < x2
+            for yi in range(len(y_coords) - 1):
+                y1 = y_coords[yi]
+                y2 = y_coords[yi + 1]
+                assert (y1 % 2) == 0
+                assert (y2 % 2) == 0
+                assert y1 < y2
 
-            # Each x division may create a rectangle which is in the area or not
-            inside = False
-            x_start = x_coords[0]
-            for x in x_coords:
-                # Did this cross a border line?
-                border = False
-                for j in range(len(self.border) - 1):
-                    # Examine a line in the border
-                    (bx1, by1) = self.border[j]
-                    (bx2, by2) = self.border[j + 1]
+                # Centre of the rectangle
+                cx = (x1 + x2) // 2
+                cy = (y1 + y2) // 2
 
-                    if bx1 == x and bx2 == x:
-                        # This is a vertical line that might cross x
-                        # Ensure by1 < by2
-                        if by1 > by2:
-                            (by1, by2) = (by2, by1)
-                        assert by1 < by2
+                # How many border lines between (cx, cy) and (inf, cy)?
+                area = ((x2 - x1 - 2) * (y2 - y1 - 2)) // 4
+                borders = self.count_borders_between_cx_cy_and_inf_cy(cx, cy)
+                #print(f"Rectangle ({x1},{y1}) ({x2},{y2}) borders {borders} area {area}")
+                if (borders % 2) == 0:
+                    # Even number of borders, this rectangle is outside the border
+                    continue
 
-                        # Border line crossed?
-                        if by1 <= y1 and y2 <= by2:
-                            border = True
-                            break
-                    elif bx1 == x and by1 == by2 == y1:
-                        # This is a horizontal line beginning at (x, y1)
-                        
+                # Rectangle is within the border
+                total += area
 
-                if border:
-                    if inside:
-                        # Leaving the area
-                        total += ((x - 1) - (x_start + 1)) * ((y2 - 1) - (y1 + 1))
-                        inside = False
-                    else:
-                        # Entering the area
-                        x_start = x
-                        inside = True
+                # Count the lines around the rectangle
+                if not self.is_point_on_border(cx, y2):
+                    area = (x2 - x1 - 2) // 2
+                    #print(f"Internal line ({x1},{y2}) ({x2},{y2}) area {area}")
+                    total += area
+                if not self.is_point_on_border(x2, cy):
+                    area = (y2 - y1 - 2) // 2
+                    #print(f"Internal line ({x2},{y1}) ({x2},{y2}) area {area}")
+                    total += area
+
         return total
 
     def area_of_line(self) -> int:
@@ -90,22 +132,42 @@ class Part1:
         for j in range(len(self.border) - 1):
             (bx1, by1) = self.border[j]
             (bx2, by2) = self.border[j + 1]
-            if bx1 == bx2:
-                total += abs(by2 - by1)
-            else:
-                total += abs(bx2 - bx1)
-
-        return total
+            assert (bx1 == bx2) or (by1 == by2)
+            total += abs(by2 - by1) + abs(bx2 - bx1)
+        return total // 2
 
     def area(self) -> int:
-        return self.area_of_line() + self.area_within()
+        return self.area_within() + self.area_of_line()
 
 def main() -> None:
     p = Part1()
+    p.parse("test2") # A 2x2 square (line length 1)
+    assert p.area_of_line() == 4
+    assert p.area_within() == 0
+    p = Part1() # A 3x3 square (line length 2)
+    p.parse("test3")
+    assert p.area_of_line() == 8
+    assert p.area_within() == 1
+    p = Part1() # A 4x4 square (line length 3)
+    p.parse("test4")
+    assert p.area_of_line() == 12
+    assert p.area_within() == 4
+    p = Part1()
+    # ###       3, 0
+    # #*#       2, 1
+    # #*###     4, 1
+    # #***#     2, 3
+    # #####     5, 0
+    p.parse("test5")
+    assert p.area_of_line() == 3 + 2 + 4 + 2 + 5
+    assert p.area_within() == 1 + 1 + 3
+    p = Part1()
     p.parse("test")
+    print(p.area_of_line())
     assert p.area_of_line() == 38
     print(p.area_within())
-    assert p.area_within() == 24
+    #assert p.area_within() == 62 - 38
+    print(p.area())
     assert p.area() == 62
     p.parse("input")
     p = Part1()
