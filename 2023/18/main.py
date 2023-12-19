@@ -15,69 +15,102 @@ MOVE: typing.Dict[str, Direction] = {
 }
 
 
-class Problem:
-    def __init__(self, fname: str) -> None:
-        self.colour: typing.Dict[Position, int] = {}
-        self.border: typing.Set[Position] = set()
-        (x, y) = (0, 0)
-        self.border.add((x, y))
-        self.min_x = self.min_y = self.max_x = self.max_y = 0
+class Part1:
+    def __init__(self) -> None:
+        self.border: typing.List[Position] = []
+
+    def parse(self, fname) -> None:
         parser = re.compile(r"^(\w) (\d+) \(#(\w+)\)\s*$")
+        (x, y) = (0, 0)
+        self.border.clear()
+        self.border.append((x, y))
         for line in open(fname, "rt"):
             m = parser.match(line)
             assert m is not None
             (dx, dy) = MOVE[m.group(1)]
             distance = int(m.group(2))
             label = int(m.group(3), 16)
-            for i in range(distance * 3):
-                x += dx
-                y += dy
-                if (x % 3) == 0 and (y % 3) == 0:
-                    self.min_x = min(x, self.min_x)
-                    self.min_y = min(y, self.min_y)
-                    self.max_x = max(x, self.max_x)
-                    self.max_y = max(y, self.max_y)
-                    self.colour[(x, y)] = label
+            x += dx * distance
+            y += dy * distance
+            self.border.append((x, y))
 
-                self.border.add((x, y))
+        assert (x, y) == (0, 0)
 
-    def fill(self) -> None:
-        for y in range(self.min_y - 1, self.max_y + 1, 3):
+    def area_within(self) -> int:
+        x_coords = sorted(set([x for (x, y) in self.border]))
+        y_coords = sorted(set([y for (x, y) in self.border]))
+        total = 0
+
+        # The area within the line
+        for i in range(len(y_coords) - 1):
+            # Evaluate an area in the map from (-inf, y1) to (+inf, y2)
+            y1 = y_coords[i]
+            y2 = y_coords[i + 1]
+            assert y1 < y2
+
+            # Each x division may create a rectangle which is in the area or not
             inside = False
-            for x in range(self.min_x - 1, self.max_x + 2, 1):
-                if (x, y) in self.border:
-                    inside = not inside
+            x_start = x_coords[0]
+            for x in x_coords:
+                # Did this cross a border line?
+                border = False
+                for j in range(len(self.border) - 1):
+                    # Examine a line in the border
+                    (bx1, by1) = self.border[j]
+                    (bx2, by2) = self.border[j + 1]
 
-                if inside and ((x % 3) == 0) and ((x, y + 1) not in self.colour):
-                    assert (y + 1) % 3 == 0
-                    self.colour[(x, y + 1)] = 0
+                    if bx1 == x and bx2 == x:
+                        # This is a vertical line that might cross x
+                        # Ensure by1 < by2
+                        if by1 > by2:
+                            (by1, by2) = (by2, by1)
+                        assert by1 < by2
 
-            assert not inside
+                        # Border line crossed?
+                        if by1 <= y1 and y2 <= by2:
+                            border = True
+                            break
+                    elif bx1 == x and by1 == by2 == y1:
+                        # This is a horizontal line beginning at (x, y1)
+                        
 
-    def part1(self) -> int:
-        #self.dump()
-        self.fill()
-        #self.dump()
-        return len(self.colour)
+                if border:
+                    if inside:
+                        # Leaving the area
+                        total += ((x - 1) - (x_start + 1)) * ((y2 - 1) - (y1 + 1))
+                        inside = False
+                    else:
+                        # Entering the area
+                        x_start = x
+                        inside = True
+        return total
 
-    def dump(self) -> None:
-        for y in range(self.min_y, self.max_y + 1):
-            for x in range(self.min_x, self.max_x + 1):
-                if (x, y) in self.border:
-                    print("#", end="")
-                elif (x, y) in self.colour:
-                    print("*", end="")
-                else:
-                    print(".", end="")
-            print("")
-        print("")
+    def area_of_line(self) -> int:
+        total = 0
+        for j in range(len(self.border) - 1):
+            (bx1, by1) = self.border[j]
+            (bx2, by2) = self.border[j + 1]
+            if bx1 == bx2:
+                total += abs(by2 - by1)
+            else:
+                total += abs(bx2 - bx1)
 
-def part1(fname: str) -> int:
-    return Problem(fname).part1()
+        return total
+
+    def area(self) -> int:
+        return self.area_of_line() + self.area_within()
 
 def main() -> None:
-    assert part1("test") == 62
-    print(part1("input"))
+    p = Part1()
+    p.parse("test")
+    assert p.area_of_line() == 38
+    print(p.area_within())
+    assert p.area_within() == 24
+    assert p.area() == 62
+    p.parse("input")
+    p = Part1()
+    print(p.area())
+    assert p.area() == 46359
 
 
 if __name__ == "__main__":
