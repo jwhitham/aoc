@@ -16,6 +16,12 @@ MOVE: typing.Dict[str, Direction] = {
     "L": (-1, 0),
     "D": (0, 1),
 }
+MOVE2: typing.Dict[int, Direction] = {
+    0: (1, 0),
+    3: (0, -1),
+    2: (-1, 0),
+    1: (0, 1),
+}
 
 class Rectangle:
     def __init__(self, x1: int, y1: int, x2: int, y2: int) -> None:
@@ -28,6 +34,10 @@ class Rectangle:
         self.top = False
         self.right = False
         self.bottom = False
+        self.top_left = False
+        self.top_right = False
+        self.bottom_left = False
+        self.bottom_right = False
 
 class Part1:
     def __init__(self) -> None:
@@ -58,8 +68,6 @@ class Part1:
         limit = (1 << 63) - 1
         x_coords = sorted(set([x for (x, _) in self.border] + [-limit, limit]))
         y_coords = sorted(set([y for (_, y) in self.border] + [-limit, limit]))
-        print(x_coords)
-        print(y_coords)
         rectangle: typing.Dict[RectangleIndex, Rectangle] = {}
         for xi in range(len(x_coords) - 1):
             for yi in range(len(y_coords) - 1):
@@ -102,6 +110,16 @@ class Part1:
             else:
                 assert False
 
+        # Set the corner flags
+        for yi in range(len(y_coords) - 2):
+            for xi in range(len(x_coords) - 2):
+                if (rectangle[(xi, yi)].bottom or rectangle[(xi, yi)].right
+                or rectangle[(xi + 1, yi + 1)].top or rectangle[(xi + 1, yi + 1)].left):
+                    rectangle[(xi + 1, yi + 1)].top_left = True
+                    rectangle[(xi, yi + 1)].top_right = True
+                    rectangle[(xi + 1, yi)].bottom_left = True
+                    rectangle[(xi, yi)].bottom_right = True
+
         # Which rectangles are within the border?
         for yi in range(len(y_coords) - 1):
             inside = False
@@ -109,7 +127,8 @@ class Part1:
                 if rectangle[(xi, yi)].left:
                     inside = not inside
                 if inside:
-                    rectangle[(xi, yi)].inside = inside
+                    rectangle[(xi, yi)].inside = True
+                    r = rectangle[(xi, yi)]
             xi = len(x_coords) - 2
             if rectangle[(xi, yi)].right:
                 inside = not inside
@@ -126,15 +145,31 @@ class Part1:
                 area = (r.x2 - r.x1 - 1) * (r.y2 - r.y1 - 1)
                 total += area
 
+                if self.debug is not None:
+                    for y in range(r.y1 + 1, r.y2):
+                        for x in range(r.x1 + 1, r.x2):
+                            self.debug[(x, y)] |= 1
+
                 if not r.bottom:
                     area = r.x2 - r.x1 - 1
                     total += area
+                    if self.debug is not None:
+                        for x in range(r.x1 + 1, r.x2):
+                            self.debug[(x, r.y2)] |= 2
+
                 if not r.right:
                     area = r.y2 - r.y1 - 1
                     total += area
-                    if not r.bottom:
-                        area = 1
-                        total += area
+                    if self.debug is not None:
+                        for y in range(r.y1 + 1, r.y2):
+                            self.debug[(r.x2, y)] |= 4
+
+                if not r.bottom_right:
+                    area = 1
+                    total += area
+                    if self.debug is not None:
+                        self.debug[(r.x2, r.y2)] |= 8
+
 
         return total
 
@@ -155,18 +190,42 @@ class Part1:
             return
         min_bx = min_by = sys.maxsize
         for (bx, by) in self.border:
-            min_bx = min(min_bx, bx // 2)
-            min_by = min(min_by, by // 2)
+            min_bx = min(min_bx, bx)
+            min_by = min(min_by, by)
 
         for (ty, line) in enumerate(open(fname, "rt")):
+            bad = ""
             for (tx, col) in enumerate(line.rstrip()):
                 x = tx + min_bx
                 y = ty + min_by
                 if (x, y) in self.debug:
-                    print('{:x}'.format(self.debug[(x,y)]), end="")
+                    if col == "*":
+                        print('{:x}'.format(self.debug[(x,y)]), end="")
+                    else:
+                        print('!', end="")
+                        bad = f" {(x, y)}"
+                elif col == "*":
+                    print('?', end="")
                 else:
                     print(col, end="")
-            print("")
+            print(bad)
+
+class Part2(Part1):
+    def parse(self, fname) -> None:
+        parser = re.compile(r"^\w \d+ \(#(\w+)\)\s*$")
+        (x, y) = (0, 0)
+        self.border.clear()
+        for line in open(fname, "rt"):
+            m = parser.match(line)
+            assert m is not None
+            hexcode = int(m.group(1), 16)
+            distance = hexcode >> 4
+            (dx, dy) = MOVE2[hexcode & 0xf]
+            x += dx * distance
+            y += dy * distance
+            self.border.append((x, y))
+
+        assert (x, y) == (0, 0), (x, y)
 
 def main() -> None:
     p = Part1()
@@ -196,21 +255,30 @@ def main() -> None:
     assert p.area() == 3 + 3 + 5 + 5 + 5
     p = Part1()
     p.parse("test")
-    #p.set_debug()
-    #print(p.area_of_line())
     assert p.area_of_line() == 38
-    #print(p.area_within())
-    #p.check_within("test-output")
-    rc = p.area_within()
-    print(rc)
-    assert rc == 62 - 38
-    #print(p.area())
     assert p.area() == 62
     p = Part1()
     p.parse("input")
     print(p.area())
     assert p.area() == 46359
 
+    p = Part2()
+    p.parse("test")
+    assert p.area() == 952408144115
+    p = Part2()
+    p.parse("input")
+    print(p.area())
+
+def debug_main() -> None:
+    p = Part1()
+    p.parse("test")
+    p.set_debug()
+    assert p.area_of_line() == 38
+    rc = p.area_within()
+    p.check_within("test-output")
+    print(rc)
+    assert rc == 62 - 38
 
 if __name__ == "__main__":
+    debug_main()
     main()
