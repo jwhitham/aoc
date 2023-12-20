@@ -4,6 +4,7 @@ import typing
 import collections
 import sys
 import re
+from bisect import bisect_left
 
 # This puzzle is extra hard because the borders need to be counted.
 # Treating the border paths as rectangles reduced the need to handle
@@ -81,10 +82,10 @@ class Part1:
         for i in range(len(self.border)):
             (bx1, by1) = self.border[i]
             (bx2, by2) = self.border[(i + 1) % len(self.border)]
-            xi1 = x_coords.index(min(bx1, bx2))
-            xi2 = x_coords.index(max(bx1, bx2))
-            yi1 = y_coords.index(min(by1, by2))
-            yi2 = y_coords.index(max(by1, by2))
+            xi1 = bisect_left(x_coords, min(bx1, bx2))
+            xi2 = bisect_left(x_coords, max(bx1, bx2))
+            yi1 = bisect_left(y_coords, min(by1, by2))
+            yi2 = bisect_left(y_coords, max(by1, by2))
             assert 0 < xi1 <= xi2 < (len(x_coords) - 1)
             assert 0 < yi1 <= yi2 < (len(y_coords) - 1)
             for yi in range(yi1, yi2 + 1):
