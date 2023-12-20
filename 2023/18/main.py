@@ -5,6 +5,9 @@ import collections
 import sys
 import re
 
+# This puzzle is extra hard because the borders need to be counted.
+# Treating the border paths as rectangles reduced the need to handle
+# corners and edges as special cases.
 
 Position = typing.Tuple[int, int]
 Direction = typing.Tuple[int, int]
@@ -30,14 +33,8 @@ class Rectangle:
         self.x2 = x2
         self.y2 = y2
         self.inside = False
-        self.left = False
-        self.top = False
-        self.right = False
-        self.bottom = False
-        self.top_left = False
-        self.top_right = False
-        self.bottom_left = False
-        self.bottom_right = False
+        self.border = False
+        self.transition = False
 
 class Part1:
     def __init__(self) -> None:
@@ -48,7 +45,7 @@ class Part1:
         self.debug = collections.defaultdict(lambda: 0)
 
     def parse(self, fname) -> None:
-        parser = re.compile(r"^(\w) (\d+) \(#(\w+)\)\s*$")
+        parser = re.compile(r"^(\w) (\d+) \(#\w+\)\s*$")
         (x, y) = (0, 0)
         self.border.clear()
         for line in open(fname, "rt"):
@@ -56,7 +53,6 @@ class Part1:
             assert m is not None
             (dx, dy) = MOVE[m.group(1)]
             distance = int(m.group(2))
-            label = int(m.group(3), 16)
             x += dx * distance
             y += dy * distance
             self.border.append((x, y))
@@ -64,10 +60,16 @@ class Part1:
         assert (x, y) == (0, 0), (x, y)
 
     def area_within(self) -> int:
-        # The area is divided into rectangles
+        # The area is divided into rectangles.
+        # Some rectangles represent parts of the border.
+        # Others are inside, others are outside.
         limit = (1 << 63) - 1
-        x_coords = sorted(set([x for (x, _) in self.border] + [-limit, limit]))
-        y_coords = sorted(set([y for (_, y) in self.border] + [-limit, limit]))
+        x_coords = sorted(set([x for (x, _) in self.border])
+                        | set([x + 1 for (x, _) in self.border])
+                        | set([-limit, limit]))
+        y_coords = sorted(set([y for (_, y) in self.border])
+                        | set([y + 1 for (_, y) in self.border])
+                        | set([-limit, limit]))
         rectangle: typing.Dict[RectangleIndex, Rectangle] = {}
         for xi in range(len(x_coords) - 1):
             for yi in range(len(y_coords) - 1):
@@ -75,66 +77,48 @@ class Part1:
                     x_coords[xi], y_coords[yi],
                     x_coords[xi + 1], y_coords[yi + 1])
 
-        # For each border line, determine which rectangles are bordered
+        # Determine which rectangles correspond to part of the border
         for i in range(len(self.border)):
             (bx1, by1) = self.border[i]
             (bx2, by2) = self.border[(i + 1) % len(self.border)]
+            xi1 = x_coords.index(min(bx1, bx2))
+            xi2 = x_coords.index(max(bx1, bx2))
+            yi1 = y_coords.index(min(by1, by2))
+            yi2 = y_coords.index(max(by1, by2))
+            assert 0 < xi1 <= xi2 < (len(x_coords) - 1)
+            assert 0 < yi1 <= yi2 < (len(y_coords) - 1)
+            for yi in range(yi1, yi2 + 1):
+                for xi in range(xi1, xi2 + 1):
+                    rectangle[(xi, yi)].border = True
+
             if bx1 == bx2:
-                # Vertical line
-                if by1 > by2:
-                    (by1, by2) = (by2, by1)
-
-                # Detect left and right borders
-                xi = x_coords.index(bx1)
-                assert 0 < xi < len(x_coords)
-                for yi in range(len(y_coords) - 1):
-                    if ((by1 <= rectangle[(xi, yi)].y1)
-                    and (rectangle[(xi, yi)].y2 <= by2)):
-                        rectangle[(xi, yi)].left = True
-                        rectangle[(xi - 1, yi)].right = True
-
-            elif by1 == by2:
-                # Horizontal line
-                if bx1 > bx2:
-                    (bx1, bx2) = (bx2, bx1)
-
-                # Detect top and bottom borders
-                yi = y_coords.index(by1)
-                assert 0 < yi < len(y_coords)
-                for xi in range(len(x_coords) - 1):
-                    if ((bx1 <= rectangle[(xi, yi)].x1)
-                    and (rectangle[(xi, yi)].x2 <= bx2)):
-                        rectangle[(xi, yi)].top = True
-                        rectangle[(xi, yi - 1)].bottom = True
-
-            else:
-                assert False
-
-        # Set the corner flags
-        for yi in range(len(y_coords) - 2):
-            for xi in range(len(x_coords) - 2):
-                if (rectangle[(xi, yi)].bottom or rectangle[(xi, yi)].right
-                or rectangle[(xi + 1, yi + 1)].top or rectangle[(xi + 1, yi + 1)].left):
-                    rectangle[(xi + 1, yi + 1)].top_left = True
-                    rectangle[(xi, yi + 1)].top_right = True
-                    rectangle[(xi + 1, yi)].bottom_left = True
-                    rectangle[(xi, yi)].bottom_right = True
+                # Vertical line; don't include the topmost square in this
+                # so that a connected horizontal line will work correctly.
+                for yi in range(yi1, yi2):
+                    rectangle[(xi1, yi)].transition = True
 
         # Which rectangles are within the border?
         for yi in range(len(y_coords) - 1):
             inside = False
             for xi in range(len(x_coords) - 1):
-                if rectangle[(xi, yi)].left:
+                r = rectangle[(xi, yi)]
+                if r.border and r.transition:
+                    # Entered new border rectangle
                     inside = not inside
-                if inside:
-                    rectangle[(xi, yi)].inside = True
-                    r = rectangle[(xi, yi)]
-            xi = len(x_coords) - 2
-            if rectangle[(xi, yi)].right:
-                inside = not inside
+
+                if inside and not r.border:
+                    r.inside = True
+
+                    # These assertions detect if one of the large border rectangles
+                    # has been incorrectly classified as "inside"
+                    assert abs(r.x1) < limit
+                    assert abs(r.y1) < limit
+                    assert abs(r.x2) < limit
+                    assert abs(r.y2) < limit
+
             assert not inside
 
-        # Compute area within rectangles
+        # Compute area within border
         total = 0
         for yi in range(len(y_coords) - 1):
             for xi in range(len(x_coords) - 1):
@@ -142,33 +126,15 @@ class Part1:
                 if not r.inside:
                     continue
 
-                area = (r.x2 - r.x1 - 1) * (r.y2 - r.y1 - 1)
+                assert not r.border
+                assert not r.transition
+                area = (r.x2 - r.x1) * (r.y2 - r.y1)
                 total += area
 
                 if self.debug is not None:
-                    for y in range(r.y1 + 1, r.y2):
-                        for x in range(r.x1 + 1, r.x2):
-                            self.debug[(x, y)] |= 1
-
-                if not r.bottom:
-                    area = r.x2 - r.x1 - 1
-                    total += area
-                    if self.debug is not None:
-                        for x in range(r.x1 + 1, r.x2):
-                            self.debug[(x, r.y2)] |= 2
-
-                if not r.right:
-                    area = r.y2 - r.y1 - 1
-                    total += area
-                    if self.debug is not None:
-                        for y in range(r.y1 + 1, r.y2):
-                            self.debug[(r.x2, y)] |= 4
-
-                if not r.bottom_right:
-                    area = 1
-                    total += area
-                    if self.debug is not None:
-                        self.debug[(r.x2, r.y2)] |= 8
+                    for y in range(r.y1, r.y2):
+                        for x in range(r.x1, r.x2):
+                            self.debug[(x, y)] += 1
 
 
         return total
@@ -184,6 +150,16 @@ class Part1:
 
     def area(self) -> int:
         return self.area_within() + self.area_of_line()
+
+    def dump(self, callback: typing.Callable[[int, int], typing.Any],
+                min_bx: int, min_by: int, max_bx: int, max_by: int) -> None:
+        for y in range(min_by, max_by + 1):
+            for x in range(min_bx, max_bx + 1):
+                s = callback(x, y)
+                if s is None:
+                    s = " "
+                print(str(s), end="")
+            print()
 
     def check_within(self, fname) -> None:
         if not self.debug:
