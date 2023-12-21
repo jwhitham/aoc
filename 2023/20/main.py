@@ -92,10 +92,15 @@ class Wire:
         self.reset()
 
     def reset(self) -> None:
-        self.pulse_now = False
-        self.pulse_next = False
         self.value_now = False
         self.value_next = False
+        self.pulse_now = False
+        self.pulse_next = False
+
+class Pulse:
+    def __init__(self, wire: Wire, value: bool) -> None:
+        self.wire = wire
+        self.value = value
 
 class Problem:
     def __init__(self, fname: str) -> None:
@@ -129,7 +134,7 @@ class Problem:
     def part1(self, debug=False) -> int:
         high_total = 0
         low_total = 0
-        trigger: typing.Deque[Wire] = collections.deque()
+        trigger: typing.Deque[Pulse] = collections.deque()
 
         for w in self.wires:
             w.reset()
@@ -145,28 +150,27 @@ class Problem:
             # Initial pulse
             c = self.components[BROADCASTER]
             w = c.inputs[0]
-            w.pulse_now = True
-            w.value_now = False
-            trigger.append(w)
+            trigger.append(Pulse(w, False))
             low_total += 1
             assert len(trigger) == 1
 
             # Simulation
             while len(trigger) != 0:
-                w = trigger.popleft()
-                if not w.pulse_now:
-                    continue
+                # Pulse arrives
+                p = trigger.popleft()
+                w = p.wire
+                w.value_now = p.value
+                w.pulse_now = True
                 c = w.target
                 c.update()
                 w.pulse_now = False
 
+                # Outgoing pulses are processed
                 for w in c.outputs:
                     if not w.pulse_next:
                         continue
 
-                    w.pulse_now = True
-                    w.pulse_next = False
-                    w.value_now = w.value_next
+                    p = Pulse(w, w.value_next)
                     if w.value_next:
                         high_total += 1
                         if debug:
@@ -176,7 +180,9 @@ class Problem:
                         if debug:
                             print(f"{w.source.name} -low-> {w.target.name}")
 
-                    trigger.append(w)
+                    w.pulse_next = False
+                    w.value_next = False
+                    trigger.append(p)
 
         return high_total * low_total
 
