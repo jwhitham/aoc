@@ -2,7 +2,7 @@
 
 import re
 import typing
-import collections
+import sys
 
 PARSE_COMPONENT = re.compile(r"^(%|&|)(\w+) -> (.*)$")
 BROADCASTER = "broadcaster"
@@ -40,70 +40,58 @@ class Component:
         self.ff_state = False
         self.counter = 0
 
-    def update_none(self) -> None:
-        for i in self.inputs:
-            if i.pulse_now and not i.value_now:
-                self.counter += 1
+    def update_none(self, i: "Wire") -> None:
+        if not i.value:
+            self.counter += 1
 
-    def update_broadcaster(self) -> None:
-        any_received = False
-        value = False
-        for i in self.inputs:
-            if i.pulse_now:
-                any_received = True
-                value = i.value_now
+    def update_broadcaster(self, i: "Wire") -> None:
+        value = i.value
 
-        if any_received:
-            for o in self.outputs:
-                assert not o.pulse_next
-                o.pulse_next = True
-                o.value_next = value
+        for o in self.outputs:
+            o.value = value
+        for o in self.outputs:
+            o.update()
 
-    def update_ff(self) -> None:
-        low_received = False
-        for i in self.inputs:
-            if i.pulse_now and not i.value_now:
-                low_received = True
-
-        if low_received:
+    def update_ff(self, i: "Wire") -> None:
+        if not i.value:
             self.ff_state = not self.ff_state
             for o in self.outputs:
-                assert not o.pulse_next
-                o.pulse_next = True
-                o.value_next = self.ff_state
+                o.value = self.ff_state
+            for o in self.outputs:
+                o.update()
 
-    def update_nand(self) -> None:
+    def update_nand(self, i: "Wire") -> None:
         all_inputs_high = True
-        any_received = False
         for i in self.inputs:
-            if i.pulse_now:
-                any_received = True
-
-            if not i.value_now:
+            if not i.value:
                 all_inputs_high = False
 
-        if any_received:
-            for o in self.outputs:
-                assert not o.pulse_next
-                o.pulse_next = True
-                o.value_next = not all_inputs_high
+        for o in self.outputs:
+            o.value = not all_inputs_high
+        for o in self.outputs:
+            o.update()
 
 class Wire:
     def __init__(self, source: Component, target: Component) -> None:
         self.source = source
         self.target = target
+        self.counters: typing.Optional[Problem] = None
         self.reset()
 
     def reset(self) -> None:
-        self.value_now = False
-        self.value_next = False
-        self.pulse_now = False
-        self.pulse_next = False
+        self.value = False
 
-class Pulse:
-    def __init__(self, wire: Wire, value: bool) -> None:
-        self.wire = wire
-        self.value = value
+    def update(self) -> None:
+        if self.counters:
+            if self.value:
+                self.counters.high_total += 1
+                if self.counters.debug:
+                    print(f"{self.source.name} -high-> {self.target.name}")
+            else:
+                self.counters.low_total += 1
+                if self.counters.debug:
+                    print(f"{self.source.name} -low-> {self.target.name}")
+        self.target.update(self)
 
 class Problem:
     def __init__(self, fname: str) -> None:
@@ -134,21 +122,23 @@ class Problem:
                 c2.inputs.append(w)
                 self.wires.append(w)
 
+        self.debug = False
         self.reset()
 
     def reset(self) -> None:
-        self.trigger: typing.Deque[Pulse] = collections.deque()
-        self.debug = False
         self.high_total = 0
         self.low_total = 0
         for w in self.wires:
             w.reset()
+            w.counters = None
        
         for c in self.components.values():
             c.reset()
 
     def part1(self) -> int:
         self.reset()
+        for w in self.wires:
+            w.counters = self
         for i in range(1000):
             self.simulate()
         return self.high_total * self.low_total
@@ -162,43 +152,10 @@ class Problem:
         return i
 
     def simulate(self) -> None:
-        # Initial pulse
         c = self.components[BROADCASTER]
         w = c.inputs[0]
-        self.trigger.append(Pulse(w, False))
-        self.low_total += 1
-        assert len(self.trigger) == 1
-
-        # Simulation
-        while len(self.trigger) != 0:
-            # Pulse arrives
-            p = self.trigger.popleft()
-            w = p.wire
-            w.value_now = p.value
-            w.pulse_now = True
-            c = w.target
-            c.update()
-            w.pulse_now = False
-
-            # Outgoing pulses are processed
-            for w in c.outputs:
-                if not w.pulse_next:
-                    continue
-
-                p = Pulse(w, w.value_next)
-                if w.value_next:
-                    self.high_total += 1
-                    if self.debug:
-                        print(f"{w.source.name} -high-> {w.target.name}")
-                else:
-                    self.low_total += 1
-                    if self.debug:
-                        print(f"{w.source.name} -low-> {w.target.name}")
-
-                w.pulse_next = False
-                w.value_next = False
-                self.trigger.append(p)
-
+        w.value = False
+        w.update()
 
 def main() -> None:
     assert Problem("test1").part1() == 32000000
