@@ -2,6 +2,7 @@
 
 import re
 import typing
+import collections
 import sys
 
 PARSE_COMPONENT = re.compile(r"^(%|&|)(\w+) -> (.*)$")
@@ -46,55 +47,52 @@ class Component:
 
     def update_broadcaster(self, i: "Wire") -> None:
         value = i.value
+        self.send(value)
 
+    def send(self, value: bool) -> None:
         for o in self.outputs:
-            o.value = value
-        for o in self.outputs:
-            o.update()
+            o.send(value)
 
     def update_ff(self, i: "Wire") -> None:
         if not i.value:
             self.ff_state = not self.ff_state
-            for o in self.outputs:
-                o.value = self.ff_state
-            for o in self.outputs:
-                o.update()
+            self.send(self.ff_state)
 
     def update_nand(self, i: "Wire") -> None:
         all_inputs_high = True
         for i in self.inputs:
             if not i.value:
                 all_inputs_high = False
-
-        for o in self.outputs:
-            o.value = not all_inputs_high
-        for o in self.outputs:
-            o.update()
+        self.send(not all_inputs_high)
 
 class Wire:
-    def __init__(self, source: Component, target: Component) -> None:
+    def __init__(self, source: Component, target: Component, parent: "Problem") -> None:
         self.source = source
         self.target = target
-        self.counters: typing.Optional[Problem] = None
+        self.parent = parent
         self.reset()
 
     def reset(self) -> None:
         self.value = False
 
-    def update(self) -> None:
-        if self.counters:
+    def send(self, value: bool) -> None:
+        def update() -> None:
+            self.value = value
             if self.value:
-                self.counters.high_total += 1
-                if self.counters.debug:
+                self.parent.high_total += 1
+                if self.parent.debug:
                     print(f"{self.source.name} -high-> {self.target.name}")
             else:
-                self.counters.low_total += 1
-                if self.counters.debug:
+                self.parent.low_total += 1
+                if self.parent.debug:
                     print(f"{self.source.name} -low-> {self.target.name}")
-        self.target.update(self)
+            self.target.update(self)
+        self.parent.pulse_queue.append(update)
 
 class Problem:
     def __init__(self, fname: str) -> None:
+        self.pulse_queue: typing.Deque[typing.Callable[[], None]] = collections.deque()
+
         # Read components
         self.components: typing.Dict[str, Component] = {}
         for line in open(fname, "rt"):
@@ -117,7 +115,7 @@ class Problem:
                     # Component with an output
                     c2 = self.components[name]
 
-                w = Wire(c, c2)
+                w = Wire(c, c2, self)
                 c.outputs.append(w)
                 c2.inputs.append(w)
                 self.wires.append(w)
@@ -128,17 +126,15 @@ class Problem:
     def reset(self) -> None:
         self.high_total = 0
         self.low_total = 0
+        self.pulse_queue.clear()
         for w in self.wires:
             w.reset()
-            w.counters = None
        
         for c in self.components.values():
             c.reset()
 
     def part1(self) -> int:
         self.reset()
-        for w in self.wires:
-            w.counters = self
         for i in range(1000):
             self.simulate()
         return self.high_total * self.low_total
@@ -154,8 +150,9 @@ class Problem:
     def simulate(self) -> None:
         c = self.components[BROADCASTER]
         w = c.inputs[0]
-        w.value = False
-        w.update()
+        w.send(False)
+        while len(self.pulse_queue) != 0:
+            self.pulse_queue.popleft()()
 
 def main() -> None:
     assert Problem("test1").part1() == 32000000
