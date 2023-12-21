@@ -2,6 +2,7 @@
 
 import re
 import typing
+import collections
 
 PARSE_COMPONENT = re.compile(r"^(%|&|)(\w+) -> (.*)$")
 BROADCASTER = "broadcaster"
@@ -128,10 +129,7 @@ class Problem:
     def part1(self, debug=False) -> int:
         high_total = 0
         low_total = 0
-        comp_now: typing.Set[Component] = set()
-        comp_next: typing.Set[Component] = set()
-        wire_now: typing.Set[Wire] = set()
-        wire_next: typing.Set[Wire] = set()
+        trigger: typing.Deque[Wire] = collections.deque()
 
         for w in self.wires:
             w.reset()
@@ -149,45 +147,36 @@ class Problem:
             w = c.inputs[0]
             w.pulse_now = True
             w.value_now = False
-            comp_now.add(c)
-            wire_now.add(w)
+            trigger.append(w)
             low_total += 1
-            assert len(wire_now) == 1
-            assert len(wire_next) == 0
-            assert len(comp_now) == 1
-            assert len(comp_next) == 0
+            assert len(trigger) == 1
 
             # Simulation
-            while len(comp_now) != 0:
-                if debug:
-                    print("")
+            while len(trigger) != 0:
+                w = trigger.popleft()
+                if not w.pulse_now:
+                    continue
+                c = w.target
+                c.update()
+                w.pulse_now = False
 
-                for c in comp_now:
-                    c.update()
-                    for w in c.outputs:
-                        if w.pulse_next:
-                            wire_next.add(w)
+                for w in c.outputs:
+                    if not w.pulse_next:
+                        continue
 
-                for w in wire_next | wire_now:
-                    if w.pulse_next:
-                        if w.value_next:
-                            high_total += 1
-                            if debug:
-                                print(f"{w.source.name} -high-> {w.target.name}")
-                        else:
-                            low_total += 1
-                            if debug:
-                                print(f"{w.source.name} -low-> {w.target.name}")
-                        comp_next.add(w.target)
-                        w.value_now = w.value_next
-
-                    w.pulse_now = w.pulse_next
+                    w.pulse_now = True
                     w.pulse_next = False
+                    w.value_now = w.value_next
+                    if w.value_next:
+                        high_total += 1
+                        if debug:
+                            print(f"{w.source.name} -high-> {w.target.name}")
+                    else:
+                        low_total += 1
+                        if debug:
+                            print(f"{w.source.name} -low-> {w.target.name}")
 
-                (comp_now, comp_next) = (comp_next, comp_now)
-                (wire_now, wire_next) = (wire_next, wire_now)
-                comp_next.clear()
-                wire_next.clear()
+                    trigger.append(w)
 
         return high_total * low_total
 
