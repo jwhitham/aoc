@@ -38,9 +38,12 @@ class Component:
 
     def reset(self) -> None:
         self.ff_state = False
+        self.counter = 0
 
     def update_none(self) -> None:
-        pass
+        for i in self.inputs:
+            if i.pulse_now and not i.value_now:
+                self.counter += 1
 
     def update_broadcaster(self) -> None:
         any_received = False
@@ -131,66 +134,79 @@ class Problem:
                 c2.inputs.append(w)
                 self.wires.append(w)
 
-    def part1(self, debug=False) -> int:
-        high_total = 0
-        low_total = 0
-        trigger: typing.Deque[Pulse] = collections.deque()
+        self.reset()
 
+    def reset(self) -> None:
+        self.trigger: typing.Deque[Pulse] = collections.deque()
+        self.debug = False
+        self.high_total = 0
+        self.low_total = 0
         for w in self.wires:
             w.reset()
        
         for c in self.components.values():
             c.reset()
 
+    def part1(self) -> int:
+        self.reset()
         for i in range(1000):
-            if debug:
-                print("")
-                print(f"Simulation {i}")
+            self.simulate()
+        return self.high_total * self.low_total
 
-            # Initial pulse
-            c = self.components[BROADCASTER]
-            w = c.inputs[0]
-            trigger.append(Pulse(w, False))
-            low_total += 1
-            assert len(trigger) == 1
+    def part2(self, output="rx") -> int:
+        self.reset()
+        i = 0
+        while self.components[output].counter == 0:
+            self.simulate()
+            i += 1
+        return i
 
-            # Simulation
-            while len(trigger) != 0:
-                # Pulse arrives
-                p = trigger.popleft()
-                w = p.wire
-                w.value_now = p.value
-                w.pulse_now = True
-                c = w.target
-                c.update()
-                w.pulse_now = False
+    def simulate(self) -> None:
+        # Initial pulse
+        c = self.components[BROADCASTER]
+        w = c.inputs[0]
+        self.trigger.append(Pulse(w, False))
+        self.low_total += 1
+        assert len(self.trigger) == 1
 
-                # Outgoing pulses are processed
-                for w in c.outputs:
-                    if not w.pulse_next:
-                        continue
+        # Simulation
+        while len(self.trigger) != 0:
+            # Pulse arrives
+            p = self.trigger.popleft()
+            w = p.wire
+            w.value_now = p.value
+            w.pulse_now = True
+            c = w.target
+            c.update()
+            w.pulse_now = False
 
-                    p = Pulse(w, w.value_next)
-                    if w.value_next:
-                        high_total += 1
-                        if debug:
-                            print(f"{w.source.name} -high-> {w.target.name}")
-                    else:
-                        low_total += 1
-                        if debug:
-                            print(f"{w.source.name} -low-> {w.target.name}")
+            # Outgoing pulses are processed
+            for w in c.outputs:
+                if not w.pulse_next:
+                    continue
 
-                    w.pulse_next = False
-                    w.value_next = False
-                    trigger.append(p)
+                p = Pulse(w, w.value_next)
+                if w.value_next:
+                    self.high_total += 1
+                    if self.debug:
+                        print(f"{w.source.name} -high-> {w.target.name}")
+                else:
+                    self.low_total += 1
+                    if self.debug:
+                        print(f"{w.source.name} -low-> {w.target.name}")
 
-        return high_total * low_total
+                w.pulse_next = False
+                w.value_next = False
+                self.trigger.append(p)
 
 
 def main() -> None:
     assert Problem("test1").part1() == 32000000
     assert Problem("test2").part1() == 11687500
     print(Problem("input").part1())
+    assert Problem("input").part1() == 861743850
+    assert Problem("test2").part2(OUTPUT) == 1
+    print(Problem("input").part2())
 
 if __name__ == "__main__":
     main()
