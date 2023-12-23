@@ -156,8 +156,7 @@ class Problem:
         special = [c for c in self.components.values() if c.name in
                     ["vf", "dh", "mk", "rn"]]
         with open("part2.txt", "wt") as fd:
-            while self.components[output].counter == 0:
-                self.simulate()
+            while (self.components[output].counter == 0) and (i < 100000):
                 bit = 0
                 for c in stateful:
                     bit = bit << 1
@@ -175,8 +174,13 @@ class Problem:
                         fd.write("-")
                     c.was_high = c.was_low = False
                 fd.write("\n")
+                self.simulate()
                 i += 1
-        return i
+
+        if self.components[output].counter != 0:
+            return i
+        else:
+            raise TimeoutError()
 
     def simulate(self) -> None:
         c = self.components[BROADCASTER]
