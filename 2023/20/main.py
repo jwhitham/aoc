@@ -39,6 +39,7 @@ class Component:
 
     def reset(self) -> None:
         self.ff_state = False
+        self.was_low = self.was_high = False
         self.counter = 0
 
     def update_none(self, i: "Wire") -> None:
@@ -63,6 +64,10 @@ class Component:
         for i in self.inputs:
             if not i.value:
                 all_inputs_high = False
+        if all_inputs_high:
+            self.was_low = True
+        else:
+            self.was_high = True
         self.send(not all_inputs_high)
 
 class Wire:
@@ -148,6 +153,8 @@ class Problem:
         self.reset()
         i = 0
         stateful = self.get_stateful_list()
+        special = [c for c in self.components.values() if c.name in
+                    ["vf", "dh", "mk", "rn"]]
         with open("part2.txt", "wt") as fd:
             while self.components[output].counter == 0:
                 self.simulate()
@@ -156,7 +163,18 @@ class Problem:
                     bit = bit << 1
                     if c.ff_state:
                         bit |= 1
-                fd.write(f"{bit:016x}\n")
+                fd.write(f"{bit:016x} ")
+                for c in special:
+                    if c.was_low and c.was_high:
+                        fd.write("B")
+                    elif c.was_low:
+                        fd.write("L")
+                    elif c.was_high:
+                        fd.write("H")
+                    else:
+                        fd.write("-")
+                    c.was_high = c.was_low = False
+                fd.write("\n")
                 i += 1
         return i
 

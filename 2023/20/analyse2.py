@@ -56,7 +56,7 @@ def main() -> None:
     find_root_ff(root)
 
     for line in open("part2.txt", "rt"):
-        all_bits = int(line.strip(), 16)
+        all_bits = int(line.split()[0], 16)
         for counter_group in counter_groups:
             value = 0
             for i in counter_group.bit_index:

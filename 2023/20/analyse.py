@@ -24,7 +24,7 @@ def main() -> None:
     seen = set()
     for line in open("part2.txt", "rt"):
         ff0 = ff1
-        ff1 = int(line.strip(), 16)
+        ff1 = int(line.split()[0], 16)
         assert not (ff1 in seen)
         seen.add(ff1)
         for i in range(num_bits):
