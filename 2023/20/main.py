@@ -195,7 +195,39 @@ def main() -> None:
     assert Problem("input").part1() == 861743850
     assert Problem("test2").part2(OUTPUT) == 1
     print(Problem("input").part1())
-    print(Problem("input").part2())
+    try:
+        Problem("input").part2()
+    except TimeoutError:
+        pass
+
+    seen_first: typing.Dict[int, int] = {}
+    period: typing.Dict[int, int] = {}
+    for (i, line) in enumerate(open("part2.txt", "rt")):
+        for (j, value) in enumerate(line.split()[1]):
+            if value == "B":
+                if j not in seen_first:
+                    seen_first[j] = i
+                elif j not in period:
+                    period[j] = i - seen_first[j]
+
+    for j in range(4):
+        assert seen_first[j] == period[j]
+
+    c1 = period[0]
+    for i in range(1, len(period)):
+        c2 = period[i]
+        c1 = lcm(c1, c2)
+
+    print(c1)
+
+def lcm(a, b):
+    m = a * b
+    if not m: return 0
+    while True:
+        a %= b
+        if not a: return m // b
+        b %= a
+        if not b: return m // a
 
 if __name__ == "__main__":
     main()
