@@ -46,7 +46,8 @@ def main() -> None:
 
             seen2.add(c.name)
             if c.kind == FF:
-                counter_group.bit_index.append(stateful.index(c))
+                counter_group.bit_index.append(len(stateful) - 1 - stateful.index(c))
+
 
             for o in c.outputs:
                 find_counter(o.target)
