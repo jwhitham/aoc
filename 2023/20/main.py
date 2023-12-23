@@ -139,12 +139,25 @@ class Problem:
             self.simulate()
         return self.high_total * self.low_total
 
+    def get_stateful_list(self) -> typing.List[Component]:
+        stateful = [c for c in self.components.values() if c.kind == FF]
+        stateful.sort(key = lambda c: c.name)
+        return stateful
+
     def part2(self, output="rx") -> int:
         self.reset()
         i = 0
-        while self.components[output].counter == 0:
-            self.simulate()
-            i += 1
+        stateful = self.get_stateful_list()
+        with open("part2.txt", "wt") as fd:
+            while self.components[output].counter == 0:
+                self.simulate()
+                bit = 0
+                for c in stateful:
+                    bit = bit << 1
+                    if c.ff_state:
+                        bit |= 1
+                fd.write(f"{bit:016x}\n")
+                i += 1
         return i
 
     def simulate(self) -> None:
@@ -157,9 +170,9 @@ class Problem:
 def main() -> None:
     assert Problem("test1").part1() == 32000000
     assert Problem("test2").part1() == 11687500
-    print(Problem("input").part1())
     assert Problem("input").part1() == 861743850
     assert Problem("test2").part2(OUTPUT) == 1
+    print(Problem("input").part1())
     print(Problem("input").part2())
 
 if __name__ == "__main__":
