@@ -10,62 +10,85 @@ They seem to be organised as 4 * 12 bit counters.
 This program makes a map of the counters.
 """
 
+class CounterGroup:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.value_list: typing.List[int] = []
+        self.bit_index: typing.List[int] = []
+        self.value_set: typing.Set[int] = set()
+        self.final_new_index = -1
+
 def main() -> None:
     problem = Problem("input")
     root = problem.components[BROADCASTER]
-    stack: typing.List[Component] = []
-    ff_seen: typing.Set[Component] = set()
-    route: typing.Dict[str, typing.List[Component]] = {}
+    seen: typing.Set[str] = set()
+    stateful = problem.get_stateful_list()
+    counter_groups: typing.List[CounterGroup] = []
 
-    def visit(c: Component) -> None:
-        if c.name == FF:
-            if c in ff_seen:
-                return
-            ff_seen.add(c)
-
-        if ((c.name == "rx") and (len(stack) >= 1)
-        and (len(stack) > len(route.get(stack[0].name, [])))):
-            route[stack[0].name] = stack[:]
-
-        if c in stack:
+    def find_root_ff(c: Component) -> None:
+        if c.name in seen:
             return
 
-        if c.kind == FF:
-            stack.append(c)
-            
-        for o in c.outputs:
-            visit(o.target)
+        seen.add(c.name)
 
-        if c.kind == FF:
-            stack.pop()
+        if c.kind != FF:
+            for o in c.outputs:
+                find_root_ff(o.target)
+            return
 
-    visit(root)
-    for name in sorted(route):
-        stack = route[name]
-        print("root", end="")
-        for c1 in stack:
-            print(f" -> {c1.name}", end="")
-        print(" -> rx")
+        seen2: typing.Set[str] = set()
+        counter_group = CounterGroup(c.name)
+        counter_groups.append(counter_group)
 
-    stateful = problem.get_stateful_list()
-    counter_bit_map: typing.Dict[str, typing.List[int]] = {}
-    counter_names = sorted(route)
-    for name in counter_names:
-        counter_bit_map[name] = []
-        for c in reversed(route[name]):
-            counter_bit_map[name].append(stateful.index(c))
-        print(f" {name:3s}", end="")
-    print("")
+        def find_counter(c: Component) -> None:
+            if c.name in seen2:
+                return
+
+            seen2.add(c.name)
+            if c.kind == FF:
+                counter_group.bit_index.append(stateful.index(c))
+
+            for o in c.outputs:
+                find_counter(o.target)
+       
+        find_counter(c)
+
+    find_root_ff(root)
 
     for line in open("part2.txt", "rt"):
         all_bits = int(line.strip(), 16)
-        for name in counter_names:
+        for counter_group in counter_groups:
             value = 0
-            for i in counter_bit_map[name]:
+            for i in counter_group.bit_index:
                 value = value << 1
                 value |= (all_bits >> i) & 1
-            print(f" {value:03x}", end="")
-        print("")
+
+            if value not in counter_group.value_set:
+                counter_group.value_set.add(value)
+                counter_group.final_new_index = len(counter_group.value_list)
+
+            counter_group.value_list.append(value)
+
+    for counter_group in counter_groups:
+        print(f"Group {counter_group.name} has {len(counter_group.value_set)} unique, "
+              f"last new index is {counter_group.final_new_index} "
+              f"of {len(counter_group.value_list)}")
+
+    for counter_group in counter_groups:
+        x = 10000
+        capture = counter_group.value_list[-x:]
+        k = 0
+        for j in range(len(counter_group.value_list) - x, counter_group.final_new_index, -1):
+            if counter_group.value_list[j:j+x] == capture:
+                print(f"Group {counter_group.name} repeat found at {j}")
+                k += 1
+                if k > 4:
+                    break
+        
+    for counter_group in counter_groups:
+        with open(f"part2.{counter_group.name}.txt", "wt") as fd:
+            for (i, value) in enumerate(counter_group.value_list):
+                fd.write(f"{value:03x}\n")
 
 if __name__ == "__main__":
     main()
