@@ -112,10 +112,15 @@ class Problem:
 
             return reachable
 
-        reachable = 0
-        for qy in range(-quads, quads + 1):
-            for qx in range(-quads, quads + 1):
-                reachable += compute_quad(qx, qy)
+        print(f"Part 2 faster: {steps}")
+        with open(f"matrix{steps}.csv", "wt") as fd:
+            reachable = 0
+            for qy in range(-quads, quads + 1):
+                for qx in range(-quads, quads + 1):
+                    r = compute_quad(qx, qy)
+                    reachable += r
+                    fd.write(f"{r},")
+                fd.write("\n")
 
         print(f"Part 2 faster: {steps} = {reachable}")
         return reachable
