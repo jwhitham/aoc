@@ -5,6 +5,8 @@ import heapq
 
 Position = typing.Tuple[int, int]
 ShortestDistance = typing.Dict[Position, int]
+Quad = typing.Tuple[int, int]
+DEBUG = False
 
 class Problem:
     def __init__(self, fname: str) -> None:
@@ -69,12 +71,15 @@ class Problem:
         size = max(self.width, self.height)
         w = self.width
         h = self.height
+        assert (w // 2) == sx
+        assert (h // 2) == sy
         quads = (steps + size - 1) // size
         evenness = steps % 2
-
+        reachable = 0
         cache: typing.Dict[Position, ShortestDistance] = {}
 
         def inner_edge(qxy: int, wh: int) -> int:
+            # Determine start point in any quad
             if qxy == 0:
                 return wh // 2
             elif qxy > 0:
@@ -83,6 +88,7 @@ class Problem:
                 return (qxy * wh) + wh - 1
 
         def compute_q_distance(qxy: int, wh: int, sxy: int) -> int:
+            # Distance from start point to a new start point in any quad
             if qxy == 0:
                 return 0
             elif qxy > 0:
@@ -91,6 +97,7 @@ class Problem:
                 return sxy + 1 + ((-qxy - 1) * wh)
 
         def compute_quad(qx: int, qy: int) -> int:
+            # Number of reachable squares within quad (qx, qy)
             (sx, sy) = self.start
             q_distance = compute_q_distance(qx, w, sx) + compute_q_distance(qy, h, sy)
 
@@ -112,16 +119,127 @@ class Problem:
 
             return reachable
 
-        print(f"Part 2 faster: {steps}")
-        with open(f"matrix{steps}.csv", "wt") as fd:
-            reachable = 0
+        # A zero column
+        # An odd column
+        # An even column
+        # An inner edge
+        # An outer edge
+        # A mostly-zero edge
+        # Minimum 6?
+        if quads <= 5:
+            # No special processing is required. Just add it all up.
             for qy in range(-quads, quads + 1):
                 for qx in range(-quads, quads + 1):
-                    r = compute_quad(qx, qy)
-                    reachable += r
-                    fd.write(f"{r},")
-                fd.write("\n")
+                    reachable += compute_quad(qx, qy)
 
+            print(f"Part 2 faster (small): {steps} = {reachable}")
+            return reachable
+
+        def add_horizontal_or_vertical(compute_quad: typing.Callable[Quad, int]) -> int:
+            # Search until a repeating pattern is found
+            # Start point: right on the edge (or beyond it)
+            qxy = quads
+
+            # What's the repeating pattern for this edge?
+            odd_repeat = compute_quad(1)
+            even_repeat = compute_quad(2)
+            
+            # Find first part of the edge containing some reachable squares
+            r = compute_quad(qxy)
+            while r == 0:
+                qxy -= 1
+                r = compute_quad(qxy)
+
+            # Continue until we reach the repeating pattern
+            reachable = 0
+            while (r != odd_repeat) and (r != even_repeat):
+                reachable += r
+                qxy -= 1
+                r = compute_quad(qxy)
+
+            # How much repeating pattern until the zero line is reached?
+            if (qxy % 2) == 0:
+                # Same number of even and odd quads: 1, 2, 3, 4
+                reachable += abs(qxy // 2) * even_repeat
+                reachable += abs(qxy // 2) * odd_repeat
+            else:
+                # Fewer even than odd quads: 1, 2, 3
+                reachable += (abs((qxy + 1) // 2) - 1) * even_repeat
+                reachable += abs((qxy + 1) // 2) * odd_repeat
+
+            # Check!
+            if DEBUG:
+                i = 1
+                check = 0
+                r = compute_quad(i)
+                while r != 0:
+                    check += r
+                    i += 1
+                    r = compute_quad(i)
+                assert check == reachable
+
+            return reachable
+
+        def add_triangle(dqx: int, dqy: int) -> int:
+            assert abs(dqx) == 1
+            assert abs(dqy) == 1
+
+            # What's the repeating pattern for this edge?
+            odd_repeat = compute_quad(dqx, dqy)
+            even_repeat = compute_quad(dqx * 2, dqy)
+            #print(f"odd_repeat {odd_repeat} even_repeat {even_repeat}")
+           
+            # Find outer edge of triangle
+            qx = quads * dqx
+            qy = dqy
+            r = compute_quad(qx, qy)
+            while r == 0:
+                qx -= dqx
+                r = compute_quad(qx, qy)
+            #print(f"edge begins at qx = {qx} qy = {qy} with r = {r}")
+
+            # Continue until we reach the repeating pattern
+            reachable = 0
+            while (r != odd_repeat) and (r != even_repeat):
+                # Add the whole triangle edge
+                r = r * abs(qx)
+                #print(f"for qx = {qx} qy = {qy} add {r}")
+                reachable += r
+                qx -= dqx
+                r = compute_quad(qx, qy)
+                #print(f"at qx = {qx} qy = {qy} r = {r}")
+
+            # What's the area of the triangle?
+            total_size = ((qx ** 2) + abs(qx)) // 2     # Triangle number
+            odd_size = ((abs(qx) + 1) // 2) ** 2
+            even_size = total_size - odd_size
+            #print(f"odd_size {odd_size} even_size {even_size}")
+            reachable += even_repeat * even_size
+            reachable += odd_repeat * odd_size
+
+            # Check!
+            if DEBUG:
+                check = 0
+                for qx in range(dqx, dqx * (quads + 1), dqx):
+                    for qy in range(dqy, dqy * (quads + 1), dqy):
+                        check += compute_quad(qx, qy)
+                assert check == reachable, (check, reachable, total_size)
+
+            return reachable
+
+        # Centre square
+        reachable += compute_quad(0, 0)
+        # Horizontal at qy = 0
+        reachable += add_horizontal_or_vertical(lambda qxy: compute_quad(-qxy, 0))
+        reachable += add_horizontal_or_vertical(lambda qxy: compute_quad(qxy, 0))
+        # Vertical at qx = 0
+        reachable += add_horizontal_or_vertical(lambda qxy: compute_quad(0, -qxy))
+        reachable += add_horizontal_or_vertical(lambda qxy: compute_quad(0, qxy))
+        # Triangles
+        reachable += add_triangle(1, 1)
+        reachable += add_triangle(1, -1)
+        reachable += add_triangle(-1, 1)
+        reachable += add_triangle(-1, -1)
         print(f"Part 2 faster: {steps} = {reachable}")
         return reachable
 
@@ -138,14 +256,17 @@ def main():
     assert Problem("test2").part2_basic(10) == 90
     assert Problem("test2").part2_basic(50) == 1940
     assert Problem("test2").part2_basic(51) == 2024
+    assert Problem("test2").part2_basic(53) == 2207
     assert Problem("test2").part2_basic(100) == 7645
     #assert Problem("test2").part2_basic(500) == 188756
     #assert Problem("test2").part2_basic(1000) == 753480
+    #assert Problem("test2").part2_basic(5000) == 18807440
     assert Problem("test2").part2_faster(6) == 36
     assert Problem("test2").part2_faster(7) == 48
     assert Problem("test2").part2_faster(10) == 90
     assert Problem("test2").part2_faster(50) == 1940
     assert Problem("test2").part2_faster(51) == 2024
+    assert Problem("test2").part2_faster(53) == 2207
     assert Problem("test2").part2_faster(100) == 7645
     assert Problem("test2").part2_faster(500) == 188756
     assert Problem("test2").part2_faster(1000) == 753480
