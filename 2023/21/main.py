@@ -152,10 +152,13 @@ class Problem:
 
             # Continue until we reach the repeating pattern
             reachable = 0
-            while (r != odd_repeat) and (r != even_repeat):
+            for i in range(4):
                 reachable += r
                 qxy -= 1
                 r = compute_quad(qxy)
+
+            assert r in (odd_repeat, even_repeat)
+            assert qxy >= 1
 
             # How much repeating pattern until the zero line is reached?
             if (qxy % 2) == 0:
@@ -187,7 +190,8 @@ class Problem:
             # What's the repeating pattern for this edge?
             odd_repeat = compute_quad(dqx, dqy)
             even_repeat = compute_quad(dqx * 2, dqy)
-            #print(f"odd_repeat {odd_repeat} even_repeat {even_repeat}")
+            assert even_repeat == compute_quad(dqx, dqy * 2)
+            assert odd_repeat == compute_quad(dqx * 2, dqy * 2)
            
             # Find outer edge of triangle
             qx = quads * dqx
@@ -196,24 +200,21 @@ class Problem:
             while r == 0:
                 qx -= dqx
                 r = compute_quad(qx, qy)
-            #print(f"edge begins at qx = {qx} qy = {qy} with r = {r}")
 
-            # Continue until we reach the repeating pattern
+            # Continue across the edge - reaching the repeating pattern
             reachable = 0
-            while (r != odd_repeat) and (r != even_repeat):
-                # Add the whole triangle edge
-                r = r * abs(qx)
-                #print(f"for qx = {qx} qy = {qy} add {r}")
-                reachable += r
-                qx -= dqx
+            for i in range(4):
                 r = compute_quad(qx, qy)
-                #print(f"at qx = {qx} qy = {qy} r = {r}")
+                reachable += r * abs(qx)
+                qx -= dqx
+
+            assert abs(qx) >= 1
+            assert r in (odd_repeat, even_repeat)
 
             # What's the area of the triangle?
             total_size = ((qx ** 2) + abs(qx)) // 2     # Triangle number
             odd_size = ((abs(qx) + 1) // 2) ** 2
             even_size = total_size - odd_size
-            #print(f"odd_size {odd_size} even_size {even_size}")
             reachable += even_repeat * even_size
             reachable += odd_repeat * odd_size
 
@@ -272,7 +273,7 @@ def main():
     assert Problem("test2").part2_faster(1000) == 753480
     assert Problem("test2").part2_faster(5000) == 18807440
     steps = 26501365
-    print(Problem("test").part2_fast(steps))
+    print(Problem("input").part2_faster(steps))
 
 
 if __name__ == "__main__":
