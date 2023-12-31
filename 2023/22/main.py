@@ -7,6 +7,7 @@ import sys
 
 Position = typing.Tuple[int, int, int]
 Occupied = typing.Dict[Position, "Brick"]
+SupportGraph = typing.Dict["Brick", typing.Set["Brick"]]
 
 RE_BRICK = re.compile(r"^(\d+),(\d+),(\d+)~(\d+),(\d+),(\d+)\s*$")
 
@@ -93,9 +94,9 @@ class Problem:
                     self.add_brick(b)
                     fell = True
                 
-    def part1(self) -> typing.Set[Brick]:
-        supported_by: typing.Dict[Brick, typing.Set[Brick]] = {}
-        supports: typing.Dict[Brick, typing.Set[Brick]] = {}
+    def make_support_graph(self) -> typing.Tuple[SupportGraph, SupportGraph]:
+        supported_by: SupportGraph = {}
+        supports: SupportGraph = {}
 
         for b1 in self.bricks:
             supports[b1] = b1.supports(self.occupied)
@@ -107,7 +108,12 @@ class Problem:
             for b2 in supports[b1]:
                 supported_by[b2].add(b1)
 
-        can_destroy: typing.Set[Brick] = set()
+        return (supports, supported_by)
+
+    def part1(self) -> int:
+        self.fall()
+        (supports, supported_by) = self.make_support_graph()
+        total = 0
         for b1 in self.bricks:
             all_have_multi_support = True
             for b2 in supports[b1]:
@@ -119,9 +125,35 @@ class Problem:
                 if not b2_has_multi_support:
                     all_have_multi_support = False
             if all_have_multi_support:
-                can_destroy.add(b1)
+                total += 1
 
-        return can_destroy
+        return total
+
+    def part2(self) -> int:
+        self.fall()
+        (supports, supported_by) = self.make_support_graph()
+        moved: typing.Set[Brick] = set()
+        total = 0
+        
+        def add_all_moved(b1: Brick) -> None:
+            if len(supported_by[b1] - moved) == 0:
+                # No longer supported
+                moved.add(b1)
+                for b2 in supports[b1]:
+                    add_all_moved(b2)
+
+        for b1 in self.bricks:
+            moved.clear()
+            old_size = len(moved)
+            moved.add(b1)
+            while len(moved) != old_size:
+                old_size = len(moved)
+                for b2 in supports[b1]:
+                    add_all_moved(b2)
+
+            total += len(moved) - 1
+
+        return total
 
     def dump(self) -> None:
         print(" x ")
@@ -148,13 +180,10 @@ class Problem:
             print(f"Brick {b.name} supports {s}")
 
 def main():
-    p = Problem("test")
-    p.fall()
-    #p.dump()
-    assert set([b.name for b in p.part1()]) == set("BCDEG")
-    p = Problem("input")
-    p.fall()
-    print(len(p.part1()))
+    assert Problem("test").part1() == 5
+    print(Problem("input").part1())
+    assert Problem("test").part2() == 7
+    print(Problem("input").part2())
 
 
 if __name__ == "__main__":

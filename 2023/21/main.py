@@ -135,7 +135,7 @@ class Problem:
             print(f"Part 2 faster (small): {steps} = {reachable}")
             return reachable
 
-        def add_horizontal_or_vertical(compute_quad: typing.Callable[Quad, int]) -> int:
+        def add_horizontal_or_vertical(compute_quad: typing.Callable[[int], int]) -> int:
             # Search until a repeating pattern is found
             # Start point: right on the edge (or beyond it)
             qxy = quads
