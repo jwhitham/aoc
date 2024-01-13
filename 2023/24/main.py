@@ -1,20 +1,15 @@
 
 import typing
 import re
+import math
 
 IntersectXY = typing.Optional[typing.Tuple[float, float]]
 DEBUG = False
 EPSILON = 1e-6
 
 
-def near(a: float, b: float) -> bool:
-    return abs(a - b) < EPSILON
-
-def near_or_none(a: typing.Optional[float], b: typing.Optional[float]) -> bool:
-    if (a is not None) and (b is not None):
-        return near(a, b)
-    else:
-        return True
+def round_epsilon(x: float) -> float:
+    return math.floor((x / EPSILON) + 0.5) * EPSILON
 
 class Stone:
     def __init__(self,
@@ -88,56 +83,79 @@ class Problem:
         return total
 
     def part2(self) -> int:
-        ti = 1
-        for tj in range(2, 20):
-            for i in range(len(self.stones)):
-                for j in range(len(self.stones)):
-                    #print("try", i, ti, j, tj)
-                    v = self.try_vector(i, ti, j, tj)
-                    if v is not None:
-                        return v
+        si = self.stones[0]
+        sj = self.stones[1]
+        sk = self.stones[2]
+        ti = 1.0
+        error2 = self.try_vector(self.get_line_a(si, ti, sj, 2.0), sk)
+        error3 = self.try_vector(self.get_line_a(si, ti, sj, 3.0), sk)
+        assert error2 is not None
+        assert error3 is not None
+        increasing_tj_makes_error_more_positive = (error3 > error2)
+        min_tj = 0.0
+        max_tj = 1e6
+        while (max_tj - min_tj) > EPSILON:
+            assert max_tj > min_tj
+            tj = (max_tj + min_tj) * 0.5
+            error = self.try_vector(self.get_line_a(si, ti, sj, tj), sk)
+            assert error is not None, (max_tj, min_tj, tj)
 
-        # Not solveable
-        return -1
-        
-    def try_vector(self, i: int, ti: int, j: int, tj: int) -> typing.Optional[int]:
+            if (error < 0.0) == increasing_tj_makes_error_more_positive:
+                max_tj = tj
+            else:
+                min_tj = tj
+
+        # Now we have a fairly accurate idea of tj, we know what the line is...
+        tj = round_epsilon(tj)
+        sa = self.get_line_a(si, 1.0, sj, tj)
+        print(str(sa))
+        return int(round_epsilon(sa.px + sa.py + sa.pz))
+
+    def get_line_a(self, si: Stone, ti: int, sj: Stone, tj: int) -> Stone:
         # Determine vector that passes through i at ti, then j at tj
         # pxi + ti*vxi = pxa + ti*vxa   AND   pxj + tj*vxj = pxa + tj*vxa
         # pxi + ti*vxi - pxj - tj*vxj = pxa + ti*vxa - pxa - tj*vxa
         # pxi + ti*vxi - pxj - tj*vxj = (ti - tj)*vxa
-        vxa = (self.stones[i].px + (ti * self.stones[i].vx)
-                - self.stones[j].px - (tj * self.stones[j].vx)) / (ti - tj)
-        vya = (self.stones[i].py + (ti * self.stones[i].vy)
-                - self.stones[j].py - (tj * self.stones[j].vy)) / (ti - tj)
-        vza = (self.stones[i].pz + (ti * self.stones[i].vz)
-                - self.stones[j].pz - (tj * self.stones[j].vz)) / (ti - tj)
-        pxa = self.stones[i].px + (ti * self.stones[i].vx) - (ti * vxa)
-        pya = self.stones[i].py + (ti * self.stones[i].vy) - (ti * vya)
-        pza = self.stones[i].pz + (ti * self.stones[i].vz) - (ti * vza)
-        #print("try", i, j, pxa, pya, pza)
+        vxa = (si.px + (ti * si.vx) - sj.px - (tj * sj.vx)) / (ti - tj)
+        vya = (si.py + (ti * si.vy) - sj.py - (tj * sj.vy)) / (ti - tj)
+        vza = (si.pz + (ti * si.vz) - sj.pz - (tj * sj.vz)) / (ti - tj)
+        pxa = si.px + (ti * si.vx) - (ti * vxa)
+        pya = si.py + (ti * si.vy) - (ti * vya)
+        pza = si.pz + (ti * si.vz) - (ti * vza)
+        return Stone(pxa, pya, pza, vxa, vya, vza)
 
-        # Does this work?
-        for k in range(len(self.stones)):
-            # pxk + tk*vxk = pxa + tk*vxa
-            # (pxk - pxa) / (vxa - vxk) = tk
-            tkx = tky = tkz = None
-            if not near(vxa, self.stones[k].vx):
-                tkx = (self.stones[k].px - pxa) / (vxa - self.stones[k].vx)
-            if not near(vya, self.stones[k].vy):
-                tky = (self.stones[k].py - pya) / (vya - self.stones[k].vy)
-            if not near(vza, self.stones[k].vz):
-                tkz = (self.stones[k].pz - pza) / (vza - self.stones[k].vz)
-            if not (near_or_none(tkx, tky) and near_or_none(tky, tkz)
-                    and near_or_none(tkx, tkz)):
-                return None
+    def get_tk(self, sa: Stone, sk: Stone) -> typing.Optional[int]:
+        # Where does sa intersect with sk, considering only XY?
+        ixya = sk.intersect_xy(sa)
+        if ixya is None:
+            return None
 
-        return pxa + pya + pza
+        (xa, ya) = ixya
 
+        # pxa + tk*vxa = xa
+        # pza + tk*vza = za
+        tk = (xa - sa.px) / sa.vx
+        return tk
+
+    def try_vector(self, sa: Stone, sk: Stone) -> typing.Optional[int]:
+        tk = self.get_tk(sa, sk)
+        if tk is None:
+            return None
+
+        # What's Z on line a at the intersection?
+        za = sa.pz + (tk * sa.vz)
+
+        # What's Z on line k at the intersection?
+        zk = sk.pz + (tk * sk.vz)
+
+        # What's the error?
+        return zk - za
 
 if __name__ == "__main__":
     assert Problem("test").part1(7, 27) == 2
     bound1 = 200000000000000
     bound2 = 400000000000000
     print(Problem("input").part1(bound1, bound2))
+    print(Problem("test").part2())
     assert Problem("test").part2() == 47
-    #print(Problem("input").part2())
+    print(Problem("input").part2())
