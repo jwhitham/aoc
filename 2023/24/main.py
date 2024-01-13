@@ -25,7 +25,16 @@ class Stone:
     def __str__(self) -> str:
         return f"{self.px} {self.py} {self.pz} @ {self.vx} {self.vy} {self.vz}"
 
-    def intersect_xy(self, other: "Stone") -> IntersectXY:
+    def x(self, t: float) -> float:
+        return self.px + (self.vx * t)
+
+    def y(self, t: float) -> float:
+        return self.py + (self.vy * t)
+
+    def z(self, t: float) -> float:
+        return self.pz + (self.vz * t)
+
+    def intersect_xy(self, other: "Stone", allow_negatives: bool = False) -> IntersectXY:
         # from Computer Graphics Principles and Practice (2nd. Ed), Foley et al. page 113
         # via lib20k/intersect.py, adapted for lines of infinite length
         xa = self.vx
@@ -45,7 +54,7 @@ class Stone:
         b = ((( xa * ya1 ) + ( xb1 * ya ) - ( xa1 * ya )) - ( xa * yb1 ))
         tb = float(b) / float(a)
 
-        if tb <= 0.0:
+        if tb <= 0.0 and not allow_negatives:
             return None # doesn't intersect
 
         if ( xa == 0.0 ):
@@ -54,7 +63,7 @@ class Stone:
         else:
             ta = ( xb1 + ( xb * tb ) - xa1 ) / float(xa)
 
-        if ta <= 0.0:
+        if ta <= 0.0 and not allow_negatives:
             return None # doesn't intersect
 
         return (xb1 + ( xb * tb ), yb1 + ( yb * tb ))
@@ -89,64 +98,75 @@ class Problem:
         ti = 1.0
         error2 = self.try_vector(self.get_line_a(si, ti, sj, 2.0), sk)
         error3 = self.try_vector(self.get_line_a(si, ti, sj, 3.0), sk)
-        assert error2 is not None
-        assert error3 is not None
         increasing_tj_makes_error_more_positive = (error3 > error2)
         min_tj = 0.0
         max_tj = 1e6
         while (max_tj - min_tj) > EPSILON:
-            assert max_tj > min_tj
             tj = (max_tj + min_tj) * 0.5
             error = self.try_vector(self.get_line_a(si, ti, sj, tj), sk)
-            assert error is not None, (max_tj, min_tj, tj)
 
             if (error < 0.0) == increasing_tj_makes_error_more_positive:
-                max_tj = tj
-            else:
                 min_tj = tj
+                assert max_tj > min_tj
+            else:
+                max_tj = tj
+                assert max_tj > min_tj
 
+        print(f"{min_tj} {tj} {max_tj}")
         # Now we have a fairly accurate idea of tj, we know what the line is...
         tj = round_epsilon(tj)
         sa = self.get_line_a(si, 1.0, sj, tj)
-        print(str(sa))
+        print(f"New line: {sa}")
+
+        # Where are all of the collisions?
+        for i in range(len(self.stones)):
+            si = self.stones[i]
+            t = self.get_t(sa, si)
+            assert t is not None
+            print(f"Stone {i} at time {t:1.2f} at "
+                  f"{si.x(t):1.2f} {si.y(t):1.2f} {si.z(t):1.2f} -- "
+                  f"{sa.x(t):1.2f} {sa.y(t):1.2f} {sa.z(t):1.2f} ")
+
         return int(round_epsilon(sa.px + sa.py + sa.pz))
 
-    def get_line_a(self, si: Stone, ti: int, sj: Stone, tj: int) -> Stone:
-        # Determine vector that passes through i at ti, then j at tj
-        # pxi + ti*vxi = pxa + ti*vxa   AND   pxj + tj*vxj = pxa + tj*vxa
-        # pxi + ti*vxi - pxj - tj*vxj = pxa + ti*vxa - pxa - tj*vxa
-        # pxi + ti*vxi - pxj - tj*vxj = (ti - tj)*vxa
-        vxa = (si.px + (ti * si.vx) - sj.px - (tj * sj.vx)) / (ti - tj)
-        vya = (si.py + (ti * si.vy) - sj.py - (tj * sj.vy)) / (ti - tj)
-        vza = (si.pz + (ti * si.vz) - sj.pz - (tj * sj.vz)) / (ti - tj)
-        pxa = si.px + (ti * si.vx) - (ti * vxa)
-        pya = si.py + (ti * si.vy) - (ti * vya)
-        pza = si.pz + (ti * si.vz) - (ti * vza)
+    def get_line_a(self, si: Stone, ti: float, sj: Stone, tj: float) -> Stone:
+        # Determine vector that passes through si at ti, then sj at tj,
+        # this is the vector for line a
+        vxa = (si.x(ti) - sj.x(tj)) / (ti - tj)
+        vya = (si.y(ti) - sj.y(tj)) / (ti - tj)
+        vza = (si.z(ti) - sj.z(tj)) / (ti - tj)
+        # Now we can get the start position for line a too
+        pxa = si.x(ti) - (ti * vxa)
+        pya = si.y(ti) - (ti * vya)
+        pza = si.z(ti) - (ti * vza)
         return Stone(pxa, pya, pza, vxa, vya, vza)
 
-    def get_tk(self, sa: Stone, sk: Stone) -> typing.Optional[int]:
-        # Where does sa intersect with sk, considering only XY?
-        ixya = sk.intersect_xy(sa)
-        if ixya is None:
-            return None
+    def get_t(self, sa: Stone, sk: Stone) -> float:
+        # At what position does sa intersect with sk, considering only XY?
+        ixya = sk.intersect_xy(sa, True)
+        assert ixya is not None
 
         (xa, ya) = ixya
+        assert ixya == sa.intersect_xy(sk, True)
 
+        # That tells us the time when sa intersects with sk
         # pxa + tk*vxa = xa
-        # pza + tk*vza = za
         tk = (xa - sa.px) / sa.vx
+
+        assert abs(sa.x(tk) - sk.x(tk)) < EPSILON, (tk, sa.x(tk), sk.x(tk))
+        assert abs(sa.y(tk) - sk.y(tk)) < EPSILON
         return tk
 
-    def try_vector(self, sa: Stone, sk: Stone) -> typing.Optional[int]:
-        tk = self.get_tk(sa, sk)
-        if tk is None:
-            return None
+    def try_vector(self, sa: Stone, sk: Stone) -> float:
+        # At what time does sa intersect with sk?
+        tk = self.get_t(sa, sk)
+        assert tk is not None
 
         # What's Z on line a at the intersection?
-        za = sa.pz + (tk * sa.vz)
+        za = sa.z(tk)
 
         # What's Z on line k at the intersection?
-        zk = sk.pz + (tk * sk.vz)
+        zk = sk.z(tk)
 
         # What's the error?
         return zk - za
